@@ -225,6 +225,39 @@ function ImageQueue() {
       if (response.ok) {
         const data = await response.json();
         setImages(data);
+
+        // Check if there's an item currently playing on server
+        const playingOnServer = data.find(img => img.status === 'playing');
+
+        // If we found a playing item AND we don't have a current preview locally
+        // OR the playing item ID matches our current but potentially out of sync
+        if (playingOnServer && (!currentPreview || (currentPreview._id || currentPreview.id) === (playingOnServer._id || playingOnServer.id))) {
+
+          // Calculate remaining time
+          const duration = playingOnServer.time || 10;
+          let remaining = duration;
+
+          if (playingOnServer.playingAt) {
+            const elapsed = (Date.now() - new Date(playingOnServer.playingAt).getTime()) / 1000;
+            remaining = Math.max(0, duration - elapsed);
+          }
+
+          // Force sync state
+          console.log("[QueueSync] Found playing item from server:", playingOnServer._id, "Remaining:", remaining);
+
+          if (!isActive || !currentPreview) {
+            setCurrentPreview(playingOnServer);
+            setIsActive(true);
+            setTimeLeft(remaining);
+
+            // Update localStorage to match server reality
+            localStorage.setItem("currentPreview", JSON.stringify(playingOnServer));
+            localStorage.setItem("isActive", true);
+            // Approximate start timestamp for local interval
+            localStorage.setItem("startTimestamp", Date.now() - ((duration - remaining) * 1000));
+            localStorage.setItem("duration", duration);
+          }
+        }
       }
     } catch (error) {
       console.error("Error fetching images:", error);

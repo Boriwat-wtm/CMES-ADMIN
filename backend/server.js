@@ -669,37 +669,8 @@ app.post("/api/playing/:id", async (req, res) => {
     for (const playingItem of currentlyPlaying) {
       console.log(`[Auto-Complete] Force completing stuck item: ${playingItem._id}`);
 
-      // Save to CheckHistory
-      await CheckHistory.create({
-        transactionId: playingItem._id.toString(),
-        type: playingItem.type || (playingItem.filePath ? 'image' : 'text'),
-        sender: playingItem.sender || 'Unknown',
-        price: playingItem.price || 0,
-        status: 'completed',
-        content: playingItem.text || '',
-        mediaUrl: playingItem.filePath || null,
-        metadata: {
-          duration: playingItem.time,
-          tableNumber: Number(playingItem.giftOrder?.tableNumber) || 0,
-          giftItems: playingItem.giftOrder?.items || [],
-          note: playingItem.giftOrder?.note || '',
-          theme: playingItem.textColor || 'white',
-          social: {
-            type: playingItem.socialType || null,
-            name: playingItem.socialName || null
-          }
-        },
-        receivedAt: playingItem.receivedAt, // Keep original receive time
-        approvalDate: playingItem.approvedAt || new Date(),
-        startedAt: playingItem.playingAt,
-        endedAt: new Date(),
-        duration: playingItem.time,
-        approvedBy: 'system',
-        notes: 'Auto-completed by next item'
-      });
-
-      // Remove from Queue
-      await ImageQueue.findByIdAndDelete(playingItem._id);
+      // Use shared function
+      await completeItem(playingItem);
     }
 
     // Update status to 'playing'
@@ -837,46 +808,18 @@ app.post("/api/reject/:id", async (req, res) => {
 app.post("/api/complete/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    console.log("=== Completing image:", id);
+    console.log("=== Completing image manually:", id);
 
-    // ATOMIC FIX: Delete FIRST. Only the request that successfully deletes gets the document.
-    // This prevents duplicate history entries from concurrent requests.
-    const item = await ImageQueue.findByIdAndDelete(id);
-
+    const item = await ImageQueue.findById(id);
     if (!item) {
-      // Item already deleted (processed by another request)
-      console.log(`[Complete] Item ${id} already processed. Skipping.`);
-      return res.json({ success: true, message: 'Already processed' });
+      return res.json({ success: true, message: 'Already processed or not found' });
     }
 
-    // We are the one who deleted it. Now create history.
-    await CheckHistory.create({
-      transactionId: item._id.toString(),
-      type: item.type || (item.filePath ? 'image' : 'text'),
-      sender: item.sender || 'Unknown',
-      price: item.price || 0,
-      status: 'completed',
-      content: item.text || '',
-      mediaUrl: item.filePath || null,
-      metadata: {
-        duration: item.time,
-        tableNumber: Number(item.giftOrder?.tableNumber) || 0,
-        giftItems: item.giftOrder?.items || [],
-        note: item.giftOrder?.note || '',
-        theme: item.textColor || 'white',
-        social: {
-          type: item.socialType || null,
-          name: item.socialName || null
-        }
-      },
-      receivedAt: item.receivedAt,
-      approvalDate: item.approvedAt || new Date(),
-      startedAt: item.playingAt,
-      endedAt: new Date(),
-      duration: item.time,
-      approvedBy: 'system',
-      notes: 'Completed display'
-    });
+    // Use shared function
+    await completeItem(item);
+
+    // Auto-play next item
+    await playNextItem();
 
     res.json({ success: true, message: 'Item completed and saved to history' });
   } catch (error) {
@@ -988,7 +931,7 @@ app.post("/api/history/restore/:id", async (req, res) => {
       textColor: historyItem.metadata?.theme || 'white',
       socialType: historyItem.metadata?.social?.type || null,
       socialName: historyItem.metadata?.social?.name || null,
-      time: historyItem.metadata?.duration || 1,
+      time: historyItem.duration || historyItem.metadata?.duration || 1,
       price: historyItem.price,
       receivedAt: new Date(),
       status: 'pending',
@@ -1398,5 +1341,155 @@ server.listen(PORT, async () => {
   } catch (error) {
     console.error("Error loading users:", error);
   }
+
+  // Start Server-Side Queue Worker
+  console.log("[QueueWorker] Starting 1s interval loop...");
+  setInterval(processAutoQueue, 1000);
 });
+
+
+// ==========================================
+// SERVER-SIDE QUEUE LOGIC
+// ==========================================
+
+async function processAutoQueue() {
+  try {
+    // 1. Find currently playing item
+    const playingItem = await ImageQueue.findOne({ status: 'playing' });
+
+    if (playingItem) {
+      // Calculate elapsed time
+      if (playingItem.playingAt) {
+        const startTime = new Date(playingItem.playingAt).getTime();
+        const now = Date.now();
+        const durationSec = playingItem.time || 10; // default 10s safety
+        const elapsedSec = (now - startTime) / 1000;
+
+        // If time expired (+ small buffer 0.5s)
+        if (elapsedSec >= durationSec) {
+          console.log(`[QueueWorker] Item ${playingItem._id} expired (${elapsedSec.toFixed(1)}/${durationSec}s). Completing...`);
+          await completeItem(playingItem);
+
+          // Auto-play next item
+          await playNextItem();
+        }
+      } else {
+        // If no playingAt, set it now? Or treat as just started?
+        // Ideally should have been set. If missing, fix it.
+        console.log(`[QueueWorker] Item ${playingItem._id} has no playingAt. Setting now.`);
+        await ImageQueue.findByIdAndUpdate(playingItem._id, { playingAt: new Date() });
+      }
+    } else {
+      // If nothing is playing, check if we should start something?
+      // Only if there are approved items waiting and we aren't paused (we don't have global pause state on server yet easily)
+      // For now, let's auto-play if there are approved items waiting, to keep queue moving.
+      // But we need to be careful not to start if queue is empty or manually paused?
+      // User said: "เวลามีรูปภาพที่กำลังแสดงอยู่แล้วไม่ได้เปิดเว็บนั้นค้างไว้เวลาจะไม่นับคูลดาว"
+      // So continuous play is desired.
+
+      const nextApproved = await ImageQueue.findOne({ status: 'approved' }).sort({ approvedAt: 1 });
+      if (nextApproved) {
+        console.log("[QueueWorker] Nothing playing, found approved item. Auto-starting...");
+        await playNextItem();
+      }
+    }
+
+  } catch (err) {
+    console.error("[QueueWorker] Error:", err);
+  }
+}
+
+async function completeItem(item) {
+  try {
+    // Delete from Queue (Atomic mostly, if concurrently deleted by API, findByIdAndDelete returns null)
+    const deleted = await ImageQueue.findByIdAndDelete(item._id);
+    if (!deleted) return; // Already processed
+
+    // Create History
+    await CheckHistory.create({
+      transactionId: item._id.toString(),
+      type: item.type || (item.filePath ? 'image' : 'text'),
+      sender: item.sender || 'Unknown',
+      price: item.price || 0,
+      status: 'completed',
+      content: item.text || '',
+      mediaUrl: item.filePath || null,
+      metadata: {
+        duration: item.time,
+        tableNumber: Number(item.giftOrder?.tableNumber) || 0,
+        giftItems: item.giftOrder?.items || [],
+        note: item.giftOrder?.note || '',
+        theme: item.textColor || 'white',
+        social: {
+          type: item.socialType || null,
+          name: item.socialName || null
+        }
+      },
+      receivedAt: item.receivedAt,
+      approvalDate: item.approvedAt || new Date(),
+      startedAt: item.playingAt,
+      endedAt: new Date(),
+      duration: item.time,
+      approvedBy: 'system',
+      notes: 'Completed by QueueWorker'
+    });
+
+    console.log(`[QueueWorker] Completed item ${item._id}`);
+
+    // Notify clients that item is done (optional, but good for UI sync)
+    io.emit("item-completed", { id: item._id, transactionId: item._id });
+
+  } catch (err) {
+    console.error("[QueueWorker] Error completing item:", err);
+  }
+}
+
+async function playNextItem() {
+  try {
+    // Find next approved item
+    // Sort by approvedAt to ensure FIFO order
+    const nextItem = await ImageQueue.findOne({ status: 'approved' }).sort({ approvedAt: 1 });
+
+    if (!nextItem) {
+      console.log("[QueueWorker] No approved items waiting.");
+      io.emit("queue-empty"); // Tell clients queue is empty
+      return;
+    }
+
+    console.log(`[QueueWorker] Starting next item: ${nextItem._id}`);
+
+    // Update status to playing
+    const updated = await ImageQueue.findByIdAndUpdate(
+      nextItem._id,
+      {
+        status: 'playing',
+        playingAt: new Date()
+      },
+      { new: true }
+    );
+
+    if (updated) {
+      // Broadcast to Overlay & Client
+      io.emit("now-playing-image", {
+        id: updated._id.toString(),
+        sender: updated.sender,
+        price: updated.price,
+        time: updated.time,
+        filePath: updated.filePath,
+        text: updated.text,
+        textColor: updated.textColor,
+        socialType: updated.socialType,
+        socialName: updated.socialName,
+        width: updated.width,
+        height: updated.height,
+        type: updated.type || (updated.filePath ? "image" : "text"),
+        playingAt: updated.playingAt
+      });
+    }
+
+  } catch (err) {
+    console.error("[QueueWorker] Error starting next item:", err);
+  }
+}
+
 
