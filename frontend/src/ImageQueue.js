@@ -144,9 +144,15 @@ function ImageQueue() {
     console.log("[Complete] Queue has", queueLength, "items waiting");
 
     if (queueLength > 0) {
-      console.log("[Complete] Starting 15s countdown");
-      setIsPaused(true);
-      setPauseTimeLeft(15);
+      console.log("[Complete] Queue has items, moving to next immediately");
+      setIsPaused(false);
+      setPauseTimeLeft(0);
+
+      // Call processNextFromQueue immediately (or better, fetchImages to sync with server's decision)
+      // Since server now auto-plays, we should probably just fetchImages to get the new 'playing' state
+      // But for UI responsiveness, if we have a local queue, we can try to anticipate.
+      // However, to align with server auto-play, let's just fetchImages and let the sync logic in fetchImages handle the 'playing' detection.
+      setTimeout(fetchImages, 500);
     } else {
       console.log("[Complete] No queue, fetching images");
       fetchImages();
@@ -367,37 +373,54 @@ function ImageQueue() {
   useEffect(() => {
     if (loading) return;
 
-    // Find items that are approved but not yet in local queue or playing
-    const approvedItems = images.filter(img => img.status === "approved");
+    // 1. Get truly approved items from server state
+    const approvedItemsFromServer = images.filter(img => img.status === "approved");
+    const approvedIds = new Set(approvedItemsFromServer.map(img => img._id || img.id));
 
-    if (approvedItems.length > 0) {
-      setPreviewQueue(prev => {
-        // IDs currently in the waiting queue
-        const currentIds = new Set(prev.map(p => p._id || p.id));
-
-        // CRITICAL: Get ID of currently playing item to exclude it
-        const currentPlayingId = currentPreview ? (currentPreview._id || currentPreview.id) : null;
-
-        const newItems = approvedItems.filter(item => {
-          const itemId = item._id || item.id;
-          // Exclude if already in queue
-          if (currentIds.has(itemId)) return false;
-          // Exclude if currently playing
-          if (currentPlayingId && currentPlayingId === itemId) return false;
-          // Exclude if already completed (blacklist)
-          if (completedIdsRef.current.has(itemId)) return false;
-          return true;
-        });
-
-        if (newItems.length > 0) {
-          // Sort by receivedAt to maintain order
-          newItems.sort((a, b) => new Date(a.receivedAt) - new Date(b.receivedAt));
-          return [...prev, ...newItems];
-        }
-        return prev;
+    setPreviewQueue(prev => {
+      // 2. Remove items from local queue that are no longer in the approved list from server
+      // (e.g. they started playing or were completed/rejected)
+      const cleanedQueue = prev.filter(item => {
+        const id = item._id || item.id;
+        // Keep if it still exists in approved list from server
+        // OR if needed? No, if it's not approved on server, it shouldn't be in queue.
+        // EXCEPT: There might be a slight delay in 'images' update? 
+        // Trusted source is 'images' which comes from fetchImages.
+        return approvedIds.has(id);
       });
-    }
-  }, [images, loading, currentPreview]); // IMPORTANT: Add currentPreview to deps
+
+      // 3. Add new valid items
+      const currentIds = new Set(cleanedQueue.map(p => p._id || p.id));
+      const currentPlayingId = currentPreview ? (currentPreview._id || currentPreview.id) : null;
+
+      const newItems = approvedItemsFromServer.filter(item => {
+        const itemId = item._id || item.id;
+
+        // Exclude if already in cleaned queue
+        if (currentIds.has(itemId)) return false;
+
+        // Exclude if currently playing (double check)
+        if (currentPlayingId && currentPlayingId === itemId) return false;
+
+        // Exclude if locally marked as completed (safety)
+        if (completedIdsRef.current.has(itemId)) return false;
+
+        return true;
+      });
+
+      if (newItems.length > 0) {
+        newItems.sort((a, b) => new Date(a.receivedAt) - new Date(b.receivedAt));
+        return [...cleanedQueue, ...newItems];
+      }
+
+      // Return cleaned queue if anything changed (length diff) or if we just want to update
+      if (cleanedQueue.length !== prev.length) {
+        return cleanedQueue;
+      }
+
+      return prev;
+    });
+  }, [images, loading, currentPreview]);
 
   const handleApprove = async (id) => {
     try {
@@ -484,8 +507,9 @@ function ImageQueue() {
   };
 
   const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+    const s = Math.floor(seconds);
+    const mins = Math.floor(s / 60);
+    const secs = s % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
