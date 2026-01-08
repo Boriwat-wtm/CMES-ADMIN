@@ -183,7 +183,7 @@ io.on("connection", (socket) => {
     try {
       await TimeHistory.findOneAndDelete({ id });
 
-      config.settings = config.settings.filter(item => item.id !== id);
+      config.settings = config.settings.filter(item => String(item.id) !== String(id));
       io.emit("status", config);
     } catch (err) {
       console.error("Error removing setting from DB:", err);
