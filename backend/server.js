@@ -512,6 +512,108 @@ app.get("/api/rankings/top", async (req, res) => {
   }
 });
 
+// ===== Birthday Spending Requirement APIs =====
+
+// ดึงค่า birthday spending requirement
+app.get("/api/config/birthday-requirement", (req, res) => {
+  try {
+    const settingsPath = path.join(__dirname, "settings.json");
+    let birthdayRequirement = 100; // default
+
+    if (fs.existsSync(settingsPath)) {
+      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+      birthdayRequirement = settings.birthdaySpendingRequirement || 100;
+    }
+
+    res.json({
+      success: true,
+      birthdaySpendingRequirement: birthdayRequirement
+    });
+  } catch (error) {
+    console.error("Error fetching birthday requirement:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch birthday requirement" });
+  }
+});
+
+// อัปเดตค่า birthday spending requirement
+app.post("/api/config/birthday-requirement", (req, res) => {
+  try {
+    const { birthdaySpendingRequirement } = req.body;
+    const requirement = Number(birthdaySpendingRequirement);
+
+    if (isNaN(requirement) || requirement < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "ยอดเงินไม่ถูกต้อง"
+      });
+    }
+
+    const settingsPath = path.join(__dirname, "settings.json");
+    let settings = {};
+
+    if (fs.existsSync(settingsPath)) {
+      settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    }
+
+    settings.birthdaySpendingRequirement = requirement;
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+
+    console.log(`[Admin] Birthday spending requirement updated to: ${requirement}`);
+
+    res.json({
+      success: true,
+      birthdaySpendingRequirement: requirement
+    });
+  } catch (error) {
+    console.error("Error updating birthday requirement:", error);
+    res.status(500).json({ success: false, message: "Failed to update birthday requirement" });
+  }
+});
+
+// ตรวจสอบว่า user มีสิทธิ์ใช้ฟีเจอร์วันเกิดหรือไม่
+app.get("/api/birthday-eligibility/:email", async (req, res) => {
+  try {
+    const email = decodeURIComponent(req.params.email);
+
+    if (!email || email === "guest" || email === "unknown") {
+      return res.json({
+        success: true,
+        eligible: false,
+        reason: "not_logged_in",
+        totalSpent: 0,
+        required: 100
+      });
+    }
+
+    // ดึงยอดใช้จ่ายของ user จาก email
+    const userRanking = await Ranking.findOne({ email });
+    const totalSpent = userRanking ? (userRanking.points || 0) : 0;
+
+    // ดึงค่า requirement
+    const settingsPath = path.join(__dirname, "settings.json");
+    let birthdayRequirement = 100;
+
+    if (fs.existsSync(settingsPath)) {
+      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+      birthdayRequirement = settings.birthdaySpendingRequirement || 100;
+    }
+
+    const eligible = totalSpent >= birthdayRequirement;
+
+    res.json({
+      success: true,
+      eligible,
+      reason: eligible ? "eligible" : "insufficient_spending",
+      totalSpent,
+      required: birthdayRequirement
+    });
+  } catch (error) {
+    console.error("Error checking birthday eligibility:", error);
+    res.status(500).json({ success: false, message: "Failed to check eligibility" });
+  }
+});
+
+
 app.post("/api/gifts/order", async (req, res) => {
   try {
     console.log("[Admin] Received gift order:", JSON.stringify(req.body, null, 2));
@@ -600,9 +702,55 @@ app.post("/api/upload", uploadUser.single("file"), async (req, res) => {
     } = req.body;
 
     // ตรวจสอบไฟล์ (ถ้าประเภทไม่ใช่ text หรือ gift ต้องมีไฟล์)
-    if (!req.file && type !== "text" && type !== "gift") {
+    if (!req.file && type !== "text" && type !== "gift" && type !== "birthday") {
       console.error("[Admin] No file received in upload");
       return res.status(400).json({ success: false, error: "No file received" });
+    }
+
+    // ตรวจสอบเงื่อนไขการใช้งานฟีเจอร์วันเกิด
+    if (type === "birthday") {
+      console.log("[Admin] Birthday upload detected, checking spending requirement...");
+
+      // ต้องมี userId เพื่อตรวจสอบยอดใช้จ่าย
+      if (!userId || userId === "guest" || userId === "unknown") {
+        console.log("[Admin] Birthday feature requires logged-in user");
+        return res.status(403).json({
+          success: false,
+          error: "กรุณาเข้าสู่ระบบเพื่อใช้ฟีเจอร์วันเกิด"
+        });
+      }
+
+      // ดึงข้อมูลยอดใช้จ่ายของผู้ใช้จาก Ranking
+      const userRanking = await Ranking.findOne({ userId });
+      const totalSpent = userRanking ? (userRanking.points || 0) : 0;
+
+      // ดึงค่า birthdaySpendingRequirement จาก realtime server config
+      // เนื่องจากเราไม่สามารถเข้าถึง realtime-server.js config ได้โดยตรง
+      // เราจะใช้ค่าเริ่มต้น 100 หรืออ่านจาก settings.json
+      let birthdayRequirement = 100;
+      try {
+        const settingsPath = path.join(__dirname, "../backend/settings.json");
+        if (fs.existsSync(settingsPath)) {
+          const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+          birthdayRequirement = settings.birthdaySpendingRequirement || 100;
+        }
+      } catch (err) {
+        console.warn("[Admin] Could not read birthday requirement from settings:", err);
+      }
+
+      console.log(`[Admin] User ${userId} total spent: ${totalSpent}, requirement: ${birthdayRequirement}`);
+
+      if (totalSpent < birthdayRequirement) {
+        console.log("[Admin] User does not meet birthday spending requirement");
+        return res.status(403).json({
+          success: false,
+          error: `ต้องใช้จ่ายครบ ${birthdayRequirement} บาทก่อนจึงจะใช้ฟีเจอร์วันเกิดได้ (คุณใช้จ่ายไปแล้ว ${totalSpent} บาท)`,
+          totalSpent,
+          required: birthdayRequirement
+        });
+      }
+
+      console.log("[Admin] User meets birthday spending requirement, proceeding...");
     }
 
     console.log("[Admin] Creating upload item with type:", type);
@@ -627,8 +775,8 @@ app.post("/api/upload", uploadUser.single("file"), async (req, res) => {
 
     const queueItem = await ImageQueue.create(itemData);
 
-    // บันทึก ranking เฉพาะ user ที่ login แล้ว
-    if (userId) {
+    // บันทึก ranking เฉพาะ user ที่ login แล้ว (ไม่บันทึกสำหรับ birthday เพราะฟรี)
+    if (userId && type !== "birthday") {
       addRankingPoint(userId, sender, Number(price) || 0, email, avatar);
     }
     console.log("[Admin] Upload item created and queued:", queueItem._id, "type:", queueItem.type);

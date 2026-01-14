@@ -36,6 +36,7 @@ let config = {
   enableText: true,
   enableGift: true,
   enableBirthday: true,
+  birthdaySpendingRequirement: 100, // จำนวนเงินขั้นต่ำที่ต้องใช้จ่ายเพื่อใช้ฟีเจอร์วันเกิดฟรี
   price: 100,
   time: 10,
   settings: [] // This will be hydrated from DB

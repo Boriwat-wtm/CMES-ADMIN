@@ -33,6 +33,7 @@ function Home() {
   const [enableText, setEnableText] = useState(true);
   const [enableGift, setEnableGift] = useState(true);
   const [enableBirthday, setEnableBirthday] = useState(true);
+  const [birthdaySpendingRequirement, setBirthdaySpendingRequirement] = useState(100);
   const [mode, setMode] = useState("image");
   const [minute, setMinute] = useState("");
   const [second, setSecond] = useState("");
@@ -93,7 +94,25 @@ function Home() {
 
   useEffect(() => {
     loadTopRanks();
+    loadBirthdayRequirement();
   }, [loadTopRanks]);
+
+  /*
+   * Load birthday spending requirement
+   */
+  const loadBirthdayRequirement = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/config/birthday-requirement`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setBirthdaySpendingRequirement(data.birthdaySpendingRequirement || 100);
+        }
+      }
+    } catch (error) {
+      console.error("[Admin] Failed to load birthday requirement:", error);
+    }
+  };
 
   /* Toggle System */
   const handleToggleSystem = () => {
@@ -177,6 +196,34 @@ function Home() {
   };
 
   /*
+   * Save birthday spending requirement
+   */
+  const handleSaveBirthdayRequirement = async () => {
+    const requirement = Number(birthdaySpendingRequirement);
+    if (isNaN(requirement) || requirement < 0) {
+      alert("กรุณากรอกยอดเงินที่ถูกต้อง");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/config/birthday-requirement`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ birthdaySpendingRequirement: requirement })
+      });
+
+      if (res.ok) {
+        alert("บันทึกยอดใช้จ่ายขั้นต่ำสำหรับวันเกิดสำเร็จ");
+      } else {
+        alert("เกิดข้อผิดพลาดในการบันทึก");
+      }
+    } catch (error) {
+      console.error("[Admin] Failed to save birthday requirement:", error);
+      alert("เกิดข้อผิดพลาดในการบันทึก");
+    }
+  };
+
+  /*
    * Save package settings
    */
   const handleSave = () => {
@@ -190,9 +237,8 @@ function Home() {
     }
 
     const totalSeconds = (parseInt(minute) || 0) * 60 + (parseInt(second) || 0);
-    const durationDisplay = `${minute ? minute + " นาที" : ""}${
-      second ? (minute ? " " : "") + second + " วินาที" : ""
-    }`;
+    const durationDisplay = `${minute ? minute + " นาที" : ""}${second ? (minute ? " " : "") + second + " วินาที" : ""
+      }`;
 
     const packageData = {
       id: Date.now(),
@@ -332,6 +378,46 @@ function Home() {
                   {enableBirthday ? "เปิด" : "ปิด"}
                 </button>
               </div>
+
+              <div className="toggle-card" style={{ flexDirection: "column", alignItems: "flex-start", gap: "8px" }}>
+                <span>ยอดใช้จ่ายขั้นต่ำสำหรับวันเกิด (บาท)</span>
+                <div style={{ display: "flex", gap: "8px", width: "100%" }}>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="ยอดเงิน"
+                    value={birthdaySpendingRequirement}
+                    onChange={(e) => setBirthdaySpendingRequirement(e.target.value)}
+                    disabled={!systemOn}
+                    style={{
+                      flex: 1,
+                      padding: "8px 12px",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "8px",
+                      fontSize: "14px"
+                    }}
+                  />
+                  <button
+                    onClick={handleSaveBirthdayRequirement}
+                    disabled={!systemOn}
+                    style={{
+                      padding: "8px 16px",
+                      background: systemOn ? "linear-gradient(135deg, #667eea, #764ba2)" : "#cbd5e1",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: "8px",
+                      cursor: systemOn ? "pointer" : "not-allowed",
+                      fontSize: "14px",
+                      fontWeight: "600"
+                    }}
+                  >
+                    บันทึก
+                  </button>
+                </div>
+                <small style={{ color: "#64748b", fontSize: "12px" }}>
+                  ผู้ใช้ต้องใช้จ่ายครบจำนวนนี้ก่อนจึงจะใช้ฟีเจอร์วันเกิดฟรีได้
+                </small>
+              </div>
             </div>
           </section>
 
@@ -441,9 +527,8 @@ function Home() {
                   const pos = entry.position || index + 1;
                   return (
                     <li
-                      className={`rank-list-item tier-${
-                        pos <= 3 ? pos : "default"
-                      }`}
+                      className={`rank-list-item tier-${pos <= 3 ? pos : "default"
+                        }`}
                       key={`${entry.name}-${pos}`}
                     >
                       <div className="rank-index">#{pos}</div>
