@@ -59,7 +59,7 @@ Thumbs.db
 # ==========================================
 # Uploads & User-Generated Content
 # ==========================================
-backend/uploads/*
+
 !backend/uploads/.gitkeep
 frontend/build/
 !frontend/build/.gitkeep
