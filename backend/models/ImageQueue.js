@@ -11,7 +11,7 @@ const imageQueueSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
-  
+
   // Content Type & Media
   type: {
     type: String,
@@ -22,7 +22,7 @@ const imageQueueSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  
+
   // Text Content
   text: {
     type: String,
@@ -32,7 +32,7 @@ const imageQueueSchema = new mongoose.Schema({
     type: String,
     default: 'white'
   },
-  
+
   // Social Media Info
   socialType: {
     type: String,
@@ -43,7 +43,11 @@ const imageQueueSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  
+  qrCodePath: {
+    type: String,
+    default: null
+  },
+
   // Duration & Payment (time in seconds)
   time: {
     type: Number,
@@ -55,7 +59,7 @@ const imageQueueSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
-  
+
   // Display Settings
   width: {
     type: Number,
@@ -65,20 +69,20 @@ const imageQueueSchema = new mongoose.Schema({
     type: Number,
     default: null
   },
-  
+
   // Status Management
   status: {
     type: String,
     enum: ['pending', 'approved', 'playing'],
     default: 'pending'
   },
-  
+
   // Composition Flag (true if image already has text/social overlay)
   composed: {
     type: Boolean,
     default: false
   },
-  
+
   // Gift Order Details
   giftOrder: {
     orderId: String,
@@ -92,7 +96,7 @@ const imageQueueSchema = new mongoose.Schema({
     totalPrice: Number,
     note: String
   },
-  
+
   // User Information
   userId: {
     type: String,
@@ -106,7 +110,7 @@ const imageQueueSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  
+
   // Timestamps
   receivedAt: {
     type: Date,
@@ -124,7 +128,7 @@ const imageQueueSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
-  
+
   // Metadata
   metadata: {
     duration: Number,
@@ -145,14 +149,14 @@ imageQueueSchema.index({ 'giftOrder.orderId': 1 });
 imageQueueSchema.index({ completedAt: 1 });
 
 // Virtual for legacy 'id' field compatibility
-imageQueueSchema.virtual('id').get(function() {
+imageQueueSchema.virtual('id').get(function () {
   return this._id.toString();
 });
 
 // Ensure virtuals are included in JSON
-imageQueueSchema.set('toJSON', { 
+imageQueueSchema.set('toJSON', {
   virtuals: true,
-  transform: function(doc, ret) {
+  transform: function (doc, ret) {
     ret.id = ret._id.toString();
     return ret;
   }

@@ -1,120 +1,218 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
+
 <head>
   <meta charset="UTF-8" />
-  <title>OBS Now Playing Overlay</title>
+  <title>OBS Combined Overlay</title>
   <style>
-    html, body {
+    html,
+    body {
       margin: 0;
       padding: 0;
       width: 100%;
       height: 100%;
       background: transparent;
       overflow: hidden;
-      font-family: 'Segoe UI', sans-serif;
+      font-family: 'Prompt', 'Kanit', 'Segoe UI', sans-serif;
     }
+
     #container {
       position: fixed;
       bottom: 10%;
       left: 50%;
       transform: translateX(-50%) translateY(20px);
-      /* min-width: 360px; Removed min-width */
-      max-width: 90vw;
-      padding: 0; /* Removed padding */
-      border-radius: 14px;
-      background: transparent; /* Removed background */
-      box-shadow: none; /* Removed shadow */
-      color: #fff;
+      max-width: 95vw;
       opacity: 0;
       transition: opacity 0.35s ease, transform 0.35s ease;
       display: flex;
-      gap: 0; /* Removed gap */
+      gap: 24px;
       align-items: center;
       pointer-events: none;
     }
+
     #container.show {
       opacity: 1;
       transform: translateX(-50%) translateY(0);
     }
+
+    /* ส่วนรูปภาพ */
+    #image-section {
+      flex-shrink: 0;
+    }
+
     #thumb {
       width: auto;
       height: auto;
-      max-width: 100%;
-      max-height: 80vh;
-      border-radius: 10px;
+      max-width: 600px;
+      max-height: 70vh;
+      border-radius: 12px;
       object-fit: contain;
-      /* background: rgba(255, 255, 255, 0.06); Removed background */
       display: block;
     }
-    #meta {
-      display: none; /* Hide meta */
+
+    /* ส่วนข้อความและ QR Code */
+    #info-section {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      align-items: center;
+      justify-content: center;
+      min-width: 250px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 24px;
+      border-radius: 16px;
+      backdrop-filter: blur(10px);
     }
-    #sender {
+
+    /* Social */
+    #social-container {
+      display: none;
+      align-items: center;
+      gap: 12px;
+    }
+
+    #social-logo {
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
+    }
+
+    #social-name {
+      font-size: 28px;
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 3px 10px rgba(0, 0, 0, 0.9);
+    }
+
+    /* Text */
+    #text {
+      font-size: 24px;
+      font-weight: 400;
+      color: #fff;
+      text-shadow: 0 3px 10px rgba(0, 0, 0, 0.9);
+      text-align: center;
+      max-width: 400px;
+      word-wrap: break-word;
+    }
+
+    #text.black {
+      color: #000;
+      text-shadow: 0 3px 10px rgba(255, 255, 255, 0.9);
+    }
+
+    /* QR Code */
+    #qr-container {
+      display: none;
+    }
+
+    #qr-image {
+      width: 200px;
+      height: 200px;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      object-fit: contain;
+      background: white;
+      padding: 8px;
+    }
+
+    /* Countdown Timer */
+    #countdown-timer {
+      margin-top: 12px;
+      background: rgba(0, 0, 0, 0.9);
+      color: #fff;
+      padding: 8px 20px;
+      border-radius: 20px;
       font-size: 18px;
       font-weight: 700;
-    }
-    #price {
-      color: #4ade80;
-      font-weight: 700;
-    }
-    #time {
-      color: #cbd5e1;
-      font-size: 14px;
-    }
-    #text {
-      color: #e2e8f0;
-      font-size: 14px;
-    }
-    #size {
-      color: #a5b4fc;
-      font-size: 12px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7);
+      min-width: 70px;
+      text-align: center;
     }
 
-    /* Preview box */
-    #preview-box {
-      display: none; /* Hide preview box as requested to remove controls/clutter */
-    }
 
-    /* Control panel removed */
+    #countdown-timer.show {
+      opacity: 1;
+    }
   </style>
 </head>
-<body>
-  <!-- Controls removed -->
 
+<body>
   <div id="container">
-    <img id="thumb" alt="preview" />
-    <div id="meta">
-      <div id="sender"></div>
-      <div id="price"></div>
-      <div id="time"></div>
+    <!-- รูปภาพด้านซ้าย -->
+    <div id="image-section">
+      <img id="thumb" alt="preview" />
+    </div>
+
+    <!-- ข้อความและ QR Code ด้านขวา -->
+    <div id="info-section">
+      <!-- Social Name -->
+      <div id="social-container">
+        <img id="social-logo" alt="" />
+        <span id="social-name"></span>
+      </div>
+
+      <!-- Text -->
       <div id="text"></div>
-      <div id="size"></div>
+
+      <!-- QR Code -->
+      <div id="qr-container">
+        <img id="qr-image" alt="QR Code" />
+      </div>
+      <!-- Countdown Timer -->
+      <div id="countdown-timer">0:00</div>
     </div>
   </div>
 
-  <!-- Audio removed -->
-
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script>
-    // Adjust host/port if deployed elsewhere
     const socket = io('http://localhost:5001', { transports: ['websocket', 'polling'] });
 
-    const box = document.getElementById('container');
+    const container = document.getElementById('container');
     const thumb = document.getElementById('thumb');
-    const senderEl = document.getElementById('sender');
-    const priceEl = document.getElementById('price');
-    const timeEl = document.getElementById('time');
+    const imageSection = document.getElementById('image-section');
+    const infoSection = document.getElementById('info-section');
+
+    // Social
+    const socialContainer = document.getElementById('social-container');
+    const socialLogo = document.getElementById('social-logo');
+    const socialName = document.getElementById('social-name');
+
+    // Text
     const textEl = document.getElementById('text');
-    const sizeEl = document.getElementById('size');
-    // const ding = document.getElementById('ding'); // Removed
+
+    // QR Code
+    const qrContainer = document.getElementById('qr-container');
+    const qrImage = document.getElementById('qr-image');
+
     let hideTimer = null;
 
+    const logoMap = {
+      ig: 'http://localhost:5001/data-icon/ig-logo.png',
+      fb: 'http://localhost:5001/data-icon/facebook-logo.png',
+      line: 'http://localhost:5001/data-icon/line-logo.png',
+      tiktok: 'http://localhost:5001/data-icon/x-logo.png'
+    };
+
     function show(payload = {}) {
-      console.log('Received payload:', payload);
-      const { sender, price, time, filePath, text, width, height, duration, seconds, remainingSeconds, timeLeft } = payload;
-      sizeEl.textContent = "";
+      console.log('[Combined Overlay] Received payload:', payload);
+
+      const {
+        sender, price, time, filePath, text, textColor,
+        socialType, socialName: socName, qrCodePath,
+        width, height, duration, seconds, remainingSeconds, timeLeft
+      } = payload;
+
+      console.log('[Debug] socialType:', socialType, 'socName:', socName);
+      console.log('[Debug] qrCodePath:', qrCodePath);
+      console.log('[Debug] text:', text, 'textColor:', textColor);
+
+      let hasContent = false;
+
+      // แสดงรูปภาพ
       if (filePath) {
-        // Assume backend serves /uploads statically (default to /uploads/user-uploads if path is just filename)
         let resolved = filePath;
         if (!resolved.startsWith('http')) {
           if (!resolved.startsWith('/')) {
@@ -125,54 +223,121 @@
 
         thumb.src = resolved;
         thumb.style.display = 'block';
-      } else {
-        thumb.style.display = 'none';
-      }
+        imageSection.style.display = 'block';
 
-      // Use backend-provided width/height if present; otherwise natural size (auto)
-      if (width && !isNaN(width)) {
-        const w = Math.max(50, Math.min(4000, Number(width)));
-        thumb.style.width = `${w}px`;
-      } else {
-        thumb.style.width = 'auto';
-      }
-
-      if (height && !isNaN(height)) {
-        const h = Math.max(50, Math.min(4000, Number(height)));
-        thumb.style.height = `${h}px`;
-      } else {
-        thumb.style.height = 'auto';
-      }
-
-      senderEl.textContent = sender || 'Anonymous';
-      priceEl.textContent = price != null ? `฿${price}` : '';
-      timeEl.textContent = time != null ? `${time} วินาที` : '';
-      textEl.textContent = text || '';
-
-      box.classList.add('show');
-      // ding.currentTime = 0;
-      // ding.play().catch(() => {});
-
-      // แสดงค้างตามเวลาที่ตั้ง (วินาที) ถ้าไม่ระบุใช้ 5 วิ
-      const timeCandidate = [time, duration, seconds, remainingSeconds, timeLeft].find(v => v != null && !isNaN(v));
-      console.log('Time candidate:', timeCandidate);
-      const displayMs = timeCandidate != null
-        ? Math.max(Number(timeCandidate) * 1000, 1000)
-        : 5000;
-      console.log('Display duration (ms):', displayMs);
-
-      clearTimeout(hideTimer);
-      hideTimer = setTimeout(() => {
-        box.classList.remove('show');
-        console.log('Finished playing, emitting completion');
-        if (payload.id) {
-            socket.emit('complete-playing', payload.id);
+        // ปรับขนาดถ้ามี
+        if (width && !isNaN(width)) {
+          thumb.style.width = `${Math.max(50, Math.min(4000, Number(width)))}px`;
+        } else {
+          thumb.style.width = 'auto';
         }
-      }, displayMs);
+
+        if (height && !isNaN(height)) {
+          thumb.style.height = `${Math.max(50, Math.min(4000, Number(height)))}px`;
+        } else {
+          thumb.style.height = 'auto';
+        }
+
+        hasContent = true;
+      } else {
+        imageSection.style.display = 'none';
+      }
+
+      // แสดง Social
+      if (socialType && socName) {
+        console.log('[Debug] Showing social:', socialType, socName);
+        const logoSrc = logoMap[socialType];
+        console.log('[Debug] Logo path:', logoSrc);
+        if (logoSrc) {
+          socialLogo.src = logoSrc;
+          socialName.textContent = socName;
+          socialContainer.style.display = 'flex';
+          hasContent = true;
+          console.log('[Debug] Social displayed');
+        } else {
+          console.warn('[Debug] No logo found for:', socialType);
+        }
+      } else {
+        socialContainer.style.display = 'none';
+        console.log('[Debug] No social data');
+      }
+
+      // แสดงข้อความ
+      if (text) {
+        textEl.textContent = text;
+        textEl.className = textColor === 'black' ? 'black' : '';
+        textEl.style.display = 'block';
+        hasContent = true;
+      } else {
+        textEl.style.display = 'none';
+      }
+
+      // แสดง QR Code
+      if (qrCodePath) {
+        console.log('[Debug] Processing QR Code:', qrCodePath);
+        let resolvedQR = qrCodePath;
+        if (!resolvedQR.startsWith('http')) {
+          if (!resolvedQR.startsWith('/')) {
+            resolvedQR = `/uploads/qr-codes/${resolvedQR}`;
+          }
+          resolvedQR = `http://localhost:5001${resolvedQR}`;
+        }
+
+        console.log('[Debug] QR Code URL:', resolvedQR);
+        qrImage.src = resolvedQR;
+        qrContainer.style.display = 'block';
+        hasContent = true;
+        console.log('[Debug] QR Code displayed');
+      } else {
+        qrContainer.style.display = 'none';
+        console.log('[Debug] No QR Code data');
+      }
+
+      // แสดง container
+      if (hasContent) {
+        container.classList.add('show');
+
+        // คำนวณเวลาแสดง
+        const timeCandidate = [time, duration, seconds, remainingSeconds, timeLeft].find(v => v != null && !isNaN(v));
+        const displayMs = timeCandidate != null ? Math.max(Number(timeCandidate) * 1000, 1000) : 5000;
+        const displaySeconds = Math.floor(displayMs / 1000);
+
+        // แสดง countdown timer
+        const timerEl = document.getElementById('countdown-timer');
+        timerEl.classList.add('show');
+
+        let remaining = displaySeconds;
+        const mins = Math.floor(remaining / 60);
+        const secs = remaining % 60;
+        timerEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+
+        // Countdown interval
+        const countdownInterval = setInterval(() => {
+          remaining--;
+          if (remaining >= 0) {
+            const m = Math.floor(remaining / 60);
+            const s = remaining % 60;
+            timerEl.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+          } else {
+            clearInterval(countdownInterval);
+          }
+        }, 1000);
+
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(() => {
+          clearInterval(countdownInterval);
+          container.classList.remove('show');
+          timerEl.classList.remove('show');
+          if (payload.id) {
+            socket.emit('complete-playing', payload.id);
+          }
+        }, displayMs);
+      }
     }
 
-    socket.on('connect', () => console.log('Overlay connected', socket.id));
+    socket.on('connect', () => console.log('[Combined Overlay] Connected', socket.id));
     socket.on('now-playing-image', show);
   </script>
 </body>
+
 </html>

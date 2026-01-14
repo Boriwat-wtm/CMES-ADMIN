@@ -762,6 +762,8 @@ function ImageQueue() {
                           <span className="queue-number">#{index + 1}</span>
                           <span className="sender">{image.sender}</span>
                         </div>
+
+                        {/* Main Content */}
                         <div className="image-preview-container" style={{ position: "relative" }}>
                           {image.type === "gift" ? (
                             renderGiftOrder(image)
@@ -793,14 +795,13 @@ function ImageQueue() {
                                     <div className="preview-text-overlay" style={{
                                       color: image.textColor,
                                       borderRadius: "8px",
-                                      padding: "6px 16px",
+                                      padding: "12px 24px",
                                       fontWeight: "400",
-                                      fontSize: "18px",
-                                      textShadow: image.textColor === "white"
-                                        ? "0 2px 8px rgba(0,0,0,0.8)"
-                                        : "0 2px 8px rgba(255,255,255,0.8)",
+                                      fontSize: "22px",
+                                      textShadow: "0 2px 8px rgba(0,0,0,0.6)",
                                       maxWidth: "100%",
-                                      wordBreak: "break-all"
+                                      wordBreak: "break-word",
+                                      textAlign: "center"
                                     }}>
                                       {image.text}
                                     </div>
@@ -848,10 +849,9 @@ function ImageQueue() {
                                 style={{
                                   color: image.textColor || "#fff",
                                   fontWeight: "400",
-                                  fontSize: "18px",
-                                  textShadow: image.textColor === "white"
-                                    ? "0 2px 8px rgba(0,0,0,0.8)"
-                                    : "0 2px 8px rgba(255,255,255,0.8)",
+                                  fontSize: "22px",
+                                  textShadow: "0 2px 8px rgba(0,0,0,0.6)",
+                                  padding: "12px 24px",
                                   textAlign: "center",
                                   wordBreak: "break-all"
                                 }}
@@ -1296,6 +1296,94 @@ function ImageQueue() {
                   <span className="label">ผู้ส่ง:</span>
                   <span className="value">{selectedImage.sender}</span>
                 </div>
+
+                {/* ประเภท */}
+                <div className="detail-row">
+                  <span className="label">ประเภท:</span>
+                  <span className="value" style={{
+                    background: selectedImage.type === 'birthday' ? '#ec4899' :
+                      selectedImage.type === 'gift' ? '#f59e0b' :
+                        selectedImage.type === 'text' ? '#8b5cf6' : '#6366f1',
+                    color: 'white',
+                    padding: '4px 12px',
+                    borderRadius: '12px',
+                    fontSize: '13px',
+                    fontWeight: '600'
+                  }}>
+                    {selectedImage.type === 'birthday' ? '🎂 วันเกิด' :
+                      selectedImage.type === 'gift' ? '🎁 ของขวัญ' :
+                        selectedImage.type === 'text' ? '💬 ข้อความ' : '🖼️ รูปภาพ'}
+                  </span>
+                </div>
+
+                {/* Social Info */}
+                {selectedImage.socialType && selectedImage.socialName && (
+                  <div className="detail-row">
+                    <span className="label">Social Media:</span>
+                    <span className="value">
+                      {selectedImage.socialType.toUpperCase()} - {selectedImage.socialName}
+                    </span>
+                  </div>
+                )}
+
+                {/* Text Content */}
+                {selectedImage.text && (
+                  <div className="detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                    <span className="label">ข้อความ:</span>
+                    <span className="value" style={{
+                      marginTop: '6px',
+                      padding: '8px 12px',
+                      background: '#f8fafc',
+                      borderRadius: '8px',
+                      width: '100%',
+                      wordBreak: 'break-word',
+                      fontSize: '14px'
+                    }}>
+                      {selectedImage.text}
+                    </span>
+                  </div>
+                )}
+
+                {/* Text Color */}
+                {selectedImage.textColor && (
+                  <div className="detail-row">
+                    <span className="label">สีข้อความ:</span>
+                    <span className="value" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{
+                        display: 'inline-block',
+                        width: '24px',
+                        height: '24px',
+                        background: selectedImage.textColor,
+                        border: '2px solid #e2e8f0',
+                        borderRadius: '6px'
+                      }}></span>
+                      {selectedImage.textColor}
+                    </span>
+                  </div>
+                )}
+
+                {/* QR Code Preview */}
+                {selectedImage.qrCodePath && (
+                  <div className="detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                    <span className="label">QR Code Instagram:</span>
+                    <div style={{ marginTop: '8px' }}>
+                      <img
+                        src={`http://localhost:5001${selectedImage.qrCodePath}`}
+                        alt="QR Code"
+                        style={{
+                          maxWidth: '300px',
+                          maxHeight: '300px',
+                          border: '3px solid #e2e8f0',
+                          borderRadius: '12px',
+                          background: 'white',
+                          padding: '8px',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div className="detail-row">
                   <span className="label">เวลาที่เลือก:</span>
                   <span className="value">{selectedImage.time} วินาที</span>

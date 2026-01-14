@@ -60,6 +60,7 @@ if (!fs.existsSync(userUploadDir)) fs.mkdirSync(userUploadDir, { recursive: true
 // Serve static files
 app.use("/uploads/gifts", express.static(giftUploadDir));
 app.use("/uploads/user-uploads", express.static(userUploadDir));
+app.use("/uploads/qr-codes", express.static(path.join(__dirname, 'uploads/qr-codes')));
 // Legacy support
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
@@ -78,18 +79,29 @@ const giftStorage = multer.diskStorage({
 });
 
 // 2. User Upload Storage (ชั่วคราว, ลบอัตโนมัติ)
+const qrCodeUploadDir = path.join(__dirname, 'uploads/qr-codes');
+if (!fs.existsSync(qrCodeUploadDir)) fs.mkdirSync(qrCodeUploadDir, { recursive: true });
+
 const userStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, userUploadDir);
+    if (file.fieldname === 'qrCode') {
+      cb(null, qrCodeUploadDir);
+    } else {
+      cb(null, userUploadDir);
+    }
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, "user-" + uniqueSuffix + path.extname(file.originalname));
+    const prefix = file.fieldname === 'qrCode' ? 'qr-' : 'user-';
+    cb(null, prefix + uniqueSuffix + path.extname(file.originalname));
   },
 });
 
 const uploadGift = multer({ storage: giftStorage });
-const uploadUser = multer({ storage: userStorage });
+const uploadUser = multer({ storage: userStorage }).fields([
+  { name: 'file', maxCount: 1 },
+  { name: 'qrCode', maxCount: 1 }
+]);
 
 // --- Cron Job: Cleanup User Uploads (Every midnight) ---
 // ลบไฟล์ใน uploads/user-uploads ที่เก่ากว่า 2 วัน
@@ -672,18 +684,21 @@ app.post("/api/gifts/order", async (req, res) => {
 });
 
 // API สำหรับรับข้อมูลจาก User backend
-app.post("/api/upload", uploadUser.single("file"), async (req, res) => {
+app.post("/api/upload", uploadUser, async (req, res) => {
   try {
     console.log("=== Upload request received ===");
-    if (req.file) {
-      console.log("File received:", req.file);
-      // Correct file path to serve from /uploads/user-uploads
-      // Note: req.file.filename will be like 'user-123.jpg'
-      // We serve it via /uploads/user-uploads/user-123.jpg
-      // BUT check how we store it in CheckHistory?
-      // Logic below creates `item.filePath`.
-    } else {
-      console.log("No file received (possibly text only or gift)");
+    const mainFile = req.files?.file?.[0];
+    const qrFile = req.files?.qrCode?.[0];
+
+    if (mainFile) {
+      console.log("Main file received:", mainFile.filename);
+    }
+    if (qrFile) {
+      console.log("QR Code file received:", qrFile.filename);
+    }
+
+    if (!mainFile && !req.body.text) {
+      console.log("No file or text received");
     }
 
     const {
@@ -702,7 +717,7 @@ app.post("/api/upload", uploadUser.single("file"), async (req, res) => {
     } = req.body;
 
     // ตรวจสอบไฟล์ (ถ้าประเภทไม่ใช่ text หรือ gift ต้องมีไฟล์)
-    if (!req.file && type !== "text" && type !== "gift" && type !== "birthday") {
+    if (!mainFile && type !== "text" && type !== "gift" && type !== "birthday") {
       console.error("[Admin] No file received in upload");
       return res.status(400).json({ success: false, error: "No file received" });
     }
@@ -721,15 +736,13 @@ app.post("/api/upload", uploadUser.single("file"), async (req, res) => {
       }
 
       // ดึงข้อมูลยอดใช้จ่ายของผู้ใช้จาก Ranking
-      const userRanking = await Ranking.findOne({ userId });
+      const userRanking = await Ranking.findOne({ email });
       const totalSpent = userRanking ? (userRanking.points || 0) : 0;
 
-      // ดึงค่า birthdaySpendingRequirement จาก realtime server config
-      // เนื่องจากเราไม่สามารถเข้าถึง realtime-server.js config ได้โดยตรง
-      // เราจะใช้ค่าเริ่มต้น 100 หรืออ่านจาก settings.json
+      // ดึงค่า birthdaySpendingRequirement จาก settings
       let birthdayRequirement = 100;
       try {
-        const settingsPath = path.join(__dirname, "../backend/settings.json");
+        const settingsPath = path.join(__dirname, "settings.json");
         if (fs.existsSync(settingsPath)) {
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
           birthdayRequirement = settings.birthdaySpendingRequirement || 100;
@@ -738,7 +751,7 @@ app.post("/api/upload", uploadUser.single("file"), async (req, res) => {
         console.warn("[Admin] Could not read birthday requirement from settings:", err);
       }
 
-      console.log(`[Admin] User ${userId} total spent: ${totalSpent}, requirement: ${birthdayRequirement}`);
+      console.log(`[Admin] User ${email} total spent: ${totalSpent}, requirement: ${birthdayRequirement}`);
 
       if (totalSpent < birthdayRequirement) {
         console.log("[Admin] User does not meet birthday spending requirement");
@@ -764,7 +777,8 @@ app.post("/api/upload", uploadUser.single("file"), async (req, res) => {
       textColor: textColor || "white",
       socialType: socialType || null,
       socialName: socialName || null,
-      filePath: req.file ? `/uploads/user-uploads/${req.file.filename}` : null,
+      filePath: mainFile ? `/uploads/user-uploads/${mainFile.filename}` : null,
+      qrCodePath: qrFile ? `/uploads/qr-codes/${qrFile.filename}` : null,
       composed: composed === "1" || composed === "true",
       status: "pending",
       userId: userId || null,
@@ -846,6 +860,7 @@ app.post("/api/playing/:id", async (req, res) => {
       textColor: updated.textColor,
       socialType: updated.socialType,
       socialName: updated.socialName,
+      qrCodePath: updated.qrCodePath,
       width: updated.width,
       height: updated.height,
       type: updated.type || (updated.filePath ? "image" : "text")
@@ -922,6 +937,7 @@ app.post("/api/reject/:id", async (req, res) => {
         giftItems: item.giftOrder?.items || [],
         note: item.giftOrder?.note || '',
         theme: item.textColor || 'white',
+        qrCodePath: item.qrCodePath || null,
         social: {
           type: item.socialType || null,
           name: item.socialName || null
@@ -975,6 +991,49 @@ app.post("/api/complete/:id", async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
+
+// API สำหรับนำรายการจากประวัติกลับเข้าคิว
+app.post("/api/history/restore/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log("[Restore] Restoring history ID:", id);
+
+    const historyItem = await CheckHistory.findById(id);
+    if (!historyItem) {
+      return res.status(404).json({ success: false, message: 'History item not found' });
+    }
+
+    // สร้างรายการใหม่ใน ImageQueue พร้อมคืน QR Code
+    const newQueueItem = await ImageQueue.create({
+      sender: historyItem.sender || 'Unknown',
+      price: historyItem.price || 0,
+      time: historyItem.duration || historyItem.metadata?.duration || 10,
+      filePath: historyItem.mediaUrl || null,
+      text: historyItem.content || '',
+      textColor: historyItem.metadata?.theme || 'white',
+      socialType: historyItem.metadata?.social?.type || null,
+      socialName: historyItem.metadata?.social?.name || null,
+      qrCodePath: historyItem.metadata?.qrCodePath || null,
+      type: historyItem.type || 'image',
+      status: 'pending',
+      receivedAt: new Date(),
+      giftOrder: historyItem.type === 'gift' ? {
+        tableNumber: historyItem.metadata?.tableNumber || null,
+        items: historyItem.metadata?.giftItems || [],
+        note: historyItem.metadata?.note || ''
+      } : null
+    });
+
+    await CheckHistory.findByIdAndDelete(id);
+
+    console.log("[Restore] Successfully restored:", newQueueItem._id);
+    res.json({ success: true, message: 'Item restored to queue', data: newQueueItem });
+  } catch (error) {
+    console.error('[Restore] Error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 
 // API สำหรับดึงประวัติการตรวจสอบ
 app.get("/api/check-history", async (req, res) => {
@@ -1628,6 +1687,7 @@ async function playNextItem() {
         textColor: updated.textColor,
         socialType: updated.socialType,
         socialName: updated.socialName,
+        qrCodePath: updated.qrCodePath,
         width: updated.width,
         height: updated.height,
         type: updated.type || (updated.filePath ? "image" : "text"),
