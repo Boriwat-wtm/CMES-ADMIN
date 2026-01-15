@@ -152,16 +152,36 @@ async function addRankingPoint(userId, name, amount, email = null, avatar = null
     }
 
     const userName = (name || "Guest").trim() || "Guest";
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
 
     let ranking = await Ranking.findOne({ userId });
     if (ranking) {
+      // Update all-time points
       ranking.points = (ranking.points || 0) + points;
+      
+      // Update daily points (reset if date changed)
+      if (ranking.dailyDate !== today) {
+        ranking.dailyPoints = points;
+        ranking.dailyDate = today;
+      } else {
+        ranking.dailyPoints = (ranking.dailyPoints || 0) + points;
+      }
+      
+      // Update monthly points (reset if month changed)
+      if (ranking.monthlyPeriod !== currentMonth) {
+        ranking.monthlyPoints = points;
+        ranking.monthlyPeriod = currentMonth;
+      } else {
+        ranking.monthlyPoints = (ranking.monthlyPoints || 0) + points;
+      }
+      
       ranking.name = userName; // อัปเดตชื่อถ้ามีการเปลี่ยน
       if (email) ranking.email = email;
       if (avatar) ranking.avatar = avatar;
       ranking.updatedAt = new Date();
       await ranking.save();
-      console.log(`[Ranking] Updated ${userName} (${userId}): +${points} points, total: ${ranking.points}`);
+      console.log(`[Ranking] Updated ${userName} (${userId}): +${points} points, total: ${ranking.points}, daily: ${ranking.dailyPoints}, monthly: ${ranking.monthlyPoints}`);
     } else {
       ranking = await Ranking.create({
         userId,
@@ -169,6 +189,10 @@ async function addRankingPoint(userId, name, amount, email = null, avatar = null
         email,
         avatar,
         points,
+        dailyPoints: points,
+        dailyDate: today,
+        monthlyPoints: points,
+        monthlyPeriod: currentMonth,
         updatedAt: new Date()
       });
       console.log(`[Ranking] Created ${userName} (${userId}): ${points} points`);
@@ -485,20 +509,43 @@ app.post("/api/gifts/upload", uploadGift.single("image"), async (req, res) => {
 
 // ===== Ranking APIs =====
 
-// ดึง ranking ทั้งหมดหรือตามจำนวนที่กำหนด
+// ดึง ranking ทั้งหมดหรือตามจำนวนที่กำหนด (รองรับทั้ง daily, monthly, alltime)
 app.get("/api/rankings", async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
-    const rankings = await Ranking.find({})
-      .sort({ points: -1 })
+    const type = req.query.type || "alltime"; // daily, monthly, alltime
+    
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+    
+    let query = {};
+    let sortField = { points: -1 };
+    
+    if (type === "daily") {
+      query = { dailyDate: today };
+      sortField = { dailyPoints: -1 };
+    } else if (type === "monthly") {
+      query = { monthlyPeriod: currentMonth };
+      sortField = { monthlyPoints: -1 };
+    }
+    
+    const rankings = await Ranking.find(query)
+      .sort(sortField)
       .limit(limit)
       .lean();
 
+    // Add position field
+    const ranksWithPosition = rankings.map((r, idx) => ({
+      ...r,
+      position: idx + 1
+    }));
+
     res.json({
       success: true,
-      ranks: rankings,
-      total: await Ranking.countDocuments(),
-      totalUsers: await Ranking.countDocuments()
+      ranks: ranksWithPosition,
+      total: await Ranking.countDocuments(query),
+      totalUsers: await Ranking.countDocuments(query),
+      type: type
     });
   } catch (error) {
     console.error("Error fetching rankings:", error);
@@ -509,14 +556,31 @@ app.get("/api/rankings", async (req, res) => {
 // ดึง top 3 สำหรับ backward compatibility
 app.get("/api/rankings/top", async (req, res) => {
   try {
-    const top = await Ranking.find({})
-      .sort({ points: -1 })
+    const type = req.query.type || "alltime";
+    const today = new Date().toISOString().split('T')[0];
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    
+    let query = {};
+    let sortField = { points: -1 };
+    
+    if (type === "daily") {
+      query = { dailyDate: today };
+      sortField = { dailyPoints: -1 };
+    } else if (type === "monthly") {
+      query = { monthlyPeriod: currentMonth };
+      sortField = { monthlyPoints: -1 };
+    }
+    
+    const top = await Ranking.find(query)
+      .sort(sortField)
       .limit(3)
       .lean();
+      
     res.json({
       success: true,
       ranks: top,
-      totalUsers: await Ranking.countDocuments()
+      totalUsers: await Ranking.countDocuments(query),
+      type: type
     });
   } catch (error) {
     console.error("Error fetching rankings:", error);

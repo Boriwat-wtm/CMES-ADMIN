@@ -44,6 +44,7 @@ function Home() {
   const [rankLoading, setRankLoading] = useState(true);
   const [refreshingRanks, setRefreshingRanks] = useState(false);
   const [rankError, setRankError] = useState("");
+  const [rankingType, setRankingType] = useState("alltime"); // daily, monthly, alltime
 
   const [showAllRanks, setShowAllRanks] = useState(false);
   const [allRanks, setAllRanks] = useState([]);
@@ -75,7 +76,7 @@ function Home() {
 
     try {
       setRankError("");
-      const res = await fetch(`${API_BASE_URL}/api/rankings?limit=${RANK_LIMIT}`);
+      const res = await fetch(`${API_BASE_URL}/api/rankings?limit=${RANK_LIMIT}&type=${rankingType}`);
       if (!res.ok) throw new Error("FAILED");
       const data = await res.json();
       if (!data.success) throw new Error("FAILED");
@@ -90,12 +91,19 @@ function Home() {
       if (silent) setRefreshingRanks(false);
       else setRankLoading(false);
     }
-  }, []);
+  }, [rankingType]);
 
   useEffect(() => {
     loadTopRanks();
     loadBirthdayRequirement();
   }, [loadTopRanks]);
+
+  // Reload rankings when type changes
+  useEffect(() => {
+    setAllRanksLoaded(false); // Reset modal cache when type changes
+    setAllRanks([]);
+    loadTopRanks();
+  }, [rankingType, loadTopRanks]);
 
   /*
    * Load birthday spending requirement
@@ -267,7 +275,7 @@ function Home() {
     setAllRankError("");
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/rankings?limit=500`);
+      const res = await fetch(`${API_BASE_URL}/api/rankings?limit=500&type=${rankingType}`);
       if (!res.ok) throw new Error("FAILED");
       const data = await res.json();
       if (!data.success) throw new Error("FAILED");
@@ -508,6 +516,28 @@ function Home() {
               </button>
             </div>
 
+            {/* Ranking Type Selector */}
+            <div className="ranking-type-selector">
+              <button
+                className={`ranking-type-btn ${rankingType === "daily" ? "active" : ""}`}
+                onClick={() => setRankingType("daily")}
+              >
+                รายวัน
+              </button>
+              <button
+                className={`ranking-type-btn ${rankingType === "monthly" ? "active" : ""}`}
+                onClick={() => setRankingType("monthly")}
+              >
+                รายเดือน
+              </button>
+              <button
+                className={`ranking-type-btn ${rankingType === "alltime" ? "active" : ""}`}
+                onClick={() => setRankingType("alltime")}
+              >
+                ตลอดกาล
+              </button>
+            </div>
+
             <ul className="rank-list">
               {rankLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
@@ -525,6 +555,11 @@ function Home() {
               ) : (
                 topRanks.map((entry, index) => {
                   const pos = entry.position || index + 1;
+                  // Get points based on ranking type
+                  let points = entry.points || 0;
+                  if (rankingType === "daily") points = entry.dailyPoints || 0;
+                  else if (rankingType === "monthly") points = entry.monthlyPoints || 0;
+                  
                   return (
                     <li
                       className={`rank-list-item tier-${pos <= 3 ? pos : "default"
@@ -537,7 +572,7 @@ function Home() {
                         <span>อัปเดต {formatUpdatedAt(entry.updatedAt)}</span>
                       </div>
                       <div className="rank-points">
-                        ฿{formatCurrency(entry.points)}
+                        ฿{formatCurrency(points)}
                       </div>
                     </li>
                   );
@@ -587,6 +622,11 @@ function Home() {
                 <ul className="rank-modal-list">
                   {modalRanks.map((entry, idx) => {
                     const position = entry.position || idx + 1;
+                    // Get points based on ranking type
+                    let points = entry.points || 0;
+                    if (rankingType === "daily") points = entry.dailyPoints || 0;
+                    else if (rankingType === "monthly") points = entry.monthlyPoints || 0;
+                    
                     return (
                       <li key={`${entry.name}-${position}`}>
                         <span className="rank-index">#{position}</span>
@@ -597,7 +637,7 @@ function Home() {
                           </small>
                         </div>
                         <span className="rank-points">
-                          ฿{formatCurrency(entry.points)}
+                          ฿{formatCurrency(points)}
                         </span>
                       </li>
                     );

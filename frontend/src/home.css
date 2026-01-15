@@ -1554,6 +1554,41 @@
   margin-bottom: 10px;
 }
 
+/* Ranking Type Selector */
+.ranking-type-selector {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 15px;
+  background: #f0f0f5;
+  padding: 6px;
+  border-radius: 12px;
+}
+
+.ranking-type-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: #666;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: 'Prompt', 'Kanit', sans-serif;
+}
+
+.ranking-type-btn:hover {
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+}
+
+.ranking-type-btn.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
 .vip-card .rank-list {
   list-style: none;
   padding: 0;

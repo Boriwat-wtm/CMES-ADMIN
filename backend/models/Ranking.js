@@ -5,7 +5,6 @@ const rankingSchema = new mongoose.Schema(
     userId: {
       type: String,
       required: true,
-      unique: true,
       index: true,
     },
     name: {
@@ -21,6 +20,7 @@ const rankingSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    // All-time points
     points: {
       type: Number,
       required: true,
@@ -30,22 +30,48 @@ const rankingSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    // Daily points
+    dailyPoints: {
+      type: Number,
+      default: 0,
+    },
+    dailyRank: {
+      type: Number,
+      default: 0,
+    },
+    dailyDate: {
+      type: String, // Format: YYYY-MM-DD
+      default: null,
+    },
+    // Monthly points
+    monthlyPoints: {
+      type: Number,
+      default: 0,
+    },
+    monthlyRank: {
+      type: Number,
+      default: 0,
+    },
+    monthlyPeriod: {
+      type: String, // Format: YYYY-MM
+      default: null,
+    },
   },
   { timestamps: true }
 );
 
-// Auto-update rank field based on points
-rankingSchema.pre("save", async function () {
-  const ranking = this;
-  const totalBefore = await mongoose.model("Ranking").countDocuments({
-    points: { $gt: ranking.points },
-  });
-  ranking.rank = totalBefore + 1;
-});
+// Compound unique index for userId (one record per user)
+rankingSchema.index({ userId: 1 }, { unique: true });
 
 // Index for faster queries
 rankingSchema.index({ points: -1 });
 rankingSchema.index({ rank: 1 });
+rankingSchema.index({ dailyPoints: -1 });
+rankingSchema.index({ dailyRank: 1 });
+rankingSchema.index({ dailyDate: 1 });
+rankingSchema.index({ monthlyPoints: -1 });
+rankingSchema.index({ monthlyRank: 1 });
+rankingSchema.index({ monthlyPeriod: 1 });
 
 const Ranking = mongoose.model("Ranking", rankingSchema);
 
