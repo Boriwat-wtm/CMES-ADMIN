@@ -14,6 +14,7 @@ function ImageQueue() {
   const [showHistory, setShowHistory] = useState(false);
   const [historyItems, setHistoryItems] = useState([]);
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [giftSettings, setGiftSettings] = useState([]);
 
   // Edit Size State
   const [editWidth, setEditWidth] = useState("");
@@ -34,6 +35,7 @@ function ImageQueue() {
 
   useEffect(() => {
     fetchImages();
+    fetchGiftSettings();
     const interval = setInterval(fetchImages, 5000);
     return () => clearInterval(interval);
   }, []);
@@ -281,6 +283,19 @@ function ImageQueue() {
       }
     } catch (error) {
       console.error("Error fetching history:", error);
+    }
+  };
+
+  const fetchGiftSettings = async () => {
+    try {
+      const response = await fetch("http://localhost:5001/api/gifts/settings");
+      if (response.ok) {
+        const data = await response.json();
+        setGiftSettings(data);
+        console.log("[GiftSettings] Loaded:", data);
+      }
+    } catch (error) {
+      console.error("Error fetching gift settings:", error);
     }
   };
 
@@ -624,6 +639,10 @@ function ImageQueue() {
     const targetTable = gift.tableNumber || '-';
     const avatarUrl = gift.avatar || null;
     
+    // Debug: ตรวจสอบข้อมูลสินค้า
+    console.log('[Gift Card] Rendering gift:', gift);
+    console.log('[Gift Card] Items:', gift.items);
+    
     return (
       <div className={`gift-order-card-new ${isCompact ? 'compact' : ''}`}>
         {/* Header with animation */}
@@ -676,23 +695,45 @@ function ImageQueue() {
 
         {/* Gift Items with Images */}
         <div className="gift-items-gallery">
-          {(gift.items || []).map((giftItem, idx) => (
-            <div key={`${item._id || item.id}-${giftItem.id || idx}`} className="gift-item-card">
-              {giftItem.image ? (
-                <img 
-                  src={giftItem.image.startsWith('http') ? giftItem.image : `http://localhost:5001${giftItem.image}`} 
-                  alt={giftItem.name}
-                  className="gift-item-image"
-                />
-              ) : (
-                <div className="gift-item-placeholder">
-                  {giftItem.name.charAt(0)}
+          {(gift.items || []).map((giftItem, idx) => {
+            console.log('[Gift Card] Rendering item:', giftItem);
+            console.log('[Gift Card] giftSettings count:', giftSettings.length);
+            console.log('[Gift Card] All giftSettings:', giftSettings);
+            
+            // Try to get image from item first, then lookup in giftSettings
+            let itemImage = giftItem.image;
+            if (!itemImage && giftSettings.length > 0) {
+              console.log('[Gift Card] Looking for id:', giftItem.id);
+              const setting = giftSettings.find(s => s.id === giftItem.id);
+              console.log('[Gift Card] Found setting:', setting);
+              if (setting && setting.imageUrl) {
+                itemImage = setting.imageUrl;
+                console.log('[Gift Card] Found image from settings:', itemImage);
+              }
+            }
+            
+            return (
+              <div key={`${item._id || item.id}-${giftItem.id || idx}`} className="gift-item-card">
+                {itemImage ? (
+                  <img 
+                    src={itemImage.startsWith('http') ? itemImage : `http://localhost:5001${itemImage}`} 
+                    alt={giftItem.name}
+                    className="gift-item-image"
+                    onError={(e) => {
+                      console.error('[Gift Card] Image load failed:', itemImage);
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <div className="gift-item-placeholder" style={{ display: itemImage ? 'none' : 'flex' }}>
+                  {giftItem.name ? giftItem.name.charAt(0) : '?'}
                 </div>
-              )}
-              <span className="gift-item-quantity">x{giftItem.quantity}</span>
-              <p className="gift-item-name">{giftItem.name}</p>
-            </div>
-          ))}
+                <span className="gift-item-quantity">x{giftItem.quantity}</span>
+                <p className="gift-item-name">{giftItem.name}</p>
+              </div>
+            );
+          })}
         </div>
 
         {/* Divider */}
@@ -706,12 +747,6 @@ function ImageQueue() {
             <span className="quote-icon">💬</span>
           </div>
         )}
-
-        {/* Total Price */}
-        <div className="gift-total-section">
-          <span className="total-label">รวมทั้งหมด</span>
-          <span className="total-price">฿{item.price}</span>
-        </div>
       </div>
     );
   }
@@ -1500,6 +1535,42 @@ function ImageQueue() {
                       </div>
                     )}
                   </>
+                )}
+
+                {/* รายการสินค้าสำหรับ Gift */}
+                {selectedImage.type === 'gift' && selectedImage.giftOrder && selectedImage.giftOrder.items && (
+                  <div className="detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start', borderBottom: '1px solid #eee', paddingBottom: '12px', marginBottom: '12px' }}>
+                    <span className="label" style={{ marginBottom: '8px' }}>📦 รายการสินค้าทั้งหมด:</span>
+                    <div style={{ width: '100%', background: '#f8fafc', borderRadius: '8px', padding: '12px' }}>
+                      {selectedImage.giftOrder.items.map((giftItem, idx) => (
+                        <div key={idx} style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '8px 0',
+                          borderBottom: idx < selectedImage.giftOrder.items.length - 1 ? '1px solid #e5e7eb' : 'none'
+                        }}>
+                          <span style={{ fontSize: '14px', color: '#334155', fontWeight: '500' }}>
+                            {giftItem.name}
+                          </span>
+                          <span style={{ fontSize: '14px', color: '#64748b' }}>
+                            x{giftItem.quantity} · ฿{giftItem.price}
+                          </span>
+                        </div>
+                      ))}
+                      <div style={{
+                        marginTop: '12px',
+                        paddingTop: '12px',
+                        borderTop: '2px solid #e5e7eb',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}>
+                        <span style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>รวมทั้งหมด</span>
+                        <span style={{ fontSize: '16px', fontWeight: '700', color: '#8b5cf6' }}>฿{selectedImage.price}</span>
+                      </div>
+                    </div>
+                  </div>
                 )}
 
                 {/* ข้อมูลพื้นฐานที่แสดงทุกประเภท */}

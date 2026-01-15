@@ -638,6 +638,23 @@ app.post("/api/gifts/order", async (req, res) => {
       return res.status(400).json({ success: false, message: "ข้อมูลคำสั่งซื้อไม่ครบ" });
     }
 
+    // เติมข้อมูล image จาก GiftSetting ถ้าไม่มี
+    const enrichedItems = await Promise.all(items.map(async (item) => {
+      if (!item.image && item.id) {
+        try {
+          const giftSetting = await GiftSetting.findById(item.id);
+          if (giftSetting && giftSetting.image) {
+            return { ...item, image: giftSetting.image };
+          }
+        } catch (err) {
+          console.warn("[Admin] Could not find gift setting for:", item.id);
+        }
+      }
+      return item;
+    }));
+
+    console.log("[Admin] Enriched items with images:", enrichedItems);
+
     const queueData = {
       type: "gift",
       text: `ส่งของขวัญไปยังโต๊ะ ${tableNumber}`,
@@ -657,7 +674,7 @@ app.post("/api/gifts/order", async (req, res) => {
       giftOrder: {
         orderId,
         tableNumber,
-        items,
+        items: enrichedItems,
         totalPrice: Number(totalPrice) || 0,
         note: note || ""
       }

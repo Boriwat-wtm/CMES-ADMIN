@@ -525,12 +525,6 @@
       <div class="gift-note" id="gift-note-section" style="display: none;">
         <p class="gift-note-text" id="gift-note-text"></p>
       </div>
-
-      <!-- Total -->
-      <div class="gift-total">
-        <span class="gift-total-label">รวมทั้งหมด</span>
-        <span class="gift-total-price" id="gift-total-price">฿0</span>
-      </div>
     </div>
   </div>
 
@@ -716,7 +710,6 @@
     const giftItems = document.getElementById('gift-items');
     const giftNoteSection = document.getElementById('gift-note-section');
     const giftNoteText = document.getElementById('gift-note-text');
-    const giftTotalPrice = document.getElementById('gift-total-price');
 
     let giftHideTimer = null;
 
@@ -774,9 +767,6 @@
       } else {
         giftNoteSection.style.display = 'none';
       }
-
-      // Set total
-      giftTotalPrice.textContent = `฿${totalPrice}`;
 
       // Show gift container
       giftContainer.classList.add('show');
