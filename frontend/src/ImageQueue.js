@@ -583,23 +583,135 @@ function ImageQueue() {
     );
   }
 
+  // สำหรับ Queue Section - แสดงแค่ข้อมูลพื้นฐาน
   function renderGiftOrder(item) {
     const gift = item.giftOrder || {};
+    const senderInfo = item.sender || 'ผู้ส่ง';
+    const targetTable = gift.tableNumber || '-';
+    const avatarUrl = gift.avatar || null;
+    
     return (
-      <div className="gift-order-card">
-        <div className="gift-order-header">
-          <div>
-            <span className="gift-table">โต๊ะ #{gift.tableNumber || "-"}</span>
-            <p className="gift-sender">จาก: {item.sender}</p>
-          </div>
-          <span className="gift-total">฿{item.price}</span>
+      <div className="gift-order-card-simple">
+        <div className="gift-simple-header">
+          <span className="gift-icon">🎁</span>
+          <h3>คำสั่งของขวัญ</h3>
         </div>
-        <ul className="gift-items">
+        
+        <div className="gift-simple-info">
+          <div className="gift-info-row">
+            <span className="label">👤 ผู้ส่ง:</span>
+            <span className="value">{senderInfo}</span>
+          </div>
+          <div className="gift-info-row">
+            <span className="label">📍 โต๊ะ:</span>
+            <span className="value highlight">{targetTable}</span>
+          </div>
+          {gift.note && (
+            <div className="gift-info-row message">
+              <span className="label">💬 ข้อความ:</span>
+              <span className="value message-text">"{gift.note}"</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // สำหรับ Modal และ Preview - แสดงแบบเต็ม
+  function renderGiftOrderFull(item, isCompact = false) {
+    const gift = item.giftOrder || {};
+    const senderInfo = item.sender || 'ผู้ส่ง';
+    const targetTable = gift.tableNumber || '-';
+    const avatarUrl = gift.avatar || null;
+    
+    return (
+      <div className={`gift-order-card-new ${isCompact ? 'compact' : ''}`}>
+        {/* Header with animation */}
+        <div className="gift-header-sparkle">
+          <span className="sparkle">✨</span>
+          <span className="sparkle">🍻</span>
+          <h2 className="gift-title">NEW GIFT INCOMING!</h2>
+          <span className="sparkle">🍻</span>
+          <span className="sparkle">✨</span>
+        </div>
+
+        {/* Sender Info with Avatar */}
+        <div className="gift-sender-section">
+          <div className="avatar-ring">
+            <div className="avatar-circle">
+              {avatarUrl ? (
+                <img 
+                  src={avatarUrl.startsWith('http') ? avatarUrl : `http://localhost:4000${avatarUrl}`}
+                  alt={senderInfo}
+                  className="avatar-user-image"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'flex';
+                  }}
+                />
+              ) : null}
+              <span 
+                className="avatar-text"
+                style={{ display: avatarUrl ? 'none' : 'flex' }}
+              >
+                {senderInfo.charAt(0).toUpperCase()}
+              </span>
+            </div>
+          </div>
+          <h3 className="sender-name">⭐ คุณ {senderInfo} ⭐</h3>
+        </div>
+
+        {/* Arrow Down */}
+        <div className="gift-arrow">
+          <span>⬇️ จัดส่งให้ ⬇️</span>
+        </div>
+
+        {/* Target Table */}
+        <div className="gift-target-table">
+          <div className="table-badge">โต๊ะ {targetTable}</div>
+        </div>
+
+        {/* Divider */}
+        <div className="gift-divider"></div>
+
+        {/* Gift Items with Images */}
+        <div className="gift-items-gallery">
           {(gift.items || []).map((giftItem, idx) => (
-            <li key={`${item._id || item.id}-${giftItem.id || idx}`}>{giftItem.name} x{giftItem.quantity}</li>
+            <div key={`${item._id || item.id}-${giftItem.id || idx}`} className="gift-item-card">
+              {giftItem.image ? (
+                <img 
+                  src={giftItem.image.startsWith('http') ? giftItem.image : `http://localhost:5001${giftItem.image}`} 
+                  alt={giftItem.name}
+                  className="gift-item-image"
+                />
+              ) : (
+                <div className="gift-item-placeholder">
+                  {giftItem.name.charAt(0)}
+                </div>
+              )}
+              <span className="gift-item-quantity">x{giftItem.quantity}</span>
+              <p className="gift-item-name">{giftItem.name}</p>
+            </div>
           ))}
-        </ul>
-        {gift.note && <p className="gift-note">"{gift.note}"</p>}
+        </div>
+
+        {/* Divider */}
+        <div className="gift-divider"></div>
+
+        {/* Note Message */}
+        {gift.note && (
+          <div className="gift-note-section">
+            <span className="quote-icon">💬</span>
+            <p className="gift-note-text">"{gift.note}"</p>
+            <span className="quote-icon">💬</span>
+          </div>
+        )}
+
+        {/* Total Price */}
+        <div className="gift-total-section">
+          <span className="total-label">รวมทั้งหมด</span>
+          <span className="total-price">฿{item.price}</span>
+        </div>
       </div>
     );
   }
@@ -985,7 +1097,7 @@ function ImageQueue() {
                   )}
 
                   {currentPreview.type === "gift" ? (
-                    renderGiftOrder(currentPreview)
+                    renderGiftOrderFull(currentPreview, true)
                   ) : currentPreview.filePath ? (
                     <img
                       src={`http://localhost:5001${currentPreview.filePath}`}
@@ -1183,7 +1295,9 @@ function ImageQueue() {
             </div>
             <div className="modal-body">
               <div className="modal-image-container">
-                {selectedImage.filePath ? (
+                {selectedImage.type === 'gift' ? (
+                  renderGiftOrderFull(selectedImage, false)
+                ) : selectedImage.filePath ? (
                   <>
                     <img
                       src={`http://localhost:5001${selectedImage.filePath}`}
@@ -1292,98 +1406,103 @@ function ImageQueue() {
               </div>
 
               <div className="modal-details">
-                <div className="detail-row">
-                  <span className="label">ผู้ส่ง:</span>
-                  <span className="value">{selectedImage.sender}</span>
-                </div>
-
-                {/* ประเภท */}
-                <div className="detail-row">
-                  <span className="label">ประเภท:</span>
-                  <span className="value" style={{
-                    background: selectedImage.type === 'birthday' ? '#ec4899' :
-                      selectedImage.type === 'gift' ? '#f59e0b' :
-                        selectedImage.type === 'text' ? '#8b5cf6' : '#6366f1',
-                    color: 'white',
-                    padding: '4px 12px',
-                    borderRadius: '12px',
-                    fontSize: '13px',
-                    fontWeight: '600'
-                  }}>
-                    {selectedImage.type === 'birthday' ? '🎂 วันเกิด' :
-                      selectedImage.type === 'gift' ? '🎁 ของขวัญ' :
-                        selectedImage.type === 'text' ? '💬 ข้อความ' : '🖼️ รูปภาพ'}
-                  </span>
-                </div>
-
-                {/* Social Info */}
-                {selectedImage.socialType && selectedImage.socialName && (
-                  <div className="detail-row">
-                    <span className="label">Social Media:</span>
-                    <span className="value">
-                      {selectedImage.socialType.toUpperCase()} - {selectedImage.socialName}
-                    </span>
-                  </div>
-                )}
-
-                {/* Text Content */}
-                {selectedImage.text && (
-                  <div className="detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                    <span className="label">ข้อความ:</span>
-                    <span className="value" style={{
-                      marginTop: '6px',
-                      padding: '8px 12px',
-                      background: '#f8fafc',
-                      borderRadius: '8px',
-                      width: '100%',
-                      wordBreak: 'break-word',
-                      fontSize: '14px'
-                    }}>
-                      {selectedImage.text}
-                    </span>
-                  </div>
-                )}
-
-                {/* Text Color */}
-                {selectedImage.textColor && (
-                  <div className="detail-row">
-                    <span className="label">สีข้อความ:</span>
-                    <span className="value" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{
-                        display: 'inline-block',
-                        width: '24px',
-                        height: '24px',
-                        background: selectedImage.textColor,
-                        border: '2px solid #e2e8f0',
-                        borderRadius: '6px'
-                      }}></span>
-                      {selectedImage.textColor}
-                    </span>
-                  </div>
-                )}
-
-                {/* QR Code Preview */}
-                {selectedImage.qrCodePath && (
-                  <div className="detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                    <span className="label">QR Code Instagram:</span>
-                    <div style={{ marginTop: '8px' }}>
-                      <img
-                        src={`http://localhost:5001${selectedImage.qrCodePath}`}
-                        alt="QR Code"
-                        style={{
-                          maxWidth: '300px',
-                          maxHeight: '300px',
-                          border: '3px solid #e2e8f0',
-                          borderRadius: '12px',
-                          background: 'white',
-                          padding: '8px',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                        }}
-                      />
+                {selectedImage.type !== 'gift' && (
+                  <>
+                    <div className="detail-row">
+                      <span className="label">ผู้ส่ง:</span>
+                      <span className="value">{selectedImage.sender}</span>
                     </div>
-                  </div>
+
+                    {/* ประเภท */}
+                    <div className="detail-row">
+                      <span className="label">ประเภท:</span>
+                      <span className="value" style={{
+                        background: selectedImage.type === 'birthday' ? '#ec4899' :
+                          selectedImage.type === 'gift' ? '#f59e0b' :
+                            selectedImage.type === 'text' ? '#8b5cf6' : '#6366f1',
+                        color: 'white',
+                        padding: '4px 12px',
+                        borderRadius: '12px',
+                        fontSize: '13px',
+                        fontWeight: '600'
+                      }}>
+                        {selectedImage.type === 'birthday' ? '🎂 วันเกิด' :
+                          selectedImage.type === 'gift' ? '🎁 ของขวัญ' :
+                            selectedImage.type === 'text' ? '💬 ข้อความ' : '🖼️ รูปภาพ'}
+                      </span>
+                    </div>
+
+                    {/* Social Info */}
+                    {selectedImage.socialType && selectedImage.socialName && (
+                      <div className="detail-row">
+                        <span className="label">Social Media:</span>
+                        <span className="value">
+                          {selectedImage.socialType.toUpperCase()} - {selectedImage.socialName}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Text Content */}
+                    {selectedImage.text && (
+                      <div className="detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                        <span className="label">ข้อความ:</span>
+                        <span className="value" style={{
+                          marginTop: '6px',
+                          padding: '8px 12px',
+                          background: '#f8fafc',
+                          borderRadius: '8px',
+                          width: '100%',
+                          wordBreak: 'break-word',
+                          fontSize: '14px'
+                        }}>
+                          {selectedImage.text}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Text Color */}
+                    {selectedImage.textColor && (
+                      <div className="detail-row">
+                        <span className="label">สีข้อความ:</span>
+                        <span className="value" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{
+                            display: 'inline-block',
+                            width: '24px',
+                            height: '24px',
+                            background: selectedImage.textColor,
+                            border: '2px solid #e2e8f0',
+                            borderRadius: '6px'
+                          }}></span>
+                          {selectedImage.textColor}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* QR Code Preview */}
+                    {selectedImage.qrCodePath && (
+                      <div className="detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                        <span className="label">QR Code Instagram:</span>
+                        <div style={{ marginTop: '8px' }}>
+                          <img
+                            src={`http://localhost:5001${selectedImage.qrCodePath}`}
+                            alt="QR Code"
+                            style={{
+                              maxWidth: '300px',
+                              maxHeight: '300px',
+                              border: '3px solid #e2e8f0',
+                              borderRadius: '12px',
+                              background: 'white',
+                              padding: '8px',
+                              boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
 
+                {/* ข้อมูลพื้นฐานที่แสดงทุกประเภท */}
                 <div className="detail-row">
                   <span className="label">เวลาที่เลือก:</span>
                   <span className="value">{selectedImage.time} วินาที</span>

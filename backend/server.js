@@ -641,7 +641,7 @@ app.post("/api/gifts/order", async (req, res) => {
     const queueData = {
       type: "gift",
       text: `ส่งของขวัญไปยังโต๊ะ ${tableNumber}`,
-      time: 1,
+      time: 30,
       price: Number(totalPrice) || 0,
       sender: sender || "Guest",
       textColor: "#fff",
@@ -850,21 +850,36 @@ app.post("/api/playing/:id", async (req, res) => {
     }
 
     // ส่ง event ไป overlay ให้ OBS ทราบว่ามีรูปใหม่กำลังเล่น
-    io.emit("now-playing-image", {
-      id: updated._id?.toString(),
-      sender: updated.sender,
-      price: updated.price,
-      time: updated.time,
-      filePath: updated.filePath,
-      text: updated.text,
-      textColor: updated.textColor,
-      socialType: updated.socialType,
-      socialName: updated.socialName,
-      qrCodePath: updated.qrCodePath,
-      width: updated.width,
-      height: updated.height,
-      type: updated.type || (updated.filePath ? "image" : "text")
-    });
+    // ถ้าเป็น Gift ให้ใช้ event พิเศษและส่งข้อมูลเพิ่มเติม
+    if (updated.type === "gift" && updated.giftOrder) {
+      io.emit("now-playing-gift", {
+        id: updated._id?.toString(),
+        sender: updated.sender || "Guest",
+        avatar: updated.avatar || null,
+        tableNumber: updated.giftOrder.tableNumber || 1,
+        items: updated.giftOrder.items || [],
+        note: updated.giftOrder.note || "",
+        totalPrice: updated.giftOrder.totalPrice || updated.price || 0,
+        time: updated.time,
+        type: "gift"
+      });
+    } else {
+      io.emit("now-playing-image", {
+        id: updated._id?.toString(),
+        sender: updated.sender,
+        price: updated.price,
+        time: updated.time,
+        filePath: updated.filePath,
+        text: updated.text,
+        textColor: updated.textColor,
+        socialType: updated.socialType,
+        socialName: updated.socialName,
+        qrCodePath: updated.qrCodePath,
+        width: updated.width,
+        height: updated.height,
+        type: updated.type || (updated.filePath ? "image" : "text")
+      });
+    }
 
     res.json({ success: true, message: 'Item marked as playing', data: updated });
   } catch (error) {
