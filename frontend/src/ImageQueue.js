@@ -291,8 +291,9 @@ function ImageQueue() {
       const response = await fetch("http://localhost:5001/api/gifts/settings");
       if (response.ok) {
         const data = await response.json();
-        setGiftSettings(data);
-        console.log("[GiftSettings] Loaded:", data);
+        // data structure is { tableCount, items: [...] }
+        setGiftSettings(data.items || []);
+        console.log("[GiftSettings] Loaded:", data.items);
       }
     } catch (error) {
       console.error("Error fetching gift settings:", error);

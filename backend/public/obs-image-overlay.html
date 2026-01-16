@@ -371,7 +371,7 @@
     .gift-item img {
       width: 100px;
       height: 100px;
-      object-fit: cover;
+      object-fit: contain; /* เปลี่ยนจาก cover เป็น contain */
       border-radius: 12px;
       background: rgba(255, 255, 255, 0.95);
       padding: 0.2rem;
@@ -531,6 +531,26 @@
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script>
     const socket = io('http://localhost:5001', { transports: ['websocket', 'polling'] });
+
+    // เก็บการตั้งค่ารูปภาพสินค้า
+    let giftSettingsItems = [];
+
+    // ฟังก์ชันดึงการตั้งค่ารูปภาพ
+    async function fetchGiftSettings() {
+      try {
+        const response = await fetch("http://localhost:5001/api/gifts/settings");
+        if (response.ok) {
+          const data = await response.json();
+          giftSettingsItems = data.items || [];
+          console.log("[OBS] Gift Settings Loaded:", giftSettingsItems);
+        }
+      } catch (error) {
+        console.error("[OBS] Error fetching gift settings:", error);
+      }
+    }
+
+    // เรียกดึงข้อมูลเมื่อโหลดหน้า
+    fetchGiftSettings();
 
     const container = document.getElementById('container');
     const thumb = document.getElementById('thumb');
@@ -736,12 +756,24 @@
       
       // Set avatar
       if (avatar) {
+        // Avatar comes from User Backend (port 4000)
+        // If it's a full URL, use it directly. If it's a relative path, prepend user backend URL.
+        // It might also be a Google avatar which is a full URL.
         const avatarUrl = avatar.startsWith('http') ? avatar : `http://localhost:4000${avatar}`;
+        console.log('[OBS] Loading avatar:', avatarUrl);
+
         const avatarImg = document.createElement('img');
         avatarImg.src = avatarUrl;
+        avatarImg.style.width = '100%';
+        avatarImg.style.height = '100%';
+        avatarImg.style.objectFit = 'cover';
+        
         avatarImg.onerror = () => {
+          console.warn('[OBS] Avatar load failed, falling back to initial.');
           giftAvatar.innerHTML = `<span class="gift-avatar-initial">${sender.charAt(0).toUpperCase()}</span>`;
         };
+
+        // Clear existing content and append new image
         giftAvatar.innerHTML = '';
         giftAvatar.appendChild(avatarImg);
       } else {
@@ -752,13 +784,28 @@
       giftTableNumber.textContent = `โต๊ะ ${tableNumber}`;
 
       // Set items
-      giftItems.innerHTML = items.map(item => `
+      giftItems.innerHTML = items.map(item => {
+        // Logic ค้นหารูปภาพเหมือนใน Admin
+        let itemImage = item.image;
+        if (!itemImage && giftSettingsItems.length > 0) {
+          const setting = giftSettingsItems.find(s => s.id === item.id);
+          if (setting && setting.imageUrl) {
+            itemImage = setting.imageUrl;
+          }
+        }
+        
+        // ถ้ามีรูป
+        const imgHtml = itemImage 
+          ? `<img src="${itemImage.startsWith('http') ? itemImage : 'http://localhost:5001' + itemImage}" alt="${item.name}" />` 
+          : `<div style="width:100px;height:100px;background:rgba(255,255,255,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 0.5rem;font-size:2rem;color:#777;">?</div>`;
+
+        return `
         <div class="gift-item">
-          ${item.image ? `<img src="${item.image.startsWith('http') ? item.image : 'http://localhost:5001' + item.image}" alt="${item.name}" />` : ''}
+          ${imgHtml}
           <span class="gift-item-qty">x${item.quantity}</span>
           <div class="gift-item-name">${item.name}</div>
         </div>
-      `).join('');
+      `}).join('');
 
       // Set note
       if (note) {

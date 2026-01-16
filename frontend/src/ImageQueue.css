@@ -1260,10 +1260,10 @@
 .gift-item-image {
   width: 100px;
   height: 100px;
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.9);
-  padding: 0.2rem;
+  background: white;
+  padding: 4px;
   margin-bottom: 0.5rem;
 }
 
