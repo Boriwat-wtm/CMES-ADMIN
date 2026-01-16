@@ -84,6 +84,19 @@ function LuckyWheel() {
     const randomTurns = getRandomInt(5, 8);
     const finalDeg = 360 * randomTurns + (360 - winnerIdx * degPerSeg - degPerSeg / 2);
 
+    // Call Backend API to sync with OBS
+    fetch('http://localhost:5001/api/lucky-wheel/spin', {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        segments,
+        winnerIndex: winnerIdx,
+        reward
+      })
+    }).then(res => res.json())
+      .then(data => console.log('OBS Spin triggered:', data))
+      .catch(err => console.error('Error triggering OBS:', err));
+
     if (wheelRef.current) {
       wheelRef.current.style.transition = "none";
       wheelRef.current.style.transform = `rotate(0deg)`;

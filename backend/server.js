@@ -1797,3 +1797,31 @@ async function playNextItem() {
 }
 
 
+
+// --- Lucky Wheel API ---
+app.post('/api/lucky-wheel/spin', (req, res) => {
+  const { segments, winnerIndex, reward } = req.body;
+  
+  if (!segments || winnerIndex === undefined) {
+    return res.status(400).json({ error: 'Missing segments or winnerIndex' });
+  }
+
+  console.log('[LuckyWheel] Spin event received. Winner Index:', winnerIndex);
+
+  // Broadcast to all connected clients (including OBS)
+  io.emit('lucky-wheel-spin', {
+    segments,
+    winnerIndex,
+    reward,
+    timestamp: Date.now()
+  });
+
+  return res.json({ success: true, message: 'Spin event broadcasted' });
+});
+
+// To clear/hide the wheel on OBS manually if needed
+app.post('/api/lucky-wheel/hide', (req, res) => {
+  io.emit('lucky-wheel-hide');
+  return res.json({ success: true, message: 'Hide event broadcasted' });
+});
+

@@ -832,6 +832,263 @@
       }, displayTime * 1000);
     }
   </script>
+  <!-- Lucky Wheel CSS -->
+  <style>
+    #wheel-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.8);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s;
+    }
+    #wheel-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .wheel-main-container {
+      position: relative;
+      width: 600px;
+      height: 600px;
+    }
+    .obs-wheel-svg {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      box-shadow: 0 0 50px rgba(0,0,0,0.5);
+      border: 10px solid white;
+      background: white;
+      transition: transform 4s cubic-bezier(.17,.67,.83,.67);
+    }
+    .wheel-arrow {
+      position: absolute;
+      top: -20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 60px;
+      height: 60px;
+      z-index: 10;
+      filter: drop-shadow(0 4px 4px rgba(0,0,0,0.3));
+    }
+    
+    /* Countdown Overlay */
+    #wheel-countdown-container {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.5);
+      z-index: 20;
+      backdrop-filter: blur(5px);
+    }
+    .countdown-number {
+      font-size: 15rem;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 0 30px #f59e0b, 0 0 60px #f59e0b;
+      animation: pulse-count 1s infinite;
+    }
+    @keyframes pulse-count {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.2); opacity: 0.8; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    /* Winner Popup */
+    #wheel-winner-modal {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%) scale(0.5);
+      background: white;
+      padding: 40px 60px;
+      border-radius: 30px;
+      text-align: center;
+      box-shadow: 0 0 100px rgba(255,215,0,0.8);
+      z-index: 100;
+      opacity: 0;
+      transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      border: 8px solid #f59e0b;
+      min-width: 500px;
+    }
+    #wheel-winner-modal.show {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+    }
+    .winner-title {
+      font-size: 3rem;
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .winner-name {
+      font-size: 5rem;
+      font-weight: 800;
+      color: #d97706;
+      text-shadow: 2px 2px 0px #fff, 0 0 20px rgba(245, 158, 11, 0.5);
+      margin-bottom: 20px;
+    }
+    .winner-reward {
+      font-size: 2.5rem;
+      color: #10b981;
+      font-weight: bold;
+    }
+    
+    /* Auto Hide Animation */
+    @keyframes fadeOutWheel {
+      0% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+  </style>
+
+  <!-- HTML Structure -->
+  <div id="wheel-overlay">
+    <div class="wheel-main-container">
+      <!-- Arrow -->
+      <svg class="wheel-arrow" viewBox="0 0 36 36">
+        <polygon points="18,24 28,0 18,6 8,0" fill="#fbbf24" stroke="#eab308" stroke-width="2"/>
+      </svg>
+      <!-- Wheel SVG Container -->
+      <div id="obs-wheel-svg-container" class="obs-wheel-svg"></div>
+      
+      <!-- Countdown -->
+      <div id="wheel-countdown-container" style="display:none;">
+        <div id="wheel-countdown-text" class="countdown-number">10</div>
+      </div>
+    </div>
+
+    <!-- Winner Modal -->
+    <div id="wheel-winner-modal">
+      <div style="font-size: 4rem;">🎉✨</div>
+      <div class="winner-title">ผู้โชคดีคือ</div>
+      <div id="wheel-winner-name" class="winner-name">โต๊ะ 5</div>
+      <div id="wheel-winner-reward" class="winner-reward" style="display:none;"></div>
+    </div>
+  </div>
+
+  <script>
+    // --- Lucky Wheel Logic ---
+    const wheelOverlay = document.getElementById('wheel-overlay');
+    const wheelSvgContainer = document.getElementById('obs-wheel-svg-container');
+    const wheelCountdownContainer = document.getElementById('wheel-countdown-container');
+    const wheelCountdownText = document.getElementById('wheel-countdown-text');
+    const wheelWinnerModal = document.getElementById('wheel-winner-modal');
+    const wheelWinnerName = document.getElementById('wheel-winner-name');
+    const wheelWinnerReward = document.getElementById('wheel-winner-reward');
+
+    const defaultColors = [
+      "#f87171", "#fbbf24", "#34d399", "#60a5fa", "#a78bfa", "#f472b6", "#facc15", "#4ade80", "#38bdf8", "#818cf8"
+    ];
+
+    function generateWheelSVG(segments) {
+      const segs = segments.length;
+      const arc = 2 * Math.PI / segs;
+      const radius = 160; 
+      const viewBox = 360;
+      const center = viewBox / 2;
+      
+      let paths = segments.map((seg, i) => {
+        const startAngle = i * arc - Math.PI / 2;
+        const endAngle = (i + 1) * arc - Math.PI / 2;
+        const x1 = radius * Math.cos(startAngle);
+        const y1 = radius * Math.sin(startAngle);
+        const x2 = radius * Math.cos(endAngle);
+        const y2 = radius * Math.sin(endAngle);
+        const largeArc = arc > Math.PI ? 1 : 0;
+        const pathData = `M 0 0 L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+        
+        // Text rotation
+        const angle = startAngle + arc / 2;
+        const textRadius = radius * 0.65;
+        const tx = textRadius * Math.cos(angle);
+        const ty = textRadius * Math.sin(angle);
+        const deg = angle * 180 / Math.PI;
+
+        return `
+          <g>
+            <path d="${pathData}" fill="${defaultColors[i % defaultColors.length]}" stroke="#fff" stroke-width="2" />
+            <text x="${tx}" y="${ty}" 
+              text-anchor="middle" alignment-baseline="middle" 
+              fill="#222" font-size="${segments.length > 20 ? 10 : 14}" font-weight="bold"
+              transform="rotate(${deg}, ${tx}, ${ty})"
+            >${seg}</text>
+          </g>
+        `;
+      }).join('');
+
+      return `<svg width="100%" height="100%" viewBox="-180 -180 360 360" style="overflow:visible;">
+        ${paths}
+      </svg>`;
+    }
+
+    socket.on('lucky-wheel-spin', (data) => {
+      console.log('OBS Received Spin:', data);
+      const { segments, winnerIndex, reward } = data;
+      
+      // 1. Setup Wheel
+      wheelSvgContainer.innerHTML = generateWheelSVG(segments);
+      wheelOverlay.classList.add('show');
+      wheelWinnerModal.classList.remove('show');
+      wheelCountdownContainer.style.display = 'flex';
+      
+      // Reset rotation
+      wheelSvgContainer.style.transition = 'none';
+      wheelSvgContainer.style.transform = 'rotate(0deg)';
+
+      // 2. Countdown 10s
+      let count = 10;
+      wheelCountdownText.textContent = count;
+      
+      const countInterval = setInterval(() => {
+        count--;
+        if (count > 0) {
+          wheelCountdownText.textContent = count;
+        } else {
+          clearInterval(countInterval);
+          wheelCountdownContainer.style.display = 'none';
+          
+          // 3. Spin Animation
+          const degPerSeg = 360 / segments.length;
+          const randomTurns = 5 + Math.random() * 3; // 5-8 turns
+          // Winner calculation: 
+          // 0deg is at -90 (top). 
+          // Segments start at -90. Segment 0 is [-90, -90+arc].
+          // To land Segment X at Top (-90), we need to rotate NEGATIVE or POSITIVE appropriately.
+          // Let's stick to the React logic:
+          // finalDeg = 360 * randomTurns + (360 - winnerIdx * degPerSeg - degPerSeg / 2);
+          const finalDeg = 360 * 8 + (360 - winnerIndex * degPerSeg - degPerSeg / 2);
+          
+          wheelSvgContainer.style.transition = 'transform 4s cubic-bezier(.17,.67,.83,.67)';
+          wheelSvgContainer.style.transform = `rotate(${finalDeg}deg)`;
+
+          // 4. Show Winner after spin (4s)
+          setTimeout(() => {
+            wheelWinnerName.textContent = segments[winnerIndex];
+            if (reward) {
+              wheelWinnerReward.textContent = `🎁 ${reward}`;
+              wheelWinnerReward.style.display = 'block';
+            } else {
+              wheelWinnerReward.style.display = 'none';
+            }
+            wheelWinnerModal.classList.add('show');
+
+            // 5. Hide after 30s
+            setTimeout(() => {
+              wheelOverlay.classList.remove('show');
+            }, 30000);
+
+          }, 4100);
+        }
+      }, 1000);
+    });
+
+    socket.on('lucky-wheel-hide', () => {
+       wheelOverlay.classList.remove('show');
+    });
+  </script>
 </body>
 
 </html>
