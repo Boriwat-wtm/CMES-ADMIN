@@ -861,7 +861,7 @@ app.post("/api/upload", uploadUser, async (req, res) => {
       filePath: mainFile ? `/uploads/user-uploads/${mainFile.filename}` : null,
       qrCodePath: qrFile ? `/uploads/qr-codes/${qrFile.filename}` : null,
       composed: composed === "1" || composed === "true",
-      status: "pending",
+      status: "payment_pending", // รอการชำระเงิน
       userId: userId || null,
       email: email || null,
       avatar: avatar || null,
@@ -871,9 +871,10 @@ app.post("/api/upload", uploadUser, async (req, res) => {
     const queueItem = await ImageQueue.create(itemData);
 
     // บันทึก ranking เฉพาะ user ที่ login แล้ว (ไม่บันทึกสำหรับ birthday เพราะฟรี)
-    if (userId && type !== "birthday") {
-      addRankingPoint(userId, sender, Number(price) || 0, email, avatar);
-    }
+    // ย้ายไปทำหลังชำระเงินแล้ว
+    // if (userId && type !== "birthday") {
+    //   addRankingPoint(userId, sender, Number(price) || 0, email, avatar);
+    // }
     console.log("[Admin] Upload item created and queued:", queueItem._id, "type:", queueItem.type);
     res.json({ success: true, uploadId: queueItem._id.toString() });
   } catch (e) {
@@ -887,7 +888,7 @@ app.get("/api/queue", async (req, res) => {
   try {
     console.log("=== Queue request received");
 
-    // ดึงรายการที่ยังไม่เสร็จ (pending + approved + playing)
+    // ดึงรายการที่ยังไม่เสร็จ (pending + approved + playing) - ไม่รวม payment_pending
     const queueItems = await ImageQueue.find({ status: { $in: ['pending', 'approved', 'playing'] } })
       .sort({ receivedAt: 1 })
       .lean();
@@ -898,6 +899,45 @@ app.get("/api/queue", async (req, res) => {
   } catch (error) {
     console.error('Error fetching queue:', error);
     res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// API สำหรับยืนยันการชำระเงินและเข้าคิว
+app.post("/api/confirm-payment/:uploadId", async (req, res) => {
+  try {
+    const { uploadId } = req.params;
+    const { userId, email, avatar } = req.body;
+
+    console.log(`[Admin] Confirming payment for upload: ${uploadId}`);
+
+    // ค้นหา queue item
+    const queueItem = await ImageQueue.findById(uploadId);
+    
+    if (!queueItem) {
+      console.log("[Admin] Upload not found");
+      return res.status(404).json({ success: false, error: "ไม่พบข้อมูลการอัปโหลด" });
+    }
+
+    if (queueItem.status !== "payment_pending") {
+      console.log("[Admin] Upload already processed or invalid status:", queueItem.status);
+      return res.status(400).json({ success: false, error: "สถานะการอัปโหลดไม่ถูกต้อง" });
+    }
+
+    // เปลี่ยนสถานะเป็น pending เพื่อให้เข้าคิว
+    queueItem.status = "pending";
+    queueItem.confirmedAt = new Date();
+    await queueItem.save();
+
+    // บันทึก ranking เฉพาะ user ที่ login แล้ว (ไม่บันทึกสำหรับ birthday เพราะฟรี)
+    if (userId && queueItem.type !== "birthday" && queueItem.price > 0) {
+      addRankingPoint(userId, queueItem.sender, queueItem.price, email, avatar);
+    }
+
+    console.log("[Admin] Payment confirmed, item moved to queue");
+    res.json({ success: true, queueItem });
+  } catch (error) {
+    console.error("[Admin] Error confirming payment:", error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
