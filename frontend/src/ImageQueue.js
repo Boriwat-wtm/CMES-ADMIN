@@ -765,118 +765,236 @@ function ImageQueue() {
 
   return (
     <div className="queue-container">
-      <header className="queue-header">
-        <Link to="/home" className="back-button">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
-          กลับ
-        </Link>
-        <h1>ตรวจสอบรูปภาพ</h1>
-        <div className="queue-stats">
-          <span className="queue-count">{images.length}</span>
-          <button onClick={() => { fetchHistory(); setShowHistory(true); }} className="refresh-button" style={{ marginRight: "8px" }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 3v5h5M3.05 13a9 9 0 1 0 .5-4M3 8l.5-1" />
-            </svg>
+      {/* Modern Dashboard Styles */}
+      <style>{`
+        :root {
+          --glass-bg: rgba(255, 255, 255, 0.95);
+          --glass-border: 1px solid rgba(255, 255, 255, 0.2);
+          --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+          --accent-primary: #6366f1;
+          --accent-secondary: #8b5cf6;
+          --accent-success: #10b981;
+          --accent-warning: #f59e0b;
+          --accent-pink: #ec4899;
+          --text-primary: #1e293b;
+          --text-secondary: #64748b;
+          --bg-dashboard: #f8fafc;
+        }
+
+        .queue-container {
+          background-color: var(--bg-dashboard);
+          min-height: 100vh;
+        }
+
+        /* Header */
+        .dashboard-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 20px 32px;
+          background: var(--glass-bg);
+          backdrop-filter: blur(12px);
+          position: sticky;
+          top: 0;
+          z-index: 100;
+          border-bottom: 1px solid rgba(0,0,0,0.05);
+          box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+        }
+
+        .header-title-group {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+
+        .back-nav-btn {
+          width: 40px;
+          height: 40px;
+          border-radius: 12px;
+          border: 1px solid #e2e8f0;
+          background: white;
+          color: var(--text-secondary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
+          cursor: pointer;
+          text-decoration: none;
+        }
+        .back-nav-btn:hover {
+          background: var(--accent-primary);
+          color: white;
+          border-color: var(--accent-primary);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+        }
+
+        .header-title {
+          font-size: 24px;
+          font-weight: 800;
+          background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          margin: 0;
+        }
+
+        .header-controls {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+
+        .stat-capsule {
+          background: white;
+          padding: 6px 16px;
+          border-radius: 100px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+          border: 1px solid #e2e8f0;
+        }
+
+        .stat-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+        .stat-value { font-size: 16px; font-weight: 800; color: var(--accent-primary); }
+
+        .action-btn {
+          height: 40px;
+          padding: 0 20px;
+          border-radius: 12px;
+          border: 1px solid #e2e8f0;
+          background: white;
+          color: var(--text-secondary);
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-weight: 600;
+          font-size: 14px;
+          cursor: pointer;
+          transition: all 0.2s;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        .action-btn:hover {
+          background: #f8fafc;
+          transform: translateY(-2px);
+          color: var(--accent-primary);
+          border-color: var(--accent-primary);
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+        }
+
+        .icon-btn {
+          width: 40px;
+          height: 40px;
+          border-radius: 12px;
+          border: none;
+          background: white;
+          color: var(--text-secondary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        .icon-btn:hover {
+          background: #f8fafc;
+          transform: translateY(-2px);
+          color: var(--accent-primary);
+        }
+
+        /* Filter Tabs */
+        .filter-bar {
+          display: flex;
+          gap: 12px;
+          padding: 20px 32px;
+          overflow-x: auto;
+          scrollbar-width: none;
+          background: white;
+          border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .filter-pill {
+          padding: 8px 20px;
+          border-radius: 100px;
+          border: 1px solid #e2e8f0;
+          background: white;
+          color: var(--text-secondary);
+          font-weight: 600;
+          font-size: 14px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .filter-pill:hover {
+          background: #f8fafc;
+          border-color: #cbd5e1;
+        }
+
+        .filter-pill.active {
+          background: var(--accent-primary);
+          color: white;
+          border-color: var(--accent-primary);
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+        }
+        .filter-pill[data-type="text"].active { background: #22c55e; border-color: #22c55e; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2); }
+        .filter-pill[data-type="birthday"].active { background: var(--accent-pink); border-color: var(--accent-pink); box-shadow: 0 4px 12px rgba(236, 72, 153, 0.2); }
+        .filter-pill[data-type="gift"].active { background: var(--accent-warning); border-color: var(--accent-warning); box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2); }
+
+        .filter-count {
+          background: rgba(0,0,0,0.05);
+          color: inherit;
+          padding: 2px 8px;
+          border-radius: 99px;
+          font-size: 12px;
+        }
+        .filter-pill.active .filter-count { background: rgba(255,255,255,0.2); }
+      `}</style>
+
+      <header className="dashboard-header">
+        <div className="header-title-group">
+          <Link to="/home" className="back-nav-btn" title="กลับหน้าหลัก">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 19l-7-7 7-7" /></svg>
+          </Link>
+          <h1 className="header-title">ตรวจสอบเนื้อหา</h1>
+        </div>
+        
+        <div className="header-controls">
+          <div className="stat-capsule">
+             <span className="stat-label">คิวรอตรวจสอบ</span>
+             <span className="stat-value">{images.length}</span>
+          </div>
+          <button onClick={() => { fetchHistory(); setShowHistory(true); }} className="action-btn" title="ประวัติการอนุมัติ">
+            <span style={{ fontSize: "16px" }}>📜</span>
+            <span>ประวัติ</span>
           </button>
-          <button onClick={fetchImages} className="refresh-button">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M23 4v6h-6M1 20v-6h6M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" />
-            </svg>
+          <button onClick={fetchImages} className="action-btn" title="โหลดข้อมูลใหม่">
+            <span style={{ fontSize: "16px" }}>🔄</span>
+            <span>รีเฟรช</span>
           </button>
         </div>
       </header>
 
-      {/* Category Filter Buttons */}
-      <div style={{
-        display: "flex",
-        gap: "12px",
-        padding: "16px 32px",
-        backgroundColor: "white",
-        borderBottom: "1px solid #e5e7eb",
-        overflowX: "auto"
-      }}>
-        <button
-          onClick={() => setCategoryFilter("all")}
-          style={{
-            padding: "8px 20px",
-            borderRadius: "20px",
-            border: "none",
-            backgroundColor: categoryFilter === "all" ? "#8b5cf6" : "#e5e7eb",
-            color: categoryFilter === "all" ? "white" : "#64748b",
-            fontWeight: "700",
-            cursor: "pointer",
-            transition: "all 0.3s ease",
-            fontSize: "14px"
-          }}
-        >
-          ทั้งหมด ({images.length})
-        </button>
-        <button
-          onClick={() => setCategoryFilter("image")}
-          style={{
-            padding: "8px 20px",
-            borderRadius: "20px",
-            border: "none",
-            backgroundColor: categoryFilter === "image" ? "#6366f1" : "#e5e7eb",
-            color: categoryFilter === "image" ? "white" : "#64748b",
-            fontWeight: "700",
-            cursor: "pointer",
-            transition: "all 0.3s ease",
-            fontSize: "14px"
-          }}
-        >
-          🖼️ รูปภาพ ({images.filter(img => img.type === "image" || !img.type).length})
-        </button>
-        <button
-          onClick={() => setCategoryFilter("text")}
-          style={{
-            padding: "8px 20px",
-            borderRadius: "20px",
-            border: "none",
-            backgroundColor: categoryFilter === "text" ? "#8b5cf6" : "#e5e7eb",
-            color: categoryFilter === "text" ? "white" : "#64748b",
-            fontWeight: "700",
-            cursor: "pointer",
-            transition: "all 0.3s ease",
-            fontSize: "14px"
-          }}
-        >
-          💬 ข้อความ ({images.filter(img => img.type === "text").length})
-        </button>
-        <button
-          onClick={() => setCategoryFilter("birthday")}
-          style={{
-            padding: "8px 20px",
-            borderRadius: "20px",
-            border: "none",
-            backgroundColor: categoryFilter === "birthday" ? "#ec4899" : "#e5e7eb",
-            color: categoryFilter === "birthday" ? "white" : "#64748b",
-            fontWeight: "700",
-            cursor: "pointer",
-            transition: "all 0.3s ease",
-            fontSize: "14px"
-          }}
-        >
-          🎂 วันเกิด ({images.filter(img => img.type === "birthday").length})
-        </button>
-        <button
-          onClick={() => setCategoryFilter("gift")}
-          style={{
-            padding: "8px 20px",
-            borderRadius: "20px",
-            border: "none",
-            backgroundColor: categoryFilter === "gift" ? "#f59e0b" : "#e5e7eb",
-            color: categoryFilter === "gift" ? "white" : "#64748b",
-            fontWeight: "700",
-            cursor: "pointer",
-            transition: "all 0.3s ease",
-            fontSize: "14px"
-          }}
-        >
-          🎁 ของขวัญ ({images.filter(img => img.type === "gift").length})
-        </button>
+      <div className="filter-bar">
+        {["all", "image", "text", "birthday", "gift"].map(type => (
+           <button
+             key={type}
+             onClick={() => setCategoryFilter(type)}
+             className={`filter-pill ${categoryFilter === type ? 'active' : ''}`}
+             data-type={type}
+           >
+             {type === 'all' && '📑 ทั้งหมด'}
+             {type === 'image' && '🖼️ รูปภาพ'}
+             {type === 'text' && '💬 ข้อความ'}
+             {type === 'birthday' && '🎂 วันเกิด'}
+             {type === 'gift' && '🎁 ของขวัญ'}
+             <span className="filter-count">
+               {type === 'all' ? images.length : images.filter(img => (type === 'image' ? (img.type === 'image' || !img.type) : img.type === type)).length}
+             </span>
+           </button>
+        ))}
       </div>
 
       <main className="main-layout">
@@ -901,18 +1019,50 @@ function ImageQueue() {
                     const categoryColor =
                       image.type === "gift" ? "#f59e0b" :
                         image.type === "birthday" ? "#ec4899" :
-                          image.type === "text" ? "#8b5cf6" :
+                          image.type === "text" ? "#22c55e" :
                             "#6366f1";
 
+                    // เช็คว่าเป็นประเภทที่ต้องการแสดงแค่รูปหรือไม่ (Image, Birthday)
+                    const isImageOnly = image.type === "image" || image.type === "birthday" || !image.type;
+
                     return (
-                      <div key={image._id || image.id} className="image-card" onClick={() => handleImageClick(image)} style={{ borderTopColor: categoryColor }}>
-                        <div className="card-header">
-                          <span className="queue-number">#{index + 1}</span>
-                          <span className="sender">{image.sender}</span>
+                      <div
+                        key={image._id || image.id}
+                        className="image-card"
+                        onClick={() => handleImageClick(image)}
+                        style={{ borderTop: `4px solid ${categoryColor}` }}
+                      >
+                        <div className="card-header" style={{
+                          padding: "12px 16px",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          borderBottom: "1px solid #f1f5f9"
+                        }}>
+                          <span className="queue-number" style={{
+                            background: categoryColor,
+                            color: "white",
+                            padding: "2px 8px",
+                            borderRadius: "6px",
+                            fontSize: "12px",
+                            fontWeight: "700"
+                          }}>#{index + 1}</span>
+                          <span className="sender" style={{
+                            fontSize: "14px",
+                            fontWeight: "600",
+                            color: "#334155",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            maxWidth: "140px"
+                          }}>{image.sender}</span>
                         </div>
 
                         {/* Main Content */}
-                        <div className="image-preview-container" style={{ position: "relative" }}>
+                        <div className="image-preview-container" style={{
+                          position: "relative",
+                          background: isImageOnly ? "#e2e8f0" : undefined
+                        }}>
                           {image.type === "gift" ? (
                             renderGiftOrder(image)
                           ) : image.filePath ? (
@@ -921,20 +1071,39 @@ function ImageQueue() {
                                 src={`http://localhost:5001${image.filePath}`}
                                 alt="Preview"
                                 className="preview-image"
+                                style={{
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "contain",
+                                  display: "block"
+                                }}
                               />
-                              {(!image.composed && image.composed !== "1" && ((image.socialType && image.socialName) || image.text)) && (
-                                <div className="preview-overlay-center">
+                              
+                              {/* แสดง Overlay เฉพาะถ้าไม่ใช่ Type Image/Birthday */}
+                              {!isImageOnly && (!image.composed && image.composed !== "1" && ((image.socialType && image.socialName) || image.text)) && (
+                                <div className="preview-overlay-center" style={{
+                                  position: "absolute",
+                                  bottom: "10px",
+                                  left: "0",
+                                  right: "0",
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  alignItems: "center",
+                                  zIndex: 2
+                                }}>
                                   {image.socialType && image.socialName && (
                                     <div className="preview-social-overlay" style={{
-                                      marginBottom: "8px",
+                                      marginBottom: "4px",
                                       color: "#fff",
-                                      padding: "6px 16px",
-                                      borderRadius: "8px",
-                                      fontWeight: "700",
-                                      fontSize: "20px",
-                                      textShadow: "0 2px 8px rgba(0,0,0,0.8)",
-                                      maxWidth: "100%",
-                                      wordBreak: "break-all"
+                                      padding: "4px 12px",
+                                      background: "rgba(0,0,0,0.4)",
+                                      borderRadius: "20px",
+                                      fontWeight: "600",
+                                      fontSize: "14px",
+                                      backdropFilter: "blur(4px)",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "6px"
                                     }}>
                                       {renderSocialOnImage(image.socialType, image.socialName)}
                                     </div>
@@ -942,14 +1111,15 @@ function ImageQueue() {
                                   {image.text && (
                                     <div className="preview-text-overlay" style={{
                                       color: image.textColor,
+                                      background: "rgba(0,0,0,0.6)",
                                       borderRadius: "8px",
-                                      padding: "12px 24px",
-                                      fontWeight: "400",
-                                      fontSize: "22px",
-                                      textShadow: "0 2px 8px rgba(0,0,0,0.6)",
-                                      maxWidth: "100%",
-                                      wordBreak: "break-word",
-                                      textAlign: "center"
+                                      padding: "8px 16px",
+                                      fontWeight: "500",
+                                      fontSize: "16px",
+                                      marginTop: "4px",
+                                      maxWidth: "90%",
+                                      textAlign: "center",
+                                      backdropFilter: "blur(2px)"
                                     }}>
                                       {image.text}
                                     </div>
@@ -958,36 +1128,33 @@ function ImageQueue() {
                               )}
                             </>
                           ) : (
-                            // กรณีข้อความล้วนเหมือนเดิม
+                            // กรณีข้อความล้วน (Type Text)
                             <div
                               className="text-only-card"
                               style={{
-                                background: "linear-gradient(135deg,#233046 60%,#1e293b 100%)",
-                                borderRadius: "18px",
-                                minHeight: "120px",
-                                minWidth: "100%",
+                                background: "linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)",
+                                width: "100%",
+                                height: "100%",
                                 display: "flex",
                                 flexDirection: "column",
                                 alignItems: "center",
                                 justifyContent: "center",
-                                margin: "0 auto",
-                                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                                padding: "24px 0"
+                                padding: "20px"
                               }}
                             >
                               {image.socialType && image.socialName && (
                                 <div
                                   style={{
-                                    marginBottom: "8px",
-                                    marginTop: "8px",
+                                    marginBottom: "12px",
                                     color: "#fff",
+                                    padding: "6px 16px",
+                                    background: "rgba(255,255,255,0.2)",
+                                    borderRadius: "20px",
                                     fontWeight: "700",
-                                    fontSize: "20px",
-                                    textShadow: "0 2px 8px rgba(0,0,0,0.8)",
-                                    maxWidth: "100%",
-                                    wordBreak: "break-all",
-                                    display: "inline-flex",
-                                    alignItems: "center"
+                                    fontSize: "16px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "8px"
                                   }}
                                 >
                                   {renderSocialOnImage(image.socialType, image.socialName)}
@@ -996,12 +1163,11 @@ function ImageQueue() {
                               <div
                                 style={{
                                   color: image.textColor || "#fff",
-                                  fontWeight: "400",
-                                  fontSize: "22px",
-                                  textShadow: "0 2px 8px rgba(0,0,0,0.6)",
-                                  padding: "12px 24px",
+                                  fontWeight: "600",
+                                  fontSize: "20px",
                                   textAlign: "center",
-                                  wordBreak: "break-all"
+                                  wordBreak: "break-word",
+                                  textShadow: "0 2px 4px rgba(0,0,0,0.2)"
                                 }}
                               >
                                 {image.text}
@@ -1010,12 +1176,22 @@ function ImageQueue() {
                           )}
                         </div>
 
-                        <div className="card-footer">
-                          <div className="time-price">
-                            <span className="time">{image.time}วินาที</span>
-                            <span className="price">฿{image.price}</span>
+                        <div className="card-footer" style={{
+                          padding: "12px 16px",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          background: "#f8fafc",
+                          borderTop: "1px solid #f1f5f9"
+                        }}>
+                          <div className="time-price" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                            <span className="time" style={{ fontSize: "12px", color: "#64748b", display: "flex", alignItems: "center", gap: "4px" }}>
+                              ⏱️ {image.time}s
+                            </span>
                           </div>
-                          <div className="date">{formatDate(image.receivedAt)}</div>
+                          <div className="price" style={{ fontWeight: "700", color: "#10b981", fontSize: "14px" }}>
+                            ฿{image.price}
+                          </div>
                         </div>
                       </div>
                     );
@@ -1530,7 +1706,7 @@ function ImageQueue() {
                       <span className="value" style={{
                         background: selectedImage.type === 'birthday' ? '#ec4899' :
                           selectedImage.type === 'gift' ? '#f59e0b' :
-                            selectedImage.type === 'text' ? '#8b5cf6' : '#6366f1',
+                            selectedImage.type === 'text' ? '#22c55e' : '#6366f1',
                         color: 'white',
                         padding: '4px 12px',
                         borderRadius: '12px',
