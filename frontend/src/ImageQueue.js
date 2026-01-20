@@ -1334,57 +1334,132 @@ function ImageQueue() {
                 {selectedImage.type === 'gift' ? (
                   renderGiftOrderFull(selectedImage, false)
                 ) : selectedImage.filePath ? (
-                  <>
-                    <img
-                      src={`http://localhost:5001${selectedImage.filePath}`}
-                      alt="Full preview"
-                      className="modal-image"
-                      style={{
-                        width: "100%",
-                        height: "auto",
-                        maxHeight: "400px",
-                        objectFit: "contain",
-                        borderRadius: "18px",
-                        display: "block",
-                        margin: "0 auto"
-                      }}
-                    />
-                    {(!selectedImage.composed && selectedImage.composed !== "1" && ((selectedImage.socialType && selectedImage.socialName) || selectedImage.text)) && (
-                      <div className="preview-overlay-center">
+                  /* แสดง Preview แบบเดียวกับ Upload User */
+                  <div style={{
+                    display: "flex",
+                    gap: "20px",
+                    alignItems: "stretch",
+                    background: "#929292",
+                    padding: "20px",
+                    borderRadius: "12px",
+                    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+                    maxWidth: "100%",
+                    overflow: "hidden"
+                  }}>
+                    {/* รูปภาพด้านซ้าย */}
+                    <div style={{
+                      width: "300px",
+                      height: "375px",
+                      flexShrink: 0,
+                      background: "#929292",
+                      borderRadius: "8px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      overflow: "hidden"
+                    }}>
+                      <img
+                        src={`http://localhost:5001${selectedImage.filePath}`}
+                        alt="Full preview"
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "contain",
+                          display: "block"
+                        }}
+                      />
+                    </div>
+
+                    {/* Sidebar ด้านขวา - Social + Text + QR Code */}
+                    <div style={{
+                      flex: 1,
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      minWidth: "200px",
+                      maxWidth: "250px",
+                      padding: "15px 10px"
+                    }}>
+                      {/* Social + Text + QR Code ทั้งหมดอยู่ตรงกลาง */}
+                      <div style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "16px",
+                        width: "100%"
+                      }}>
+                        {/* Social */}
                         {selectedImage.socialType && selectedImage.socialName && (
-                          <div className="preview-social-overlay" style={{
-                            marginBottom: "8px",
+                          <div style={{
                             color: "#fff",
-                            padding: "6px 16px",
-                            borderRadius: "8px",
                             fontWeight: "700",
-                            fontSize: "20px",
+                            fontSize: "18px",
                             textShadow: "0 2px 8px rgba(0,0,0,0.8)",
-                            maxWidth: "100%",
-                            wordBreak: "break-all"
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "8px",
+                            textAlign: "center",
+                            wordBreak: "break-word"
                           }}>
                             {renderSocialOnImage(selectedImage.socialType, selectedImage.socialName)}
                           </div>
                         )}
+
+                        {/* Text */}
                         {selectedImage.text && (
-                          <div className="preview-text-overlay" style={{
-                            color: selectedImage.textColor,
-                            borderRadius: "8px",
-                            padding: "6px 16px",
+                          <div style={{
+                            color: selectedImage.textColor || "#fff",
                             fontWeight: "400",
-                            fontSize: "18px",
+                            fontSize: "16px",
                             textShadow: selectedImage.textColor === "white"
                               ? "0 2px 8px rgba(0,0,0,0.8)"
                               : "0 2px 8px rgba(255,255,255,0.8)",
-                            maxWidth: "100%",
-                            wordBreak: "break-all"
+                            textAlign: "center",
+                            wordBreak: "break-word",
+                            whiteSpace: "pre-wrap",
+                            width: "100%"
                           }}>
                             {selectedImage.text}
                           </div>
                         )}
+
+                        {/* QR Code */}
+                        {selectedImage.qrCodePath && (
+                          <div style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: "8px"
+                          }}>
+                            <span style={{
+                              color: "#fff",
+                              fontSize: "14px",
+                              fontWeight: "600",
+                              textShadow: "0 2px 4px rgba(0,0,0,0.6)"
+                            }}>
+                              สแกนเลย!
+                            </span>
+                            <img
+                              src={`http://localhost:5001${selectedImage.qrCodePath}`}
+                              alt="QR Code"
+                              style={{
+                                width: "120px",
+                                height: "120px",
+                                objectFit: "contain",
+                                background: "white",
+                                padding: "8px",
+                                borderRadius: "8px",
+                                boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
+                              }}
+                            />
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </>
+                    </div>
+                  </div>
                 ) : (
                   <div
                     style={{
@@ -1514,27 +1589,7 @@ function ImageQueue() {
                       </div>
                     )}
 
-                    {/* QR Code Preview */}
-                    {selectedImage.qrCodePath && (
-                      <div className="detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                        <span className="label">QR Code Instagram:</span>
-                        <div style={{ marginTop: '8px' }}>
-                          <img
-                            src={`http://localhost:5001${selectedImage.qrCodePath}`}
-                            alt="QR Code"
-                            style={{
-                              maxWidth: '300px',
-                              maxHeight: '300px',
-                              border: '3px solid #e2e8f0',
-                              borderRadius: '12px',
-                              background: 'white',
-                              padding: '8px',
-                              boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
+                    {/* QR Code Preview - ซ่อนเพราะแสดงใน preview แล้ว */}
                   </>
                 )}
 
