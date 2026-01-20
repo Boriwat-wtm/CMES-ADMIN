@@ -861,7 +861,7 @@ app.post("/api/upload", uploadUser, async (req, res) => {
       filePath: mainFile ? `/uploads/user-uploads/${mainFile.filename}` : null,
       qrCodePath: qrFile ? `/uploads/qr-codes/${qrFile.filename}` : null,
       composed: composed === "1" || composed === "true",
-      status: "payment_pending", // รอการชำระเงิน
+      status: req.body.status || "pending", // ใช้ค่าจาก frontend หรือค่า default "pending"
       userId: userId || null,
       email: email || null,
       avatar: avatar || null,
