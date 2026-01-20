@@ -1690,6 +1690,50 @@ server.listen(PORT, async () => {
   setInterval(processAutoQueue, 1000);
 });
 
+// ==========================================
+// SOCKET.IO CONNECTION HANDLER
+// ==========================================
+io.on('connection', (socket) => {
+  console.log('[Socket.IO] Client connected:', socket.id);
+
+  // รับสัญญาณหยุดชั่วคราวจาก Admin Panel
+  socket.on('pause-display', (data) => {
+    console.log('[Socket.IO] Pause display event received:', data);
+    // ส่งต่อไป OBS
+    io.emit('pause-display', data);
+  });
+
+  // รับสัญญาณเริ่มต่อจาก Admin Panel
+  socket.on('resume-display', (data) => {
+    console.log('[Socket.IO] Resume display event received:', data);
+    // ส่งต่อไป OBS
+    io.emit('resume-display', data);
+  });
+
+  // รับสัญญาณข้ามคิวจาก Admin Panel
+  socket.on('skip-current', () => {
+    console.log('[Socket.IO] Skip current event received');
+    // ส่งต่อไป OBS ให้ซ่อนการแสดงทันที
+    io.emit('skip-current');
+  });
+
+  // Complete playing (from OBS)
+  socket.on('complete-playing', async (imageId) => {
+    console.log('[Socket.IO] Complete playing event received for:', imageId);
+    try {
+      await ImageQueue.findByIdAndUpdate(imageId, { status: 'completed' });
+      console.log('[Socket.IO] Marked as completed:', imageId);
+    } catch (err) {
+      console.error('[Socket.IO] Error completing:', err);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log('[Socket.IO] Client disconnected:', socket.id);
+  });
+});
+
+
 
 // ==========================================
 // SERVER-SIDE QUEUE LOGIC

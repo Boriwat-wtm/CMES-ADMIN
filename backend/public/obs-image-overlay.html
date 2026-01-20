@@ -564,6 +564,9 @@
     const qrImage = document.getElementById('qr-image');
 
     let hideTimer = null;
+    let countdownInterval = null; // เก็บ interval สำหรับ countdown
+    let isPaused = false; // สถานะหยุดชั่วคราว
+    let remainingTime = 0; // เวลาที่เหลืออยู่เมื่อหยุด
 
     const logoMap = {
       ig: 'http://localhost:5001/data-icon/ig-logo.png',
@@ -683,13 +686,17 @@
         timerEl.classList.add('show');
 
         let remaining = displaySeconds;
+        remainingTime = remaining; // เก็บค่าเริ่มต้น
         const mins = Math.floor(remaining / 60);
         const secs = remaining % 60;
         timerEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
 
-        // Countdown interval
-        const countdownInterval = setInterval(() => {
+        // Countdown interval - ทำงานปกติ ไม่ต้องเช็ค isPaused ใน interval
+        countdownInterval = setInterval(() => {
+          if (isPaused) return; // ถ้า pause ให้ข้ามไปก่อน ไม่ต้องทำอะไร
+          
           remaining--;
+          remainingTime = remaining;
           if (remaining >= 0) {
             const m = Math.floor(remaining / 60);
             const s = remaining % 60;
@@ -714,6 +721,33 @@
     socket.on('connect', () => console.log('[Combined Overlay] Connected', socket.id));
     socket.on('now-playing-image', show);
     socket.on('now-playing-gift', showGift);
+
+    // รับสัญญาณหยุดชั่วคราว
+    socket.on('pause-display', (data) => {
+      console.log('[OBS] Pause display received:', data);
+      isPaused = true;
+    });
+
+    // รับสัญญาณเริ่มต่อ
+    socket.on('resume-display', (data) => {
+      console.log('[OBS] Resume display received:', data);
+      isPaused = false;
+    });
+
+    // รับสัญญาณข้ามคิว
+    socket.on('skip-current', () => {
+      console.log('[OBS] Skip current received');
+      // ซ่อนการแสดงทันที
+      clearTimeout(hideTimer);
+      clearInterval(countdownInterval);
+      container.classList.remove('show');
+      giftContainer.classList.remove('show');
+      const timerEl = document.getElementById('countdown-timer');
+      timerEl.classList.remove('show');
+      isPaused = false;
+      remainingTime = 0;
+    });
+
 
     // Gift Order Display
     const giftContainer = document.getElementById('gift-container');

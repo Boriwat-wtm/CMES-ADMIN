@@ -5,6 +5,10 @@ import igLogo from "./data-icon/ig-logo.png";
 import fbLogo from "./data-icon/facebook-logo.png";
 import lineLogo from "./data-icon/line-logo.png";
 import tiktokLogo from "./data-icon/x-logo.png";
+import io from "socket.io-client";
+
+// Connect to Admin Backend Socket
+const socket = io('http://localhost:5001', { transports: ['websocket', 'polling'] });
 
 function ImageQueue() {
   const [images, setImages] = useState([]);
@@ -302,14 +306,22 @@ function ImageQueue() {
 
   const handlePauseDisplay = () => {
     if (displayPaused) {
-      // Resume
+      // Resume - ทำงานต่อจากเวลาที่หยุดไว้
       setDisplayPaused(false);
       const now = Date.now();
-      localStorage.setItem("startTimestamp", now - (savedTimeLeft * 1000));
+      const duration = currentPreview.time;
+      // คำนวณ startTimestamp ใหม่โดยใช้เวลาที่เหลืออยู่
+      localStorage.setItem("startTimestamp", now - ((duration - timeLeft) * 1000));
+      
+      // ส่งสัญญาณไป OBS ให้เริ่มนับเวลาต่อ
+      socket.emit('resume-display', { timeLeft });
     } else {
-      // Pause
+      // Pause - หยุดชั่วคราวและบันทึกเวลาที่เหลือ
       setDisplayPaused(true);
       setSavedTimeLeft(timeLeft);
+      
+      // ส่งสัญญาณไป OBS ให้หยุดนับเวลา
+      socket.emit('pause-display', { timeLeft });
     }
   };
 
@@ -321,6 +333,9 @@ function ImageQueue() {
     } catch (err) {
       console.error("Error skipping current image:", err);
     }
+
+    // ส่งสัญญาณไป OBS ให้ซ่อนการแสดงทันที
+    socket.emit('skip-current');
 
     // reset current preview state
     setIsActive(false);
