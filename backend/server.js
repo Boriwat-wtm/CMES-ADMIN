@@ -1691,10 +1691,18 @@ server.listen(PORT, async () => {
 });
 
 // ==========================================
+// GLOBAL PUBLIC RANKING STATE
+// ==========================================
+let publicRankingType = 'alltime'; // Default public display mode
+
+// ==========================================
 // SOCKET.IO CONNECTION HANDLER
 // ==========================================
 io.on('connection', (socket) => {
   console.log('[Socket.IO] Client connected:', socket.id);
+
+  // Send current public ranking type to newly connected client
+  socket.emit('publicRankingTypeUpdated', { type: publicRankingType });
 
   // รับสัญญาณหยุดชั่วคราวจาก Admin Panel
   socket.on('pause-display', (data) => {
@@ -1725,6 +1733,19 @@ io.on('connection', (socket) => {
       console.log('[Socket.IO] Marked as completed:', imageId);
     } catch (err) {
       console.error('[Socket.IO] Error completing:', err);
+    }
+  });
+
+  // Handle public ranking type broadcast from Admin
+  socket.on('setPublicRankingType', (data) => {
+    const { type } = data;
+    if (['daily', 'monthly', 'alltime'].includes(type)) {
+      publicRankingType = type;
+      console.log(`[Socket.IO] Public ranking type updated to: ${type}`);
+      // Broadcast to ALL clients (Admin + Users)
+      io.emit('publicRankingTypeUpdated', { type: publicRankingType });
+    } else {
+      console.warn(`[Socket.IO] Invalid ranking type received: ${type}`);
     }
   });
 

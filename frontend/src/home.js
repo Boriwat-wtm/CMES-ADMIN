@@ -44,7 +44,8 @@ function Home() {
   const [rankLoading, setRankLoading] = useState(true);
   const [refreshingRanks, setRefreshingRanks] = useState(false);
   const [rankError, setRankError] = useState("");
-  const [rankingType, setRankingType] = useState("alltime"); // daily, monthly, alltime
+  const [rankingType, setRankingType] = useState("alltime"); // daily, monthly, alltime (LOCAL ADMIN VIEW)
+  const [publicRankingType, setPublicRankingType] = useState("alltime"); // PUBLIC BROADCAST STATE
 
   const [showAllRanks, setShowAllRanks] = useState(false);
   const [allRanks, setAllRanks] = useState([]);
@@ -65,6 +66,18 @@ function Home() {
     });
     socket.emit("getConfig");
     return () => socket.off("status");
+  }, []);
+
+  /*
+   * Listen for public ranking type updates
+   */
+  useEffect(() => {
+    socket.on("publicRankingTypeUpdated", (data) => {
+      console.log("[Admin] Public ranking type updated:", data.type);
+      setPublicRankingType(data.type);
+    });
+
+    return () => socket.off("publicRankingTypeUpdated");
   }, []);
 
   /*
@@ -262,6 +275,14 @@ function Home() {
     setSecond("");
     setPrice("");
     alert("บันทึกแพ็คเกจสำเร็จ");
+  };
+
+  /*
+   * Broadcast public ranking type change
+   */
+  const handleSetPublicRankingType = (type) => {
+    console.log("[Admin] Broadcasting public ranking type:", type);
+    socket.emit("setPublicRankingType", { type });
   };
 
   /*
@@ -500,9 +521,52 @@ function Home() {
 
           {/* กล่องขวา - VIP Supporters */}
           <aside className="vip-card">
+            {/* 🔴 PUBLIC DISPLAY CONTROL SECTION */}
+            <div className="public-broadcast-control">
+              <div className="broadcast-header">
+                <span className="broadcast-title">📺 Public Display Control</span>
+                <span className="broadcast-subtitle">ควบคุมการแสดงผลบนหน้าจอผู้ใช้</span>
+              </div>
+              
+              <div className="broadcast-buttons">
+                <button
+                  className={`broadcast-btn ${publicRankingType === "daily" ? "active" : ""}`}
+                  onClick={() => handleSetPublicRankingType("daily")}
+                  disabled={!systemOn}
+                >
+                  {publicRankingType === "daily" && <span className="live-indicator">🔴 LIVE</span>}
+                  <span>รายวัน</span>
+                </button>
+                <button
+                  className={`broadcast-btn ${publicRankingType === "monthly" ? "active" : ""}`}
+                  onClick={() => handleSetPublicRankingType("monthly")}
+                  disabled={!systemOn}
+                >
+                  {publicRankingType === "monthly" && <span className="live-indicator">🔴 LIVE</span>}
+                  <span>รายเดือน</span>
+                </button>
+                <button
+                  className={`broadcast-btn ${publicRankingType === "alltime" ? "active" : ""}`}
+                  onClick={() => handleSetPublicRankingType("alltime")}
+                  disabled={!systemOn}
+                >
+                  {publicRankingType === "alltime" && <span className="live-indicator">🔴 LIVE</span>}
+                  <span>ตลอดกาล</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div style={{ 
+              height: "1px", 
+              background: "linear-gradient(90deg, transparent, #e2e8f0, transparent)", 
+              margin: "20px 0" 
+            }}></div>
+
+            {/* ADMIN LOCAL VIEW SECTION */}
             <div className="rank-panel-heading">
               <div>
-                <p className="rank-panel-title">VIP Supporters</p>
+                <p className="rank-panel-title">VIP Supporters (Admin View)</p>
                 <small>อันดับ 1-10 • รวม {totalRankers} คน</small>
               </div>
 
@@ -516,7 +580,7 @@ function Home() {
               </button>
             </div>
 
-            {/* Ranking Type Selector */}
+            {/* Ranking Type Selector (LOCAL ADMIN VIEW) */}
             <div className="ranking-type-selector">
               <button
                 className={`ranking-type-btn ${rankingType === "daily" ? "active" : ""}`}

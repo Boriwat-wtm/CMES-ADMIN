@@ -39,7 +39,8 @@ let config = {
   birthdaySpendingRequirement: 100, // จำนวนเงินขั้นต่ำที่ต้องใช้จ่ายเพื่อใช้ฟีเจอร์วันเกิดฟรี
   price: 100,
   time: 10,
-  settings: [] // This will be hydrated from DB
+  settings: [], // This will be hydrated from DB
+  publicRankingType: 'alltime' // 🔥 PUBLIC DISPLAY RANKING TYPE
 };
 
 // Load initial config from MongoDB (for settings history) and maintain runtime config
@@ -140,6 +141,9 @@ io.on("connection", (socket) => {
   // ส่งสถานะล่าสุดให้ client ที่เพิ่งเชื่อมต่อ
   socket.emit("status", config);
 
+  // Send current public ranking type to newly connected client
+  socket.emit("publicRankingTypeUpdated", { type: config.publicRankingType });
+
   // รับสถานะใหม่จาก admin (Switches)
   socket.on("updateStatus", (newStatus) => {
     config = { ...config, ...newStatus };
@@ -155,6 +159,20 @@ io.on("connection", (socket) => {
     config = { ...config, ...newConfig };
     io.emit("configUpdate", config);
     saveRuntimeConfig();
+  });
+
+  // 🔥 Handle public ranking type broadcast from Admin
+  socket.on("setPublicRankingType", (data) => {
+    const { type } = data;
+    if (['daily', 'monthly', 'alltime'].includes(type)) {
+      config.publicRankingType = type;
+      console.log(`[Realtime] Public ranking type updated to: ${type}`);
+      // Broadcast to ALL clients (Admin + Users)
+      io.emit("publicRankingTypeUpdated", { type: config.publicRankingType });
+      saveRuntimeConfig();
+    } else {
+      console.warn(`[Realtime] Invalid ranking type received: ${type}`);
+    }
   });
 
   // Add History -> Save to DB
