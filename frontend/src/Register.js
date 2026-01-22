@@ -39,6 +39,12 @@ function Register() {
 
       const data = await response.json();
       if (response.ok && data.success) {
+        // 🔥 บันทึก adminId ใน localStorage
+        if (data.user && data.user.id) {
+          localStorage.setItem("adminId", data.user.id);
+          localStorage.setItem("adminUsername", data.user.username);
+        }
+        
         // Success notification
         setUsername("");
         setPassword("");

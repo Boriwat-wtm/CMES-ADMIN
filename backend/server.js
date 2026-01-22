@@ -308,6 +308,7 @@ app.post("/login", async (req, res) => {
         success: true,
         message: "เข้าสู่ระบบสำเร็จ",
         user: {
+          id: user.id || user.username, // 🔥 ส่ง ID กลับมาเพื่อใช้เป็น shopId
           username: user.username,
           role: "admin"
         }

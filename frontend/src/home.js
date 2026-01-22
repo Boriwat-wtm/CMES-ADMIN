@@ -53,6 +53,10 @@ function Home() {
   const [fetchingAllRanks, setFetchingAllRanks] = useState(false);
   const [allRankError, setAllRankError] = useState("");
 
+  // 🔥 ดึง adminId จาก localStorage
+  const adminId = localStorage.getItem("adminId") || "default-admin";
+  const adminUsername = localStorage.getItem("adminUsername") || "Admin";
+
   /*
    * Load system config from socket.io
    */
@@ -330,7 +334,6 @@ function Home() {
           <a href="/check-history">ประวัติการตรวจสอบ</a>
           <a href="/lucky-wheel">วงล้อเสี่ยงดวง</a>
           <a href="/gift-setting">ตั้งค่าส่งของขวัญ</a>
-          <a href="http://localhost:5001/obs-image-overlay.html" target="_blank" rel="noreferrer">OBS Image Overlay</a>
         </nav>
       </header>
 
@@ -445,6 +448,100 @@ function Home() {
                 </div>
                 <small style={{ color: "#64748b", fontSize: "12px" }}>
                   ผู้ใช้ต้องใช้จ่ายครบจำนวนนี้ก่อนจึงจะใช้ฟีเจอร์วันเกิดฟรีได้
+                </small>
+              </div>
+
+              {/* OBS Links Section */}
+              <div className="toggle-card" style={{ flexDirection: "column", alignItems: "flex-start", gap: "12px", marginTop: "16px", background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)", border: "2px solid #0ea5e9" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "space-between", width: "100%" }}>
+                  <span style={{ fontSize: "16px", fontWeight: "700", color: "#0369a1" }}>🎥 OBS Overlay Links</span>
+                  <span style={{ fontSize: "11px", color: "#64748b", background: "#fff", padding: "4px 8px", borderRadius: "6px", border: "1px solid #cbd5e1" }}>
+                    {adminUsername}
+                  </span>
+                </div>
+                
+                {/* Image Overlay Link */}
+                <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Image & Text Overlay:</label>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <input
+                      type="text"
+                      readOnly
+                      value={`http://localhost:5001/obs-image-overlay.html?shopId=${adminId}`}
+                      style={{
+                        flex: 1,
+                        padding: "8px 12px",
+                        border: "1px solid #cbd5e1",
+                        borderRadius: "8px",
+                        fontSize: "13px",
+                        background: "#fff",
+                        color: "#334155"
+                      }}
+                    />
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`http://localhost:5001/obs-image-overlay.html?shopId=${adminId}`);
+                        alert("คัดลอกลิงก์แล้ว!");
+                      }}
+                      style={{
+                        padding: "8px 16px",
+                        background: "linear-gradient(135deg, #0ea5e9, #0284c7)",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                        fontSize: "13px",
+                        fontWeight: "600",
+                        whiteSpace: "nowrap"
+                      }}
+                    >
+                      📋 Copy
+                    </button>
+                  </div>
+                </div>
+
+                {/* Ranking Overlay Link */}
+                <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Ranking Overlay:</label>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <input
+                      type="text"
+                      readOnly
+                      value={`http://localhost:5001/obs-ranking-overlay.html?shopId=${adminId}`}
+                      style={{
+                        flex: 1,
+                        padding: "8px 12px",
+                        border: "1px solid #cbd5e1",
+                        borderRadius: "8px",
+                        fontSize: "13px",
+                        background: "#fff",
+                        color: "#334155"
+                      }}
+                    />
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`http://localhost:5001/obs-ranking-overlay.html?shopId=${adminId}`);
+                        alert("คัดลอกลิงก์แล้ว!");
+                      }}
+                      style={{
+                        padding: "8px 16px",
+                        background: "linear-gradient(135deg, #0ea5e9, #0284c7)",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                        fontSize: "13px",
+                        fontWeight: "600",
+                        whiteSpace: "nowrap"
+                      }}
+                    >
+                      📋 Copy
+                    </button>
+                  </div>
+                </div>
+
+                <small style={{ color: "#64748b", fontSize: "11px", marginTop: "4px" }}>
+                  💡 คัดลอกลิงก์เหล่านี้ไปเพิ่มใน OBS Studio เป็น Browser Source (ลิงก์เฉพาะร้านของคุณ)
                 </small>
               </div>
             </div>
