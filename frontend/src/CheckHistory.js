@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import "./CheckHistory.css";
 
 function CheckHistory() {
@@ -35,8 +36,10 @@ function CheckHistory() {
     fetchHistory();
   };
 
-  const textHistory = history.filter((item) => item.type === "text" || item.type === "gift");
-  const imageHistory = history.filter((item) => item.type === "image" || item.type === "birthday");
+  const textHistory = history.filter((item) => item.type === "text");
+  const imageHistory = history.filter((item) => item.type === "image");
+  const giftHistory = history.filter((item) => item.type === "gift");
+  const birthdayHistory = history.filter((item) => item.type === "birthday");
 
   const formatDate = (dateString) => {
     if (!dateString) return "-";
@@ -49,6 +52,100 @@ function CheckHistory() {
       second: "2-digit",
     });
   };
+
+  const renderHistoryCard = (title, color, items, emptyMessage) => (
+    <div className="ch-card">
+      <div className="ch-card-header">
+        รายละเอียดการตรวจสอบ <span style={{ color: color }}>{title}</span>
+      </div>
+      {items.length === 0 ? (
+        <div
+          style={{
+            textAlign: "center",
+            color: "#94a3b8",
+            padding: "3rem 0",
+            fontSize: "1.125rem",
+          }}
+        >
+          {emptyMessage}
+        </div>
+      ) : (
+        items.map((item) => (
+          <div className="ch-card-section" key={item.id}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.5rem",
+              }}
+            >
+              <div style={{ color: "#1e293b" }}>
+                <b>เวลา:</b> {formatDate(item.checkedAt)}
+              </div>
+              {item.text && (
+                <div style={{ color: "#1e293b" }}>
+                  <b>รายละเอียด:</b> {item.text}
+                </div>
+              )}
+              {item.giftItems && item.giftItems.length > 0 && (
+                <div style={{ color: "#1e293b", background: "#f8fafc", padding: "8px", borderRadius: "6px", fontSize: "0.9rem" }}>
+                  <div style={{ fontWeight: "bold", marginBottom: "4px", color: "#f59e0b" }}>รายการของขวัญ:</div>
+                  <ul style={{ margin: "0 0 0 20px", padding: 0 }}>
+                    {item.giftItems.map((g, i) => (
+                      <li key={i}>{g.name} x{g.quantity}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+               {item.price > 0 && (
+                <div style={{ color: "#1e293b" }}>
+                  <b>ราคา:</b> {item.price}
+                </div>
+              )}
+              <div style={{ color: "#1e293b" }}>
+                <b>สถานะ:</b> {
+                  item.status === "approved" ? "อนุมัติ" :
+                  item.status === "completed" ? "แสดงเสร็จสิ้น" :
+                  "ปฏิเสธ"
+                }
+              </div>
+              {item.filePath && (
+                <div>
+                  <img
+                    src={`http://localhost:5001${item.filePath}`}
+                    alt="img"
+                    style={{
+                      maxWidth: 180,
+                      marginTop: 8,
+                      borderRadius: 8,
+                      boxShadow: "0 1px 4px 0 rgba(30,41,59,.08)",
+                    }}
+                  />
+                </div>
+              )}
+              <button
+                className="ch-btn-detail"
+                onClick={() => {
+                  setSelected(item);
+                  setShowModal(true);
+                }}
+              >
+                ตรวจสอบรายละเอียด
+              </button>
+            </div>
+            {editMode && (
+              <button
+                className="ch-btn-delete"
+                onClick={() => handleDelete(item.id)}
+              >
+                ลบ
+              </button>
+            )}
+          </div>
+        ))
+      )}
+    </div>
+  );
 
   // Modal แสดงรายละเอียด
   const DetailModal = ({ item, onClose }) => (
@@ -159,27 +256,18 @@ function CheckHistory() {
   return (
     <div className="ch-main-bg">
       <header className="ch-header">
-        <div className="ch-header-title">CMS ADMIN</div>
+        <Link to="/home" className="back-nav-btn" title="กลับหน้าหลัก">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M15 19l-7-7 7-7" />
+          </svg>
+        </Link>
         <div className="ch-header-center">ประวัติการตรวจสอบ</div>
-        <div style={{ flex: 1 }}></div>
-      </header>
-      <main style={{ marginTop: "110px", width: "100%" }}>
-        <div
-          style={{
-            width: "100%",
-            maxWidth: 1020,
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 12,
-            marginTop: 8,
-          }}
-        >
+        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
           <button
-            className={`ch-btn ch-btn-edit${editMode ? " active" : ""
-              }`}
+            className={`ch-btn ch-btn-edit${editMode ? " active" : ""}`}
             onClick={() => setEditMode((v) => !v)}
           >
-            {editMode ? "ปิดโหมดแก้ไข" : "แก้ไข"}
+            {editMode ? "ปิดแก้ไข" : "แก้ไข"}
           </button>
           <button
             className="ch-btn ch-btn-deleteall"
@@ -188,6 +276,8 @@ function CheckHistory() {
             ลบทั้งหมด
           </button>
         </div>
+      </header>
+      <main style={{ marginTop: "100px", width: "100%" }}>
         <div
           style={{
             display: "flex",
@@ -197,146 +287,13 @@ function CheckHistory() {
             justifyContent: "center",
             alignItems: "flex-start",
             flexWrap: "wrap",
+            padding: "0 2rem 2rem 2rem"
           }}
         >
-          {/* กรอบซ้าย (ข้อความ) */}
-          <div className="ch-card">
-            <div className="ch-card-header">
-              รายละเอียดการตรวจสอบ{" "}
-              <span style={{ color: "#ec4899" }}>ข้อความ</span>
-            </div>
-            {textHistory.length === 0 ? (
-              <div
-                style={{
-                  textAlign: "center",
-                  color: "#94a3b8",
-                  padding: "3rem 0",
-                  fontSize: "1.125rem",
-                }}
-              >
-                ไม่มีประวัติการตรวจสอบข้อความ
-              </div>
-            ) : (
-              textHistory.map((item, idx) => (
-                <div className="ch-card-section" key={item.id}>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "0.5rem",
-                    }}
-                  >
-                    <div style={{ color: "#1e293b" }}>
-                      <b>เวลา:</b> {formatDate(item.checkedAt)}
-                    </div>
-                    <div style={{ color: "#1e293b" }}>
-                      <b>รายละเอียด:</b> {item.text}
-                    </div>
-                    <div style={{ color: "#1e293b" }}>
-                      <b>สถานะ:</b> {
-                        item.status === "approved" ? "อนุมัติ" :
-                          item.status === "completed" ? "แสดงเสร็จสิ้น" :
-                            "ปฏิเสธ"
-                      }
-                    </div>
-                    <button
-                      className="ch-btn-detail"
-                      onClick={() => {
-                        setSelected(item);
-                        setShowModal(true);
-                      }}
-                    >
-                      ตรวจสอบรายละเอียด
-                    </button>
-                  </div>
-                  {editMode && (
-                    <button
-                      className="ch-btn-delete"
-                      onClick={() => handleDelete(item.id)}
-                    >
-                      ลบ
-                    </button>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-          {/* กรอบขวา (รูปภาพ) */}
-          <div className="ch-card">
-            <div className="ch-card-header">
-              รายละเอียดการตรวจสอบ{" "}
-              <span style={{ color: "#6366f1" }}>รูปภาพ</span>
-            </div>
-            {imageHistory.length === 0 ? (
-              <div
-                style={{
-                  textAlign: "center",
-                  color: "#94a3b8",
-                  padding: "3rem 0",
-                  fontSize: "1.125rem",
-                }}
-              >
-                ไม่มีประวัติการตรวจสอบรูปภาพ
-              </div>
-            ) : (
-              imageHistory.map((item, idx) => (
-                <div className="ch-card-section" key={item.id}>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "0.5rem",
-                    }}
-                  >
-                    <div style={{ color: "#1e293b" }}>
-                      <b>เวลา:</b> {formatDate(item.checkedAt)}
-                    </div>
-                    <div style={{ color: "#1e293b" }}>
-                      <b>รายละเอียด:</b> {item.text}
-                    </div>
-                    <div style={{ color: "#1e293b" }}>
-                      <b>สถานะ:</b> {
-                        item.status === "approved" ? "อนุมัติ" :
-                          item.status === "completed" ? "แสดงเสร็จสิ้น" :
-                            "ปฏิเสธ"
-                      }
-                    </div>
-                    {item.filePath && (
-                      <div>
-                        <img
-                          src={`http://localhost:5001${item.filePath}`}
-                          alt="img"
-                          style={{
-                            maxWidth: 180,
-                            marginTop: 8,
-                            borderRadius: 8,
-                            boxShadow: "0 1px 4px 0 rgba(30,41,59,.08)",
-                          }}
-                        />
-                      </div>
-                    )}
-                    <button
-                      className="ch-btn-detail"
-                      onClick={() => {
-                        setSelected(item);
-                        setShowModal(true);
-                      }}
-                    >
-                      ตรวจสอบรายละเอียด
-                    </button>
-                  </div>
-                  {editMode && (
-                    <button
-                      className="ch-btn-delete"
-                      onClick={() => handleDelete(item.id)}
-                    >
-                      ลบ
-                    </button>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
+          {renderHistoryCard("ข้อความ", "#ec4899", textHistory, "ไม่มีประวัติข้อความ")}
+          {renderHistoryCard("รูปภาพ", "#6366f1", imageHistory, "ไม่มีประวัติรูปภาพ")}
+          {renderHistoryCard("ของขวัญ", "#f59e0b", giftHistory, "ไม่มีประวัติของขวัญ")}
+          {renderHistoryCard("วันเกิด", "#ef4444", birthdayHistory, "ไม่มีประวัติวันเกิด")}
         </div>
       </main>
       {showModal && selected && (
