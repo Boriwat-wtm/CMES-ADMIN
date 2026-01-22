@@ -4,7 +4,7 @@ import "./ImageQueue.css";
 import igLogo from "./data-icon/ig-logo.png";
 import fbLogo from "./data-icon/facebook-logo.png";
 import lineLogo from "./data-icon/line-logo.png";
-import tiktokLogo from "./data-icon/x-logo.png";
+import tiktokLogo from "./data-icon/tiktok-logo.png";
 import io from "socket.io-client";
 
 // Connect to Admin Backend Socket
@@ -32,7 +32,6 @@ function ImageQueue() {
   const [isPaused, setIsPaused] = useState(false);
   const [pauseTimeLeft, setPauseTimeLeft] = useState(0);
   const [displayPaused, setDisplayPaused] = useState(false);
-  const [savedTimeLeft, setSavedTimeLeft] = useState(0);
 
   const totalDuration = currentPreview ? Math.max(currentPreview.time || 0, 1) : 1;
   const progressRatio = Math.max(0, Math.min(1, (totalDuration - timeLeft) / totalDuration));
@@ -42,6 +41,7 @@ function ImageQueue() {
     fetchGiftSettings();
     const interval = setInterval(fetchImages, 5000);
     return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // เมื่อเริ่มแสดงรูปใหม่ (ใน processNextInQueue หรือ handleApprove)
@@ -196,6 +196,7 @@ function ImageQueue() {
     return () => {
       if (interval) clearInterval(interval);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, currentPreview, displayPaused]);
 
   // Simple countdown effect - runs when isPaused changes
@@ -229,6 +230,7 @@ function ImageQueue() {
         clearInterval(countdownTimer);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPaused]); // Only depend on isPaused, not pauseTimeLeft
 
   const fetchImages = async () => {
@@ -318,7 +320,6 @@ function ImageQueue() {
     } else {
       // Pause - หยุดชั่วคราวและบันทึกเวลาที่เหลือ
       setDisplayPaused(true);
-      setSavedTimeLeft(timeLeft);
       
       // ส่งสัญญาณไป OBS ให้หยุดนับเวลา
       socket.emit('pause-display', { timeLeft });
@@ -343,7 +344,6 @@ function ImageQueue() {
     setDisplayPaused(false);
     setCurrentPreview(null);
     setTimeLeft(0);
-    setSavedTimeLeft(0);
     setPauseTimeLeft(0);
     localStorage.removeItem("currentPreview");
     localStorage.removeItem("startTimestamp");
@@ -619,7 +619,6 @@ function ImageQueue() {
     const gift = item.giftOrder || {};
     const senderInfo = item.sender || 'ผู้ส่ง';
     const targetTable = gift.tableNumber || '-';
-    const avatarUrl = gift.avatar || null;
     
     return (
       <div className="gift-order-card-simple">
