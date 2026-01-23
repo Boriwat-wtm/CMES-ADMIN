@@ -397,26 +397,66 @@ function ImageQueue() {
     setShowModal(true);
   };
 
+  // Handle drag and drop for queue reordering
+  const [draggedIndex, setDraggedIndex] = useState(null);
+
+  const handleDragStart = (e, index) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.target.style.opacity = '0.5';
+  };
+
+  const handleDragEnd = (e) => {
+    e.target.style.opacity = '1';
+    
+    // Save final order to localStorage on drop/end
+    const queueOrder = previewQueue.map(item => item._id || item.id);
+    localStorage.setItem('queueOrder', JSON.stringify(queueOrder));
+    
+    setDraggedIndex(null);
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    
+    if (draggedIndex === null || draggedIndex === index) return;
+
+    const newQueue = [...previewQueue];
+    const draggedItem = newQueue[draggedIndex];
+    newQueue.splice(draggedIndex, 1);
+    newQueue.splice(index, 0, draggedItem);
+    
+    setPreviewQueue(newQueue);
+    setDraggedIndex(index);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
   /* 
    * Queue Persistence & Sync
    * Sync 'approved' items from backend to previewQueue on load/refresh
    */
   useEffect(() => {
     if (loading) return;
+    // Stop sync during drag
+    if (draggedIndex !== null) return;
 
     // 1. Get truly approved items from server state
     const approvedItemsFromServer = images.filter(img => img.status === "approved");
     const approvedIds = new Set(approvedItemsFromServer.map(img => img._id || img.id));
 
+    // Get saved queue order from localStorage
+    const savedOrderJson = localStorage.getItem('queueOrder');
+    const savedOrder = savedOrderJson ? JSON.parse(savedOrderJson) : [];
+
     setPreviewQueue(prev => {
       // 2. Remove items from local queue that are no longer in the approved list from server
-      // (e.g. they started playing or were completed/rejected)
       const cleanedQueue = prev.filter(item => {
         const id = item._id || item.id;
-        // Keep if it still exists in approved list from server
-        // OR if needed? No, if it's not approved on server, it shouldn't be in queue.
-        // EXCEPT: There might be a slight delay in 'images' update? 
-        // Trusted source is 'images' which comes from fetchImages.
         return approvedIds.has(id);
       });
 
@@ -426,32 +466,42 @@ function ImageQueue() {
 
       const newItems = approvedItemsFromServer.filter(item => {
         const itemId = item._id || item.id;
-
-        // Exclude if already in cleaned queue
         if (currentIds.has(itemId)) return false;
-
-        // Exclude if currently playing (double check)
         if (currentPlayingId && currentPlayingId === itemId) return false;
-
-        // Exclude if locally marked as completed (safety)
         if (completedIdsRef.current.has(itemId)) return false;
-
         return true;
       });
 
-      if (newItems.length > 0) {
-        newItems.sort((a, b) => new Date(a.receivedAt) - new Date(b.receivedAt));
-        return [...cleanedQueue, ...newItems];
+      // Merge: cleanedQueue (which preserves user order) + newItems (newly approved)
+      let mergedQueue = [...cleanedQueue, ...newItems];
+
+      // ALWAYS sort by saved order if available to recover order after refresh
+      if (savedOrder.length > 0) {
+        mergedQueue.sort((a, b) => {
+          const aId = a._id || a.id;
+          const bId = b._id || b.id;
+          const aIndex = savedOrder.indexOf(aId);
+          const bIndex = savedOrder.indexOf(bId);
+
+          if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+          if (aIndex !== -1) return -1;
+          if (bIndex !== -1) return 1;
+          
+          return new Date(a.receivedAt || a.createdAt) - new Date(b.receivedAt || b.createdAt);
+        });
+      } else {
+         // Default sort
+         mergedQueue.sort((a, b) => new Date(a.receivedAt || a.createdAt) - new Date(b.receivedAt || b.createdAt));
       }
 
-      // Return cleaned queue if anything changed (length diff) or if we just want to update
-      if (cleanedQueue.length !== prev.length) {
-        return cleanedQueue;
-      }
-
+      // Check for changes efficiently
+      const prevIds = prev.map(i => i._id || i.id).join(',');
+      const newIds = mergedQueue.map(i => i._id || i.id).join(',');
+      
+      if (prevIds !== newIds) return mergedQueue;
       return prev;
     });
-  }, [images, loading, currentPreview]);
+  }, [images, loading, currentPreview, draggedIndex]);
 
   const handleApprove = async (id) => {
     try {
@@ -1478,9 +1528,25 @@ function ImageQueue() {
             {previewQueue.length > 0 && (
               <div className="waiting-queue">
                 <h3>คิวที่รออยู่ ({previewQueue.length})</h3>
+                <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px', marginBottom: '12px' }}>
+                  💡 ลากเพื่อจัดเรียงลำดับคิว
+                </p>
                 <div className="queue-list">
                   {previewQueue.map((queueImage, index) => (
-                    <div key={`queue-${index}`} className="queue-item">
+                    <div 
+                      key={queueImage._id || queueImage.id}
+                      className="queue-item"
+                      draggable="true"
+                      onDragStart={(e) => handleDragStart(e, index)}
+                      onDragEnd={handleDragEnd}
+                      onDragOver={(e) => handleDragOver(e, index)}
+                      onDrop={handleDrop}
+                      style={{ 
+                        cursor: 'grab',
+                        transition: 'all 0.2s ease',
+                        opacity: draggedIndex === index ? 0.5 : 1
+                      }}
+                    >
                       <div className="queue-item-number">#{index + 1}</div>
                       <div className="queue-item-image">
                         <img
@@ -1496,6 +1562,14 @@ function ImageQueue() {
                         <div className="queue-item-text">
                           {queueImage.text ? queueImage.text.slice(0, 15) + '...' : 'ไม่มีข้อความ'}
                         </div>
+                      </div>
+                      <div className="drag-handle" style={{ 
+                        fontSize: '18px', 
+                        color: '#94a3b8',
+                        marginLeft: 'auto',
+                        cursor: 'grab'
+                      }}>
+                        ⋮⋮
                       </div>
                     </div>
                   ))}
