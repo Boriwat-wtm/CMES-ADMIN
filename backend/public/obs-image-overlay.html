@@ -578,15 +578,24 @@
     function show(payload = {}) {
       console.log('[Combined Overlay] Received payload:', payload);
 
+      // Clear previous
+      clearInterval(countdownInterval);
+      clearTimeout(hideTimer);
+      clearTimeout(giftHideTimer);
+
       // Reset Countdown/Pause State
       const timerEl = document.getElementById('countdown-timer');
-      if (timerEl) timerEl.classList.remove('show');
+      if (timerEl) {
+        timerEl.classList.remove('show');
+        timerEl.textContent = "0:00";
+      }
       isPaused = false;
 
       const {
         sender, price, time, filePath, text, textColor,
         socialType, socialName: socName, qrCodePath,
-        width, height, duration, seconds, remainingSeconds, timeLeft
+        width, height, duration, seconds, remainingSeconds, timeLeft,
+        playingAt // ใช้เพื่อ Sync เวลากับ Server
       } = payload;
 
       console.log('[Debug] socialType:', socialType, 'socName:', socName);
@@ -680,46 +689,52 @@
       // แสดง container
       if (hasContent) {
         container.classList.add('show');
-
-        // คำนวณเวลาแสดง
-        const timeCandidate = [time, duration, seconds, remainingSeconds, timeLeft].find(v => v != null && !isNaN(v));
-        const displayMs = timeCandidate != null ? Math.max(Number(timeCandidate) * 1000, 1000) : 5000;
-        const displaySeconds = Math.floor(displayMs / 1000);
-
-        // แสดง countdown timer
-        const timerEl = document.getElementById('countdown-timer');
         timerEl.classList.add('show');
 
-        let remaining = displaySeconds;
-        remainingTime = remaining; // เก็บค่าเริ่มต้น
-        const mins = Math.floor(remaining / 60);
-        const secs = remaining % 60;
-        timerEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+        // คำนวณเวลาสิ้นสุด
+        // ใช้ playingAt จาก server ถ้ามี เพื่อความแม่นยำ Sync กัน
+        const timeCandidate = [time, duration, seconds, remainingSeconds, timeLeft].find(v => v != null && !isNaN(v));
+        const durationSec = Number(timeCandidate || 10);
+        
+        let startTime = Date.now();
+        if (playingAt) {
+          startTime = new Date(playingAt).getTime();
+        }
+        const endTime = startTime + (durationSec * 1000);
 
-        // Countdown interval - ทำงานปกติ ไม่ต้องเช็ค isPaused ใน interval
-        countdownInterval = setInterval(() => {
-          if (isPaused) return; // ถ้า pause ให้ข้ามไปก่อน ไม่ต้องทำอะไร
-          
-          remaining--;
-          remainingTime = remaining;
-          if (remaining >= 0) {
-            const m = Math.floor(remaining / 60);
-            const s = remaining % 60;
+        // Update Timer Function
+        const updateTimer = () => {
+          // ถ้า Server Paused เวลาจะหยุดเดินที่ Server ด้วยหรือไม่?
+          // ถ้า Server เป็นคนคุมเวลาและ Aging ตลอด เราไม่ควรหยุด Stop ตาม isPaused
+          // แต่ถ้า isPaused หมายถึง "ซ่อนชั่วคราว" ?
+          // ตาม Code ImageQueue เวลานับถอยหลังต่อ ดังนั้น OBS ก็นับต่อ
+          // if (isPaused) return;
+
+          const now = Date.now();
+          const leftMs = endTime - now;
+          const leftSec = Math.ceil(leftMs / 1000);
+
+          if (leftSec >= 0) {
+            const m = Math.floor(leftSec / 60);
+            const s = leftSec % 60;
             timerEl.textContent = `${m}:${s.toString().padStart(2, '0')}`;
           } else {
-            clearInterval(countdownInterval);
+            timerEl.textContent = "0:00";
+            // Check Expiry (allow 2s buffer for network latency)
+            if (leftSec < -2) {
+               clearInterval(countdownInterval);
+               container.classList.remove('show');
+               timerEl.classList.remove('show');
+               if (payload.id) {
+                 // แจ้ง server ว่าจบแล้ว (แม้ server จะ auto-complete เองก็ตาม)
+                 // socket.emit('complete-playing', payload.id); 
+               }
+            }
           }
-        }, 1000);
+        };
 
-        clearTimeout(hideTimer);
-        hideTimer = setTimeout(() => {
-          clearInterval(countdownInterval);
-          container.classList.remove('show');
-          timerEl.classList.remove('show');
-          if (payload.id) {
-            socket.emit('complete-playing', payload.id);
-          }
-        }, displayMs);
+        updateTimer();
+        countdownInterval = setInterval(updateTimer, 250);
       }
     }
 
