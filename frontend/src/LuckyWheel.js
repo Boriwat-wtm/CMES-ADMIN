@@ -269,19 +269,10 @@ function LuckyWheel() {
         
         <div style={{ display: 'flex', gap: '10px', marginTop: 18, justifyContent: 'center' }}>
           <button
+            className="spin-btn"
             onClick={togglePreview}
             disabled={spinning || segments.length === 0}
-            style={{
-              fontSize: 18, 
-              padding: "8px 20px", 
-              borderRadius: "50px",
-              border: "none",
-              background: previewing ? "#ef4444" : "#3b82f6",
-              color: "#fff",
-              cursor: "pointer",
-              fontWeight: "bold",
-              boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
-            }}
+            style={{ fontSize: 20, padding: "8px 32px", margin: 0 }}
           >
             {previewing ? "👁️ ปิดจอ OBS" : "👁️ แสดงจอ OBS"}
           </button>

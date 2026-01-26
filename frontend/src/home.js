@@ -540,6 +540,46 @@ function Home() {
                   </div>
                 </div>
 
+                {/* Lucky Wheel Overlay Link */}
+                <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Lucky Wheel Overlay:</label>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <input
+                      type="text"
+                      readOnly
+                      value={`http://localhost:5001/obs-lucky-wheel.html?shopId=${adminId}`}
+                      style={{
+                        flex: 1,
+                        padding: "8px 12px",
+                        border: "1px solid #cbd5e1",
+                        borderRadius: "8px",
+                        fontSize: "13px",
+                        background: "#fff",
+                        color: "#334155"
+                      }}
+                    />
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`http://localhost:5001/obs-lucky-wheel.html?shopId=${adminId}`);
+                        alert("คัดลอกลิงก์แล้ว!");
+                      }}
+                      style={{
+                        padding: "8px 16px",
+                        background: "linear-gradient(135deg, #0ea5e9, #0284c7)",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                        fontSize: "13px",
+                        fontWeight: "600",
+                        whiteSpace: "nowrap"
+                      }}
+                    >
+                      📋 Copy
+                    </button>
+                  </div>
+                </div>
+
                 <small style={{ color: "#64748b", fontSize: "11px", marginTop: "4px" }}>
                   💡 คัดลอกลิงก์เหล่านี้ไปเพิ่มใน OBS Studio เป็น Browser Source (ลิงก์เฉพาะร้านของคุณ)
                 </small>
