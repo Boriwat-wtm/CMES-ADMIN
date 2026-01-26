@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>OBS Lucky Wheel Overlay</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@400;700;900&family=Prompt:wght@400;700&display=swap');
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      overflow: hidden;
+      font-family: 'Prompt', sans-serif;
+    }
+
+    /* --- Container & Overlay --- */
+    #wheel-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.5s ease-in-out;
+      /* Subtle radial gradient background to focus attention */
+      /* background: radial-gradient(circle, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 70%); */
+    }
+
+    #wheel-overlay.show {
+      opacity: 1;
+    }
+
+    .wheel-wrapper {
+      position: relative;
+      width: 650px;
+      height: 650px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      /* Drop shadow for depth */
+      filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.6));
+      transform: scale(0.9);
+      transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    
+    #wheel-overlay.show .wheel-wrapper {
+      transform: scale(1);
+    }
+
+    /* --- The Wheel --- */
+    .wheel-outer-rim {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      /* Golden Gradient Rim */
+      background: conic-gradient(
+        #f59e0b, #fed7aa, #f59e0b, #b45309, 
+        #f59e0b, #fed7aa, #f59e0b, #b45309, #f59e0b
+      );
+      box-shadow: 
+        inset 0 0 20px rgba(0,0,0,0.4),
+        0 0 15px rgba(251, 191, 36, 0.6);
+      padding: 15px; /* Rim thickness */
+      box-sizing: border-box;
+    }
+
+    .wheel-main-container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 8px solid #fff; /* Inner white border */
+      box-sizing: border-box;
+      background: #fff;
+    }
+
+    .obs-wheel-svg {
+      width: 100%;
+      height: 100%;
+      transition: transform 4s cubic-bezier(.17, .67, .83, .67);
+      /* Make sure SVG centers properly */
+      display: block;
+    }
+
+    /* Center Cap */
+    .wheel-center-cap {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 60px;
+      height: 60px;
+      background: radial-gradient(circle at 30% 30%, #fff, #fbbf24, #b45309);
+      border-radius: 50%;
+      z-index: 10;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+      border: 4px solid #fff;
+    }
+    .wheel-center-cap::after {
+      content: '★';
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      color: #78350f; /* Dark gold */
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    /* --- Pointer --- */
+    .wheel-arrow-container {
+      position: absolute;
+      top: -35px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      filter: drop-shadow(0 5px 5px rgba(0,0,0,0.4));
+    }
+    
+    .wheel-arrow {
+      width: 70px;
+      height: 80px;
+    }
+
+    /* --- Countdown Overlay --- */
+    #wheel-countdown-container {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.4);
+      border-radius: 50%;
+      z-index: 25;
+      backdrop-filter: blur(4px);
+      box-shadow: inset 0 0 50px rgba(0,0,0,0.5);
+    }
+    
+    .countdown-number {
+      font-family: 'Kanit', sans-serif;
+      font-size: 14rem;
+      font-weight: 900;
+      background: linear-gradient(to bottom, #fff 30%, #fbbf24 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 15px rgba(245, 158, 11, 0.8));
+      animation: pulse-zoom 1s infinite;
+    }
+
+    @keyframes pulse-zoom {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.9; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    /* --- Winner Modal (Grand Style) --- */
+    #wheel-winner-modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.5);
+      /* Luxurious gradient background */
+      background: linear-gradient(135deg, #ffffff 0%, #fff7ed 100%);
+      width: 700px;
+      padding: 40px;
+      border-radius: 30px;
+      text-align: center;
+      /* Gold Border */
+      border: 6px solid;
+      border-image-slice: 1;
+      border-width: 6px;
+      border-image-source: linear-gradient(to bottom right, #fbbf24, #b45309, #fbbf24);
+      /* Deep shadow */
+      box-shadow: 
+        0 0 0 10px rgba(255,255,255,0.2), 
+        0 20px 80px rgba(0,0,0,0.7);
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.6s cubic-bezier(0.19, 1, 0.22, 1);
+    }
+
+    #wheel-winner-modal.show {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .winner-header {
+      font-size: 2.5rem;
+      color: #b45309;
+      font-weight: 700;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    
+    .winner-name {
+      font-family: 'Kanit', sans-serif;
+      font-size: 5rem;
+      font-weight: 900;
+      /* Gradient text */
+      background: linear-gradient(45deg, #ef4444, #b91c1c);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+      line-height: 1.1;
+      text-shadow: 3px 3px 0px rgba(0,0,0,0.1);
+    }
+    
+    .winner-reward {
+      margin-top: 20px;
+      font-size: 2.5rem;
+      color: #059669;
+      font-weight: 700;
+      background: #ecfdf5;
+      padding: 10px 30px;
+      border-radius: 50px;
+      display: inline-block;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      border: 2px solid #34d399;
+    }
+
+    /* Confetti Canvas */
+    #confetti {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 90;
+    }
+
+    /* Shimmer Effect for Winner Box */
+    .shimmer-overlay {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(to right, transparent 0%, rgba(255,255,255,0.8) 50%, transparent 100%);
+      transform: skewX(-20deg) translateX(-150%);
+      transition: none;
+      pointer-events: none;
+    }
+    #wheel-winner-modal.show .shimmer-overlay {
+      animation: shimmer 2s infinite;
+    }
+    @keyframes shimmer {
+      0% { transform: skewX(-20deg) translateX(-150%); }
+      100% { transform: skewX(-20deg) translateX(150%); }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Confetti Canvas -->
+  <canvas id="confetti"></canvas>
+
+  <div id="wheel-overlay">
+    <div class="wheel-wrapper">
+      <div class="wheel-outer-rim">
+        <div class="wheel-main-container">
+          <div id="obs-wheel-svg-container" class="obs-wheel-svg"></div>
+        </div>
+      </div>
+      
+      <!-- Center Cap -->
+      <div class="wheel-center-cap"></div>
+      
+      <!-- Arrow -->
+      <div class="wheel-arrow-container">
+        <svg class="wheel-arrow" viewBox="0 0 50 60">
+           <!-- Stylized Pointer -->
+           <path d="M 25 60 L 0 10 Q 5 0 25 0 Q 45 0 50 10 Z" fill="#dc2626" stroke="#fff" stroke-width="3" />
+           <circle cx="25" cy="15" r="8" fill="#fff" />
+        </svg>
+      </div>
+
+      <!-- Countdown -->
+      <div id="wheel-countdown-container" style="display:none;">
+        <div id="wheel-countdown-text" class="countdown-number">10</div>
+      </div>
+    </div>
+
+    <!-- Winner Modal -->
+    <div id="wheel-winner-modal">
+      <div class="shimmer-overlay"></div>
+      <div class="winner-header">🎉 ขอแสดงความยินดี 🎉</div>
+      <div id="wheel-winner-name" class="winner-name">...</div>
+      <div id="wheel-winner-reward" class="winner-reward" style="display:none;"></div>
+    </div>
+  </div>
+
+  <script>
+    const socket = io('http://localhost:5001');
+
+    const wheelOverlay = document.getElementById('wheel-overlay');
+    const wheelSvgContainer = document.getElementById('obs-wheel-svg-container');
+    const wheelCountdownContainer = document.getElementById('wheel-countdown-container');
+    const wheelCountdownText = document.getElementById('wheel-countdown-text');
+    const wheelWinnerModal = document.getElementById('wheel-winner-modal');
+    const wheelWinnerName = document.getElementById('wheel-winner-name');
+    const wheelWinnerReward = document.getElementById('wheel-winner-reward');
+
+    // Vibrant Colors
+    const defaultColors = [
+      "#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899", "#facc15", "#06b6d4"
+    ];
+
+    function generateWheelSVG(segments) {
+      const segs = segments.length;
+      const arc = 2 * Math.PI / segs;
+      const radius = 180; // Larger for clearer text
+      const viewBox = 360;
+      
+      let paths = segments.map((seg, i) => {
+        const startAngle = i * arc - Math.PI / 2;
+        const endAngle = (i + 1) * arc - Math.PI / 2;
+        const x1 = radius * Math.cos(startAngle);
+        const y1 = radius * Math.sin(startAngle);
+        const x2 = radius * Math.cos(endAngle);
+        const y2 = radius * Math.sin(endAngle);
+        const largeArc = arc > Math.PI ? 1 : 0;
+        const pathData = `M 0 0 L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+        
+        // Text alignment
+        const angle = startAngle + arc / 2;
+        const textRadius = radius * 0.70;
+        const tx = textRadius * Math.cos(angle);
+        const ty = textRadius * Math.sin(angle);
+        const deg = angle * 180 / Math.PI;
+
+        return `
+          <g>
+            <path d="${pathData}" fill="${defaultColors[i % defaultColors.length]}" stroke="#fff" stroke-width="2" />
+            <text x="${tx}" y="${ty}" 
+              text-anchor="middle" alignment-baseline="middle" 
+              fill="#fff" font-size="${segments.length > 20 ? 12 : 18}" font-weight="900"
+              style="text-shadow: 1px 1px 2px rgba(0,0,0,0.5);"
+              transform="rotate(${deg}, ${tx}, ${ty})"
+            >${seg}</text>
+          </g>
+        `;
+      }).join('');
+
+      return `<svg width="100%" height="100%" viewBox="-180 -180 360 360" style="overflow:visible;">
+        ${paths}
+      </svg>`;
+    }
+
+    // --- Simple Confetti System ---
+    const confettiCanvas = document.getElementById('confetti');
+    const ctx = confettiCanvas.getContext('2d');
+    let particles = [];
+    
+    function resizeCanvas() {
+        confettiCanvas.width = window.innerWidth;
+        confettiCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function fireConfetti() {
+        particles = [];
+        const particleCount = 200;
+        const colors = ['#f43f5e', '#f59e0b', '#3b82f6', '#10b981', '#ffffff'];
+        
+        for (let i = 0; i < particleCount; i++) {
+            particles.push({
+                x: window.innerWidth / 2,
+                y: window.innerHeight / 2,
+                vx: (Math.random() - 0.5) * 20,
+                vy: (Math.random() - 0.5) * 20,
+                size: Math.random() * 8 + 4,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                life: 150 + Math.random() * 100,
+                gravity: 0.1,
+                rotation: Math.random() * 360,
+                rotationSpeed: (Math.random() - 0.5) * 10
+            });
+        }
+        requestAnimationFrame(updateConfetti);
+    }
+
+    function updateConfetti() {
+        ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+        
+        if (particles.length === 0) return;
+        
+        for (let i = 0; i < particles.length; i++) {
+            const p = particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += p.gravity;
+            p.rotation += p.rotationSpeed;
+            p.life--;
+            
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rotation * Math.PI / 180);
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = Math.max(0, p.life / 50);
+            ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size);
+            ctx.restore();
+        }
+        
+        particles = particles.filter(p => p.life > 0);
+        requestAnimationFrame(updateConfetti);
+    }
+
+    let currentInterval = null;
+
+    socket.on('lucky-wheel-spin', (data) => {
+      console.log('OBS Received Spin:', data);
+      const { segments, winnerIndex, reward } = data;
+      if (!segments || segments.length === 0) return;
+
+      if (currentInterval) clearInterval(currentInterval);
+      
+      // Setup
+      wheelSvgContainer.innerHTML = generateWheelSVG(segments);
+      wheelOverlay.classList.add('show');
+      wheelWinnerModal.classList.remove('show');
+      wheelCountdownContainer.style.display = 'flex';
+      
+      // Reset rotation
+      wheelSvgContainer.style.transition = 'none';
+      wheelSvgContainer.style.transform = 'rotate(0deg)';
+
+      let count = 10;
+      wheelCountdownText.textContent = count;
+      
+      currentInterval = setInterval(() => {
+        count--;
+        if (count > 0) {
+          wheelCountdownText.textContent = count;
+        } else {
+          clearInterval(currentInterval);
+          wheelCountdownContainer.style.display = 'none';
+          
+          // Spin
+          const degPerSeg = 360 / segments.length;
+          
+          // Randomize landing position: "Rim Rim" (Edges) for suspense
+          // Instead of centering (0.5), we pick 0.05-0.25 (Start Edge) or 0.75-0.95 (End Edge)
+          const isNearStart = Math.random() < 0.5;
+          const randomOffset = isNearStart 
+             ? 0.02 + Math.random() * 0.18  // Land near start line
+             : 0.80 + Math.random() * 0.18; // Land near end line
+             
+          // Calculate degree
+          // (winnerIndex * degPerSeg) aligns Start of segment to Top.
+          // Subtracting offset moves the wheel Counter-Clockwise, placing pointer deeper into segment.
+          const extraSpins = 30; // Increased spins for longer duration
+          const finalDeg = (360 * extraSpins) + (360 - (winnerIndex * degPerSeg) - (degPerSeg * randomOffset));
+          
+          // Animation: Moves very slowly at the end
+          // cubic-bezier(0.08, 0.8, 0.05, 1) creates an even longer "creeping" tail effect
+          wheelSvgContainer.style.transition = 'transform 25s cubic-bezier(0.08, 0.8, 0.05, 1)';
+          wheelSvgContainer.style.transform = `rotate(${finalDeg}deg)`;
+
+          // Show Winner after spin (Wait for transition duration)
+          setTimeout(() => {
+            wheelWinnerName.textContent = segments[winnerIndex];
+            if (reward) {
+              wheelWinnerReward.textContent = `🎁 ${reward}`;
+              wheelWinnerReward.style.display = 'inline-block';
+            } else {
+              wheelWinnerReward.style.display = 'none';
+            }
+            wheelWinnerModal.classList.add('show');
+            fireConfetti(); // Boom!
+
+            // Hide after 30s
+            setTimeout(() => {
+              wheelOverlay.classList.remove('show');
+              wheelWinnerModal.classList.remove('show');
+              // Reset rotation silently after hiding to prevent accumulation of degrees
+               wheelSvgContainer.style.transition = 'none';
+               wheelSvgContainer.style.transform = 'rotate(0deg)';
+            }, 30000);
+
+          }, 25100); // 25s + 0.1s buffer
+        }
+      }, 1000);
+    });
+
+    socket.on('lucky-wheel-hide', () => {
+       wheelOverlay.classList.remove('show');
+       if (currentInterval) clearInterval(currentInterval);
+    });
+  </script>
+</body>
+
+</html>

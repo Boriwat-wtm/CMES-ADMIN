@@ -1088,70 +1088,15 @@
       </svg>`;
     }
 
+    // --- Lucky Wheel Logic moved to obs-lucky-wheel.html ---
+    // Please add http://localhost:5001/obs-lucky-wheel.html as a new Browser Source in OBS
+    /*
     socket.on('lucky-wheel-spin', (data) => {
-      console.log('OBS Received Spin:', data);
-      const { segments, winnerIndex, reward } = data;
-      
-      // 1. Setup Wheel
-      wheelSvgContainer.innerHTML = generateWheelSVG(segments);
-      wheelOverlay.classList.add('show');
-      wheelWinnerModal.classList.remove('show');
-      wheelCountdownContainer.style.display = 'flex';
-      
-      // Reset rotation
-      wheelSvgContainer.style.transition = 'none';
-      wheelSvgContainer.style.transform = 'rotate(0deg)';
-
-      // 2. Countdown 10s
-      let count = 10;
-      wheelCountdownText.textContent = count;
-      
-      const countInterval = setInterval(() => {
-        count--;
-        if (count > 0) {
-          wheelCountdownText.textContent = count;
-        } else {
-          clearInterval(countInterval);
-          wheelCountdownContainer.style.display = 'none';
-          
-          // 3. Spin Animation
-          const degPerSeg = 360 / segments.length;
-          const randomTurns = 5 + Math.random() * 3; // 5-8 turns
-          // Winner calculation: 
-          // 0deg is at -90 (top). 
-          // Segments start at -90. Segment 0 is [-90, -90+arc].
-          // To land Segment X at Top (-90), we need to rotate NEGATIVE or POSITIVE appropriately.
-          // Let's stick to the React logic:
-          // finalDeg = 360 * randomTurns + (360 - winnerIdx * degPerSeg - degPerSeg / 2);
-          const finalDeg = 360 * 8 + (360 - winnerIndex * degPerSeg - degPerSeg / 2);
-          
-          wheelSvgContainer.style.transition = 'transform 4s cubic-bezier(.17,.67,.83,.67)';
-          wheelSvgContainer.style.transform = `rotate(${finalDeg}deg)`;
-
-          // 4. Show Winner after spin (4s)
-          setTimeout(() => {
-            wheelWinnerName.textContent = segments[winnerIndex];
-            if (reward) {
-              wheelWinnerReward.textContent = `🎁 ${reward}`;
-              wheelWinnerReward.style.display = 'block';
-            } else {
-              wheelWinnerReward.style.display = 'none';
-            }
-            wheelWinnerModal.classList.add('show');
-
-            // 5. Hide after 30s
-            setTimeout(() => {
-              wheelOverlay.classList.remove('show');
-            }, 30000);
-
-          }, 4100);
-        }
-      }, 1000);
+       // ... moved ...
     });
+    */
+    // -------------------------------------------------------
 
-    socket.on('lucky-wheel-hide', () => {
-       wheelOverlay.classList.remove('show');
-    });
   </script>
 </body>
 

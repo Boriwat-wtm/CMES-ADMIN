@@ -81,8 +81,8 @@ function LuckyWheel() {
     setPopupEffect(false);
     const winnerIdx = getRandomInt(0, segments.length - 1);
     const degPerSeg = 360 / segments.length;
-    const randomTurns = getRandomInt(5, 8);
-    const finalDeg = 360 * randomTurns + (360 - winnerIdx * degPerSeg - degPerSeg / 2);
+    // Match OBS: 30 spins for 25s duration
+    const finalDeg = 360 * 30 + (360 - winnerIdx * degPerSeg - degPerSeg / 2);
 
     // Call Backend API to sync with OBS
     fetch('http://localhost:5001/api/lucky-wheel/spin', {
@@ -101,7 +101,8 @@ function LuckyWheel() {
       wheelRef.current.style.transition = "none";
       wheelRef.current.style.transform = `rotate(0deg)`;
       setTimeout(() => {
-        wheelRef.current.style.transition = "transform 4s cubic-bezier(.17,.67,.83,.67)";
+        // Match OBS: 25s with suspenseful bezier
+        wheelRef.current.style.transition = "transform 25s cubic-bezier(0.08, 0.8, 0.05, 1)";
         wheelRef.current.style.transform = `rotate(${finalDeg}deg)`;
       }, 50);
     }
@@ -111,7 +112,7 @@ function LuckyWheel() {
       setWinner(winnerIdx);
       setShowPopup(true);
       setTimeout(() => setPopupEffect(true), 50);
-    }, 4100);
+    }, 25100); // 25s + buffer
   };
 
   const closePopup = () => {
