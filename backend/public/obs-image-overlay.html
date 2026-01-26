@@ -578,6 +578,11 @@
     function show(payload = {}) {
       console.log('[Combined Overlay] Received payload:', payload);
 
+      // Reset Countdown/Pause State
+      const timerEl = document.getElementById('countdown-timer');
+      if (timerEl) timerEl.classList.remove('show');
+      isPaused = false;
+
       const {
         sender, price, time, filePath, text, textColor,
         socialType, socialName: socName, qrCodePath,
@@ -726,12 +731,28 @@
     socket.on('pause-display', (data) => {
       console.log('[OBS] Pause display received:', data);
       isPaused = true;
+      
+      // Update Countdown
+      const timerEl = document.getElementById('countdown-timer');
+      
+      // ถ้าเป็นโหมดนับถอยหลังรอคิว (Auto Delay) ให้ซ่อนการแสดงผลทั้งหมด
+      if (data && data.isCountingDown) {
+         container.classList.remove('show');
+         if (timerEl) timerEl.classList.remove('show');
+      } 
+      // ถ้าเป็นการหยุด manual (active pause) อาจจะแสดง timer หรือไม่ก็ได้ (ตามเดิมคือไม่แสดงอะไร แค่หยุด)
+      else if (timerEl && data && data.remaining !== undefined) {
+         // timerEl.textContent = ...; // User requested NO countdown on OBS
+         // So we do nothing visual here, just keep state paused
+      }
     });
 
     // รับสัญญาณเริ่มต่อ
     socket.on('resume-display', (data) => {
       console.log('[OBS] Resume display received:', data);
       isPaused = false;
+      const timerEl = document.getElementById('countdown-timer');
+      if (timerEl) timerEl.classList.remove('show');
     });
 
     // รับสัญญาณข้ามคิว

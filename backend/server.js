@@ -749,6 +749,9 @@ app.post("/api/gifts/order", async (req, res) => {
     const queueItem = await ImageQueue.create(queueData);
     console.log("[Admin] Queue item created:", queueItem._id);
 
+    // Notify admins
+    io.emit("new-upload", queueItem);
+
     // บันทึก ranking เฉพาะ user ที่ login แล้ว
     if (userId) {
       console.log("[Admin] Calling addRankingPoint for userId:", userId);
@@ -870,6 +873,9 @@ app.post("/api/upload", uploadUser, async (req, res) => {
     };
 
     const queueItem = await ImageQueue.create(itemData);
+
+    // Notify admins for real-time update
+    io.emit("new-upload", queueItem);
 
     // บันทึก ranking เฉพาะ user ที่ login แล้ว (ไม่บันทึกสำหรับ birthday เพราะฟรี)
     // ย้ายไปทำหลังชำระเงินแล้ว
@@ -1040,6 +1046,9 @@ app.post("/api/approve/:id", async (req, res) => {
 
     await ImageQueue.findByIdAndUpdate(id, updateData);
 
+    // Notify all admins to update their lists
+    io.emit("admin-update-queue");
+
     res.json({ success: true, message: 'Item approved' });
   } catch (error) {
     console.error('Error approving image:', error);
@@ -1098,6 +1107,9 @@ app.post("/api/reject/:id", async (req, res) => {
     // ลบออกจากคิว
     await ImageQueue.findByIdAndDelete(id);
 
+    // Notify all admins to update their lists
+    io.emit("admin-update-queue");
+
     res.json({ success: true, message: 'Item rejected and saved to history' });
   } catch (error) {
     console.error('Error rejecting image:', error);
@@ -1119,8 +1131,10 @@ app.post("/api/complete/:id", async (req, res) => {
     // Use shared function
     await completeItem(item);
 
-    // Auto-play next item
-    await playNextItem();
+    // Start 15s Delay
+    console.log("[API] Manual complete, starting 15s delay...");
+    nextPlayTime = Date.now() + 15000; 
+    if (typeof io !== 'undefined') io.emit('pause-display', { remaining: 15, isCountingDown: true });
 
     res.json({ success: true, message: 'Item completed and saved to history' });
   } catch (error) {
@@ -1750,6 +1764,14 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Handle Queue Reorder from Admin
+  socket.on('admin-reorder-queue', (orderIds) => {
+    if (Array.isArray(orderIds)) {
+      customQueueOrder = orderIds;
+      console.log('[Socket.IO] Queue order updated:', customQueueOrder.length, 'items');
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log('[Socket.IO] Client disconnected:', socket.id);
   });
@@ -1761,8 +1783,20 @@ io.on('connection', (socket) => {
 // SERVER-SIDE QUEUE LOGIC
 // ==========================================
 
+let nextPlayTime = 0; // Global delay tracker
+let customQueueOrder = []; // Store admin's custom queue order
+
 async function processAutoQueue() {
   try {
+    // Check wait time
+    if (Date.now() < nextPlayTime) {
+      if (typeof io !== 'undefined') {
+        const remaining = Math.ceil((nextPlayTime - Date.now()) / 1000);
+        io.emit('pause-display', { remaining, isCountingDown: true });
+      }
+      return;
+    }
+
     // 1. Find currently playing item
     const playingItem = await ImageQueue.findOne({ status: 'playing' });
 
@@ -1779,8 +1813,10 @@ async function processAutoQueue() {
           console.log(`[QueueWorker] Item ${playingItem._id} expired (${elapsedSec.toFixed(1)}/${durationSec}s). Completing...`);
           await completeItem(playingItem);
 
-          // Auto-play next item
-          await playNextItem();
+          // Start 15s Delay instead of immediate play
+          console.log("[QueueWorker] Starting 15s delay...");
+          nextPlayTime = Date.now() + 15000;
+          if (typeof io !== 'undefined') io.emit('pause-display', { remaining: 15, isCountingDown: true });
         }
       } else {
         // If no playingAt, set it now? Or treat as just started?
@@ -1847,6 +1883,7 @@ async function completeItem(item) {
 
     // Notify clients that item is done (optional, but good for UI sync)
     io.emit("item-completed", { id: item._id, transactionId: item._id });
+    io.emit("admin-update-queue"); // Sync admin UI
 
   } catch (err) {
     console.error("[QueueWorker] Error completing item:", err);
@@ -1855,17 +1892,35 @@ async function completeItem(item) {
 
 async function playNextItem() {
   try {
-    // Find next approved item
-    // Sort by approvedAt to ensure FIFO order
-    const nextItem = await ImageQueue.findOne({ status: 'approved' }).sort({ approvedAt: 1 });
+    // 1. Get all approved items
+    const approvedItems = await ImageQueue.find({ status: 'approved' });
 
-    if (!nextItem) {
+    if (approvedItems.length === 0) {
       console.log("[QueueWorker] No approved items waiting.");
-      io.emit("queue-empty"); // Tell clients queue is empty
+      io.emit("queue-empty");
       return;
     }
 
-    console.log(`[QueueWorker] Starting next item: ${nextItem._id}`);
+    // 2. Sort based on customQueueOrder
+    approvedItems.sort((a, b) => {
+      const idA = a._id.toString();
+      const idB = b._id.toString();
+      const indexA = customQueueOrder.indexOf(idA);
+      const indexB = customQueueOrder.indexOf(idB);
+
+      // If both in custom order, sort by index
+      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+      // If only A in custom order, A comes first
+      if (indexA !== -1) return -1;
+      // If only B in custom order, B comes first
+      if (indexB !== -1) return 1;
+
+      // Fallback: Default FIFO by approvedAt or receivedAt
+      return new Date(a.approvedAt || a.receivedAt) - new Date(b.approvedAt || b.receivedAt);
+    });
+
+    const nextItem = approvedItems[0];
+    console.log(`[QueueWorker] Starting next item: ${nextItem._id} (Order Index: ${customQueueOrder.indexOf(nextItem._id.toString())})`);
 
     // Update status to playing
     const updated = await ImageQueue.findByIdAndUpdate(
@@ -1895,6 +1950,9 @@ async function playNextItem() {
         type: updated.type || (updated.filePath ? "image" : "text"),
         playingAt: updated.playingAt
       });
+      
+      // Update Admin UI
+      io.emit("admin-update-queue");
     }
 
   } catch (err) {

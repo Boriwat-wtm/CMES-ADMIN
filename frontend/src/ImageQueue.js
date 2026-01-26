@@ -31,7 +31,6 @@ function ImageQueue() {
   const [isActive, setIsActive] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [pauseTimeLeft, setPauseTimeLeft] = useState(0);
-  const [displayPaused, setDisplayPaused] = useState(false);
 
   const totalDuration = currentPreview ? Math.max(currentPreview.time || 0, 1) : 1;
   const progressRatio = Math.max(0, Math.min(1, (totalDuration - timeLeft) / totalDuration));
@@ -39,8 +38,36 @@ function ImageQueue() {
   useEffect(() => {
     fetchImages();
     fetchGiftSettings();
-    const interval = setInterval(fetchImages, 5000);
-    return () => clearInterval(interval);
+    
+    // Switch to Socket.IO for real-time updates
+    socket.on('admin-update-queue', fetchImages);
+    socket.on('new-upload', fetchImages);
+
+    // Socket Listeners for Countdown/Pause (System Auto-Pause only)
+    socket.on('pause-display', (data) => {
+      if (data && data.remaining !== undefined) {
+        // Server says "Pause": Clear active item and show countdown
+        setIsActive(false);
+        setCurrentPreview(null);
+        localStorage.removeItem("currentPreview");
+        localStorage.removeItem("isActive");
+        
+        setIsPaused(true);
+        setPauseTimeLeft(data.remaining);
+      }
+    });
+
+    socket.on('resume-display', () => {
+      setIsPaused(false);
+      setPauseTimeLeft(0);
+    });
+
+    return () => {
+      socket.off('admin-update-queue');
+      socket.off('new-upload');
+      socket.off('pause-display');
+      socket.off('resume-display');
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -168,7 +195,7 @@ function ImageQueue() {
   // Timer effect สำหรับ countdown - SYNC only, no async in interval
   useEffect(() => {
     let interval = null;
-    if (isActive && currentPreview && !displayPaused) {
+    if (isActive && currentPreview) {
       interval = setInterval(() => {
         const startTimestamp = Number(localStorage.getItem("startTimestamp"));
         const duration = Number(localStorage.getItem("duration"));
@@ -185,10 +212,11 @@ function ImageQueue() {
           // Get imageId NOW before state changes
           const imageId = currentPreview._id || currentPreview.id;
 
-          // Call completion function OUTSIDE interval (fire-and-forget pattern)
+          // calling completion function OUTSIDE interval (fire-and-forget pattern)
           // This ensures it runs independently of React's useEffect lifecycle
           setTimeout(() => {
-            completeCurrentItem(imageId);
+            // completeCurrentItem(imageId); // DISABLED: Let Server handle completion timeout
+            console.log("[Client] Timer up. Waiting for server to complete item...");
           }, 0);
         }
       }, 1000);
@@ -197,7 +225,7 @@ function ImageQueue() {
       if (interval) clearInterval(interval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, currentPreview, displayPaused]);
+  }, [isActive, currentPreview]);
 
   // Simple countdown effect - runs when isPaused changes
   useEffect(() => {
@@ -215,8 +243,8 @@ function ImageQueue() {
             clearInterval(countdownTimer);
             // Use setTimeout to ensure this runs after state update
             setTimeout(() => {
-              console.log("[Countdown] Finished, calling processNext");
-              processNextFromQueue();
+              console.log("[Countdown] Finished, waiting for server to start next item...");
+              // processNextFromQueue(); // DISABLED: Let Server Drive to avoid Race Condition
             }, 100);
             return 0;
           }
@@ -260,6 +288,10 @@ function ImageQueue() {
           console.log("[QueueSync] Found playing item from server:", playingOnServer._id, "Remaining:", remaining);
 
           if (!isActive || !currentPreview) {
+            // New item started: Clear pause state and show item
+            setIsPaused(false);
+            setPauseTimeLeft(0);
+            
             setCurrentPreview(playingOnServer);
             setIsActive(true);
             setTimeLeft(remaining);
@@ -306,25 +338,7 @@ function ImageQueue() {
     }
   };
 
-  const handlePauseDisplay = () => {
-    if (displayPaused) {
-      // Resume - ทำงานต่อจากเวลาที่หยุดไว้
-      setDisplayPaused(false);
-      const now = Date.now();
-      const duration = currentPreview.time;
-      // คำนวณ startTimestamp ใหม่โดยใช้เวลาที่เหลืออยู่
-      localStorage.setItem("startTimestamp", now - ((duration - timeLeft) * 1000));
-      
-      // ส่งสัญญาณไป OBS ให้เริ่มนับเวลาต่อ
-      socket.emit('resume-display', { timeLeft });
-    } else {
-      // Pause - หยุดชั่วคราวและบันทึกเวลาที่เหลือ
-      setDisplayPaused(true);
-      
-      // ส่งสัญญาณไป OBS ให้หยุดนับเวลา
-      socket.emit('pause-display', { timeLeft });
-    }
-  };
+
 
   const handleSkipCurrent = async () => {
     if (!currentPreview) return;
@@ -341,7 +355,6 @@ function ImageQueue() {
     // reset current preview state
     setIsActive(false);
     setIsPaused(false);
-    setDisplayPaused(false);
     setCurrentPreview(null);
     setTimeLeft(0);
     setPauseTimeLeft(0);
@@ -378,8 +391,6 @@ function ImageQueue() {
 
         // ปิด modal หลังจาก restore สำเร็จ
         setShowHistory(false);
-
-        alert("นำกลับเข้าคิวสำเร็จ");
       } else {
         console.error("[Frontend] Restore failed:", response.status);
         alert("ไม่สามารถนำกลับเข้าคิวได้");
@@ -412,6 +423,9 @@ function ImageQueue() {
     // Save final order to localStorage on drop/end
     const queueOrder = previewQueue.map(item => item._id || item.id);
     localStorage.setItem('queueOrder', JSON.stringify(queueOrder));
+
+    // Send order to server
+    socket.emit('admin-reorder-queue', queueOrder);
     
     setDraggedIndex(null);
   };
@@ -516,15 +530,13 @@ function ImageQueue() {
       }));
       setShowModal(false);
 
-      // 2. Add to Queue Locally
+      // 2. Add to Queue Locally - DISABLED!
+      // Server-Driven Architecture: We do NOT force startPreview here anymore.
+      // We just approve it, and the server's QueueWorker will pick it up 
+      // based on the queue order (custom or FIFO).
+      /*
       const imageToApprove = { ...selectedImage, width: editWidth, height: editHeight, status: 'approved' };
       if (!currentPreview && !isActive) {
-        // If nothing playing, wait for next loop or start immediately? 
-        // logic is handled by "processNext" effect or manual start ?
-        // Actually existing logic called startPreview immediately if empty.
-        // Let's keep that but careful with duplicates managed by useEffect above?
-        // Actually, if we update 'images' state above, the useEffect might catch it too.
-        // But explicit start is faster for specific interaction.
         startPreview(imageToApprove);
       } else {
         setPreviewQueue(prev => {
@@ -532,6 +544,7 @@ function ImageQueue() {
           return [...prev, imageToApprove];
         });
       }
+      */
 
       // 3. Send Request
       const response = await fetch(`http://localhost:5001/api/approve/${id}`, {
@@ -1454,16 +1467,6 @@ function ImageQueue() {
                   {isPaused && (
                     <div className="pause-message">กำลังเปลี่ยนรูป...</div>
                   )}
-                  {displayPaused && (
-                    <div className="pause-message" style={{ color: "#ef4444" }}>หยุดชั่วคราว</div>
-                  )}
-                  <button
-                    onClick={handlePauseDisplay}
-                    className="refresh-button"
-                    style={{ marginTop: "12px", width: "100%", padding: "10px" }}
-                  >
-                    {displayPaused ? "เริ่มต่อ" : "หยุดชั่วคราว"}
-                  </button>
                   <button
                     onClick={handleSkipCurrent}
                     className="refresh-button"
@@ -1513,14 +1516,86 @@ function ImageQueue() {
                 )}
               </>
             ) : (
-              <div className="no-preview">
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                  <circle cx="8.5" cy="8.5" r="1.5" />
-                  <path d="M21 15l-5-5L5 21" />
-                </svg>
-                <p>ยังไม่มีรูปภาพที่อนุมัติ</p>
-                <span>กดอนุมัติรูปภาพเพื่อแสดง Preview</span>
+              <div className="no-preview" style={isPaused ? { minHeight: '450px', background: '#fff', border: '1px solid #e2e8f0', boxShadow: '0 10px 30px -10px rgba(0,0,0,0.05)' } : {}}>
+                {isPaused ? (
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '40px 0',
+                    width: '100%'
+                  }}>
+                    <div style={{
+                      fontSize: '20px',
+                      color: '#6366f1',
+                      fontWeight: '700',
+                      marginBottom: '20px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px'
+                    }}>
+                      รอคิวถัดไป
+                    </div>
+                    <div style={{
+                      fontSize: '100px',
+                      fontWeight: '800',
+                      color: '#6366f1',
+                      lineHeight: 1,
+                      marginBottom: '10px',
+                      fontVariantNumeric: 'tabular-nums',
+                      animation: pauseTimeLeft <= 5 ? 'pulse 1s ease-in-out infinite' : 'none'
+                    }}>
+                      {pauseTimeLeft}
+                    </div>
+                    <div style={{
+                      fontSize: '16px',
+                      color: '#64748b',
+                      fontWeight: '500',
+                      marginBottom: '30px'
+                    }}>
+                      วินาที
+                    </div>
+                    {previewQueue[0] && (
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '15px',
+                          padding: '15px 25px',
+                          background: 'white',
+                          borderRadius: '16px',
+                          boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+                          border: '1px solid #f1f5f9'
+                        }}>
+                          <img
+                            src={`http://localhost:5001${previewQueue[0].filePath}`}
+                            alt="Next"
+                            style={{
+                              width: '60px',
+                              height: '60px',
+                              borderRadius: '10px',
+                              objectFit: 'cover'
+                            }}
+                          />
+                          <div style={{ textAlign: 'left' }}>
+                            <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>กำลังจะแสดง:</div>
+                            <div style={{ fontSize: '15px', fontWeight: '600', color: '#1e293b' }}>
+                              {previewQueue[0].sender || 'ไม่ระบุชื่อ'}
+                            </div>
+                          </div>
+                        </div>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                      <circle cx="8.5" cy="8.5" r="1.5" />
+                      <path d="M21 15l-5-5L5 21" />
+                    </svg>
+                    <p>ยังไม่มีรูปภาพที่อนุมัติ</p>
+                    <span>กดอนุมัติรูปภาพเพื่อแสดง Preview</span>
+                  </>
+                )}
               </div>
             )}
 
