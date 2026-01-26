@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { Link } from "react-router-dom"; // Import Link
 import "./LuckyWheel.css";
 
 function getRandomInt(min, max) {
@@ -20,8 +21,36 @@ function LuckyWheel() {
   const [showPopup, setShowPopup] = useState(false);
   const [popupEffect, setPopupEffect] = useState(false);
   const [reward, setReward] = useState("");
+  const [previewing, setPreviewing] = useState(false);
   const textareaRef = useRef(null);
   const wheelRef = useRef(null);
+
+  // Auto-update OBS if previewing
+  useEffect(() => {
+    if (previewing && segments.length > 0) {
+      fetch('http://localhost:5001/api/lucky-wheel/preview', {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ segments })
+      }).catch(err => console.error(err));
+    }
+  }, [segments, previewing]);
+
+  const togglePreview = () => {
+    const newState = !previewing;
+    setPreviewing(newState);
+    if (newState) {
+       // Turn ON
+       fetch('http://localhost:5001/api/lucky-wheel/preview', {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ segments })
+      });
+    } else {
+       // Turn OFF (Hide)
+       fetch('http://localhost:5001/api/lucky-wheel/hide', { method: "POST" });
+    }
+  };
 
   const handleAddFromTextarea = () => {
     const lines = input
@@ -75,6 +104,7 @@ function LuckyWheel() {
 
   const spinWheel = () => {
     if (segments.length < 2 || spinning) return;
+    setPreviewing(false); // Stop preview state
     setWinner(null);
     setSpinning(true);
     setShowPopup(false);
@@ -188,6 +218,15 @@ function LuckyWheel() {
   }, [input, segments]);
 
   return (
+    <div className="lucky-wheel-page">
+      <header className="lucky-wheel-header">
+        <div className="header-content">
+          <h1 className="header-title">🎡 Lucky Wheel</h1>
+          <p className="header-subtitle">วงล้อเสี่ยงดวงสำหรับกิจกรรมพิเศษ</p>
+        </div>
+        <Link to="/home" className="back-home-btn">🏠 กลับหน้า Home</Link>
+      </header>
+      
     <div className="lucky-wheel-flex">
       <div className="lucky-wheel-left">
         <div className="wheel-area" style={{ width: 380, height: 380 }}>
@@ -227,14 +266,36 @@ function LuckyWheel() {
             {renderWheel()}
           </div>
         </div>
-        <button
-          className="spin-btn"
-          onClick={spinWheel}
-          disabled={spinning || segments.length < 2}
-          style={{ marginTop: 18, fontSize: 20, padding: "8px 32px" }}
-        >
-          {spinning ? "🎡 กำลังหมุน..." : "🎯 หมุนวงล้อ"}
-        </button>
+        
+        <div style={{ display: 'flex', gap: '10px', marginTop: 18, justifyContent: 'center' }}>
+          <button
+            onClick={togglePreview}
+            disabled={spinning || segments.length === 0}
+            style={{
+              fontSize: 18, 
+              padding: "8px 20px", 
+              borderRadius: "50px",
+              border: "none",
+              background: previewing ? "#ef4444" : "#3b82f6",
+              color: "#fff",
+              cursor: "pointer",
+              fontWeight: "bold",
+              boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
+            }}
+          >
+            {previewing ? "👁️ ปิดจอ OBS" : "👁️ แสดงจอ OBS"}
+          </button>
+
+          <button
+            className="spin-btn"
+            onClick={spinWheel}
+            disabled={spinning || segments.length < 2}
+            style={{ fontSize: 20, padding: "8px 32px", margin: 0 }}
+          >
+            {spinning ? "🎡 กำลังหมุน..." : "🎯 หมุนวงล้อ"}
+          </button>
+        </div>
+
         <div className="reward-row">
           <label>🎁 ของรางวัล:</label>
           <input
@@ -334,6 +395,7 @@ function LuckyWheel() {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }

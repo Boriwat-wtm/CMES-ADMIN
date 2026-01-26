@@ -1940,3 +1940,12 @@ app.post('/api/lucky-wheel/hide', (req, res) => {
   return res.json({ success: true, message: 'Hide event broadcasted' });
 });
 
+// Broadcast preview/update event
+app.post('/api/lucky-wheel/preview', (req, res) => {
+  const { segments } = req.body;
+  if (!segments) return res.status(400).json({ error: 'Missing segments' });
+  
+  io.emit('lucky-wheel-preview', { segments });
+  return res.json({ success: true });
+});
+

@@ -255,6 +255,15 @@
       0% { transform: skewX(-20deg) translateX(-150%); }
       100% { transform: skewX(-20deg) translateX(150%); }
     }
+
+    /* Idle Animation */
+    @keyframes idle-spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .obs-wheel-svg.idling {
+      animation: idle-spin 60s linear infinite;
+    }
   </style>
 </head>
 
@@ -416,6 +425,26 @@
 
     let currentInterval = null;
 
+    socket.on('lucky-wheel-preview', (data) => {
+       console.log('OBS Received Preview:', data);
+       const { segments } = data;
+       if (!segments || segments.length === 0) return;
+
+       // Render Wheel
+       wheelSvgContainer.innerHTML = generateWheelSVG(segments);
+       wheelOverlay.classList.add('show');
+       
+       // Hide winner/countdown if showing
+       wheelWinnerModal.classList.remove('show');
+       wheelCountdownContainer.style.display = 'none';
+       if (currentInterval) clearInterval(currentInterval);
+
+       // Start Idle Animation
+       // Reset any transition leftovers
+       wheelSvgContainer.style.transition = 'none'; 
+       wheelSvgContainer.classList.add('idling');
+    });
+
     socket.on('lucky-wheel-spin', (data) => {
       console.log('OBS Received Spin:', data);
       const { segments, winnerIndex, reward } = data;
@@ -429,7 +458,8 @@
       wheelWinnerModal.classList.remove('show');
       wheelCountdownContainer.style.display = 'flex';
       
-      // Reset rotation
+      // Stop Idle Animation & Reset
+      wheelSvgContainer.classList.remove('idling');
       wheelSvgContainer.style.transition = 'none';
       wheelSvgContainer.style.transform = 'rotate(0deg)';
 
