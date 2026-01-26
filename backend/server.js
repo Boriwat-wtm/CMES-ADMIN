@@ -1262,57 +1262,7 @@ app.get("/api/history", async (req, res) => {
   }
 });
 
-// API สำหรับนำรายการจากประวัติกลับเข้าคิว
-app.post("/api/history/restore/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    console.log("=== Restoring from history:", id);
 
-    const historyItem = await CheckHistory.findById(id);
-
-    if (!historyItem) {
-      console.log("[Restore] History item not found");
-      return res.status(404).json({ success: false, message: 'History item not found' });
-    }
-
-    console.log("[Restore] Found history item:", {
-      sender: historyItem.sender,
-      type: historyItem.type,
-      content: historyItem.content
-    });
-
-    // สร้างรายการใหม่ใน queue
-    const queueData = {
-      sender: historyItem.sender,
-      filePath: historyItem.mediaUrl,
-      text: historyItem.content,
-      textColor: historyItem.metadata?.theme || 'white',
-      socialType: historyItem.metadata?.social?.type || null,
-      socialName: historyItem.metadata?.social?.name || null,
-      time: historyItem.duration || historyItem.metadata?.duration || 1,
-      price: historyItem.price,
-      receivedAt: new Date(),
-      status: 'pending',
-      type: historyItem.type,
-      giftOrder: historyItem.metadata?.giftItems?.length > 0 ? {
-        orderId: historyItem.transactionId,
-        tableNumber: historyItem.metadata.tableNumber,
-        items: historyItem.metadata.giftItems,
-        totalPrice: historyItem.price,
-        note: historyItem.metadata.note
-      } : undefined
-    };
-
-    const queueItem = await ImageQueue.create(queueData);
-    console.log("[Restore] Added to queue. Item ID:", queueItem._id);
-    console.log("[Restore] Queue item:", JSON.stringify(queueItem, null, 2));
-
-    res.json({ success: true, message: 'Item restored to queue' });
-  } catch (error) {
-    console.error('Error restoring to queue:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
-});
 
 // API สำหรับตรวจสอบสถานะออเดอร์ (สำหรับ User frontend)
 app.get("/api/order-status/:orderId", async (req, res) => {
@@ -1868,7 +1818,8 @@ async function completeItem(item) {
         social: {
           type: item.socialType || null,
           name: item.socialName || null
-        }
+        },
+        qrCodePath: item.qrCodePath || null // Persist QR Code Path
       },
       receivedAt: item.receivedAt,
       approvalDate: item.approvedAt || new Date(),

@@ -30,7 +30,8 @@ const checkHistorySchema = new mongoose.Schema(
       social: {
         type: { type: String, default: null },
         name: { type: String, default: null }
-      }
+      },
+      qrCodePath: { type: String, default: null } // Added to persist QR code
     },
 
     // Audit fields
