@@ -114,12 +114,12 @@
       listEl.innerHTML = rankings.map((r, index) => {
         const rank = index + 1;
         const rankClass = rank <= 3 ? `top-${rank}` : '';
-        const avatarUrl = r.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(r.name)}&background=random`;
+        const avatarUrl = r.avatar || '/data-icon/unknown-person-icon.png';
         
         return `
           <div class="rank-item">
             <div class="rank-num ${rankClass}">${rank}</div>
-            <img src="${avatarUrl}" class="rank-avatar" onerror="this.src='https://ui-avatars.com/api/?name=?'" />
+            <img src="${avatarUrl}" class="rank-avatar" onerror="this.src='/data-icon/unknown-person-icon.png'" />
             <div class="rank-info">
               <div class="rank-name">${r.name}</div>
               <div class="rank-points">${r.points.toLocaleString()} pts</div>
