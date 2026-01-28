@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import API_BASE_URL from "./config/apiConfig";
 import "./Register.css";
 
 function Register() {
@@ -12,7 +13,7 @@ function Register() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    
+
     // Clear previous error message
     setErrorMessage("");
 
@@ -29,7 +30,7 @@ function Register() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5001/login", {
+      const response = await fetch(`${API_BASE_URL}/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -44,7 +45,7 @@ function Register() {
           localStorage.setItem("adminId", data.user.id);
           localStorage.setItem("adminUsername", data.user.username);
         }
-        
+
         // Success notification
         setUsername("");
         setPassword("");
@@ -112,7 +113,7 @@ function Register() {
         </div>
 
         {errorMessage && <p className="error-message">⚠️ {errorMessage}</p>}
-        
+
         <button type="submit" disabled={isLoading}>
           {isLoading ? (
             <span>

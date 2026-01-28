@@ -6,9 +6,10 @@ import fbLogo from "./data-icon/facebook-logo.png";
 import lineLogo from "./data-icon/line-logo.png";
 import tiktokLogo from "./data-icon/tiktok-logo.png";
 import io from "socket.io-client";
+import API_BASE_URL from "./config/apiConfig";
 
 // Connect to Admin Backend Socket
-const socket = io('http://localhost:5001', { transports: ['websocket', 'polling'] });
+const socket = io(API_BASE_URL, { transports: ['websocket', 'polling'] });
 
 function ImageQueue() {
   const [images, setImages] = useState([]);
@@ -38,7 +39,7 @@ function ImageQueue() {
   useEffect(() => {
     fetchImages();
     fetchGiftSettings();
-    
+
     // Switch to Socket.IO for real-time updates
     socket.on('admin-update-queue', fetchImages);
     socket.on('new-upload', fetchImages);
@@ -51,7 +52,7 @@ function ImageQueue() {
         setCurrentPreview(null);
         localStorage.removeItem("currentPreview");
         localStorage.removeItem("isActive");
-        
+
         setIsPaused(true);
         setPauseTimeLeft(data.remaining);
       }
@@ -68,7 +69,7 @@ function ImageQueue() {
       socket.off('pause-display');
       socket.off('resume-display');
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // เมื่อเริ่มแสดงรูปใหม่ (ใน processNextInQueue หรือ handleApprove)
@@ -97,7 +98,7 @@ function ImageQueue() {
 
     // อัพเดทสถานะเป็น 'playing' ใน DB
     try {
-      await fetch(`http://localhost:5001/api/playing/${imageId}`, {
+      await fetch(`/api/playing/${imageId}`, {
         method: "POST"
       });
       console.log("[Playing] Marked as playing:", imageId);
@@ -151,7 +152,7 @@ function ImageQueue() {
 
     // Call backend to complete
     try {
-      const response = await fetch(`http://localhost:5001/api/complete/${imageId}`, {
+      const response = await fetch(`/api/complete/${imageId}`, {
         method: "POST"
       });
       const result = await response.json();
@@ -263,7 +264,7 @@ function ImageQueue() {
 
   const fetchImages = async () => {
     try {
-      const response = await fetch("http://localhost:5001/api/queue");
+      const response = await fetch("/api/queue");
       if (response.ok) {
         const data = await response.json();
         setImages(data);
@@ -291,7 +292,7 @@ function ImageQueue() {
             // New item started: Clear pause state and show item
             setIsPaused(false);
             setPauseTimeLeft(0);
-            
+
             setCurrentPreview(playingOnServer);
             setIsActive(true);
             setTimeLeft(remaining);
@@ -314,7 +315,7 @@ function ImageQueue() {
 
   const fetchHistory = async () => {
     try {
-      const response = await fetch("http://localhost:5001/api/history");
+      const response = await fetch("/api/history");
       if (response.ok) {
         const data = await response.json();
         setHistoryItems(data);
@@ -326,7 +327,7 @@ function ImageQueue() {
 
   const fetchGiftSettings = async () => {
     try {
-      const response = await fetch("http://localhost:5001/api/gifts/settings");
+      const response = await fetch("/api/gifts/settings");
       if (response.ok) {
         const data = await response.json();
         // data structure is { tableCount, items: [...] }
@@ -344,7 +345,7 @@ function ImageQueue() {
     if (!currentPreview) return;
     const imageId = currentPreview._id || currentPreview.id;
     try {
-      await fetch(`http://localhost:5001/api/complete/${imageId}`, { method: "POST" });
+      await fetch(`/api/complete/${imageId}`, { method: "POST" });
     } catch (err) {
       console.error("Error skipping current image:", err);
     }
@@ -378,7 +379,7 @@ function ImageQueue() {
   const handleRestoreToQueue = async (historyId) => {
     try {
       console.log("[Frontend] Restoring history ID:", historyId);
-      const response = await fetch(`http://localhost:5001/api/history/restore/${historyId}`, {
+      const response = await fetch(`/api/history/restore/${historyId}`, {
         method: "POST",
       });
       if (response.ok) {
@@ -419,28 +420,28 @@ function ImageQueue() {
 
   const handleDragEnd = (e) => {
     e.target.style.opacity = '1';
-    
+
     // Save final order to localStorage on drop/end
     const queueOrder = previewQueue.map(item => item._id || item.id);
     localStorage.setItem('queueOrder', JSON.stringify(queueOrder));
 
     // Send order to server
     socket.emit('admin-reorder-queue', queueOrder);
-    
+
     setDraggedIndex(null);
   };
 
   const handleDragOver = (e, index) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    
+
     if (draggedIndex === null || draggedIndex === index) return;
 
     const newQueue = [...previewQueue];
     const draggedItem = newQueue[draggedIndex];
     newQueue.splice(draggedIndex, 1);
     newQueue.splice(index, 0, draggedItem);
-    
+
     setPreviewQueue(newQueue);
     setDraggedIndex(index);
   };
@@ -500,18 +501,18 @@ function ImageQueue() {
           if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
           if (aIndex !== -1) return -1;
           if (bIndex !== -1) return 1;
-          
+
           return new Date(a.receivedAt || a.createdAt) - new Date(b.receivedAt || b.createdAt);
         });
       } else {
-         // Default sort
-         mergedQueue.sort((a, b) => new Date(a.receivedAt || a.createdAt) - new Date(b.receivedAt || b.createdAt));
+        // Default sort
+        mergedQueue.sort((a, b) => new Date(a.receivedAt || a.createdAt) - new Date(b.receivedAt || b.createdAt));
       }
 
       // Check for changes efficiently
       const prevIds = prev.map(i => i._id || i.id).join(',');
       const newIds = mergedQueue.map(i => i._id || i.id).join(',');
-      
+
       if (prevIds !== newIds) return mergedQueue;
       return prev;
     });
@@ -547,7 +548,7 @@ function ImageQueue() {
       */
 
       // 3. Send Request
-      const response = await fetch(`http://localhost:5001/api/approve/${id}`, {
+      const response = await fetch(`/api/approve/${id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -574,7 +575,7 @@ function ImageQueue() {
   const handleReject = async (id) => {
     try {
       console.log('[Reject] Rejecting image with ID:', id);
-      const response = await fetch(`http://localhost:5001/api/reject/${id}`, {
+      const response = await fetch(`/api/reject/${id}`, {
         method: "POST",
       });
       if (response.ok) {
@@ -682,14 +683,14 @@ function ImageQueue() {
     const gift = item.giftOrder || {};
     const senderInfo = item.sender || 'ผู้ส่ง';
     const targetTable = gift.tableNumber || '-';
-    
+
     return (
       <div className="gift-order-card-simple">
         <div className="gift-simple-header">
           <span className="gift-icon">🎁</span>
           <h3>คำสั่งของขวัญ</h3>
         </div>
-        
+
         <div className="gift-simple-info">
           <div className="gift-info-row">
             <span className="label">👤 ผู้ส่ง:</span>
@@ -716,11 +717,11 @@ function ImageQueue() {
     const senderInfo = item.sender || 'ผู้ส่ง';
     const targetTable = gift.tableNumber || '-';
     const avatarUrl = gift.avatar || null;
-    
+
     // Debug: ตรวจสอบข้อมูลสินค้า
     console.log('[Gift Card] Rendering gift:', gift);
     console.log('[Gift Card] Items:', gift.items);
-    
+
     return (
       <div className={`gift-order-card-new ${isCompact ? 'compact' : ''}`}>
         {/* Header with animation */}
@@ -737,7 +738,7 @@ function ImageQueue() {
           <div className="avatar-ring">
             <div className="avatar-circle">
               {avatarUrl ? (
-                <img 
+                <img
                   src={avatarUrl.startsWith('http') ? avatarUrl : `http://localhost:4000${avatarUrl}`}
                   alt={senderInfo}
                   className="avatar-user-image"
@@ -747,7 +748,7 @@ function ImageQueue() {
                   }}
                 />
               ) : null}
-              <span 
+              <span
                 className="avatar-text"
                 style={{ display: avatarUrl ? 'none' : 'flex' }}
               >
@@ -777,7 +778,7 @@ function ImageQueue() {
             console.log('[Gift Card] Rendering item:', giftItem);
             console.log('[Gift Card] giftSettings count:', giftSettings.length);
             console.log('[Gift Card] All giftSettings:', giftSettings);
-            
+
             // Try to get image from item first, then lookup in giftSettings
             let itemImage = giftItem.image;
             if (!itemImage && giftSettings.length > 0) {
@@ -789,12 +790,12 @@ function ImageQueue() {
                 console.log('[Gift Card] Found image from settings:', itemImage);
               }
             }
-            
+
             return (
               <div key={`${item._id || item.id}-${giftItem.id || idx}`} className="gift-item-card">
                 {itemImage ? (
-                  <img 
-                    src={itemImage.startsWith('http') ? itemImage : `http://localhost:5001${itemImage}`} 
+                  <img
+                    src={itemImage.startsWith('http') ? itemImage : `http://localhost:5001${itemImage}`}
                     alt={giftItem.name}
                     className="gift-item-image"
                     onError={(e) => {
@@ -1037,11 +1038,11 @@ function ImageQueue() {
           </Link>
           <h1 className="header-title">ตรวจสอบเนื้อหา</h1>
         </div>
-        
+
         <div className="header-controls">
           <div className="stat-capsule">
-             <span className="stat-label">คิวรอตรวจสอบ</span>
-             <span className="stat-value">{images.length}</span>
+            <span className="stat-label">คิวรอตรวจสอบ</span>
+            <span className="stat-value">{images.length}</span>
           </div>
           <button onClick={() => { fetchHistory(); setShowHistory(true); }} className="action-btn" title="ประวัติการอนุมัติ">
             <span style={{ fontSize: "16px" }}>📜</span>
@@ -1056,21 +1057,21 @@ function ImageQueue() {
 
       <div className="filter-bar">
         {["all", "image", "text", "birthday", "gift"].map(type => (
-           <button
-             key={type}
-             onClick={() => setCategoryFilter(type)}
-             className={`filter-pill ${categoryFilter === type ? 'active' : ''}`}
-             data-type={type}
-           >
-             {type === 'all' && '📑 ทั้งหมด'}
-             {type === 'image' && '🖼️ รูปภาพ'}
-             {type === 'text' && '💬 ข้อความ'}
-             {type === 'birthday' && '🎂 วันเกิด'}
-             {type === 'gift' && '🎁 ของขวัญ'}
-             <span className="filter-count">
-               {type === 'all' ? images.length : images.filter(img => (type === 'image' ? (img.type === 'image' || !img.type) : img.type === type)).length}
-             </span>
-           </button>
+          <button
+            key={type}
+            onClick={() => setCategoryFilter(type)}
+            className={`filter-pill ${categoryFilter === type ? 'active' : ''}`}
+            data-type={type}
+          >
+            {type === 'all' && '📑 ทั้งหมด'}
+            {type === 'image' && '🖼️ รูปภาพ'}
+            {type === 'text' && '💬 ข้อความ'}
+            {type === 'birthday' && '🎂 วันเกิด'}
+            {type === 'gift' && '🎁 ของขวัญ'}
+            <span className="filter-count">
+              {type === 'all' ? images.length : images.filter(img => (type === 'image' ? (img.type === 'image' || !img.type) : img.type === type)).length}
+            </span>
+          </button>
         ))}
       </div>
 
@@ -1155,7 +1156,7 @@ function ImageQueue() {
                                   display: "block"
                                 }}
                               />
-                              
+
                               {/* แสดง Overlay เฉพาะถ้าไม่ใช่ Type Image/Birthday */}
                               {!isImageOnly && (!image.composed && image.composed !== "1" && ((image.socialType && image.socialName) || image.text)) && (
                                 <div className="preview-overlay-center" style={{
@@ -1556,33 +1557,33 @@ function ImageQueue() {
                       วินาที
                     </div>
                     {previewQueue[0] && (
-                        <div style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '15px',
-                          padding: '15px 25px',
-                          background: 'white',
-                          borderRadius: '16px',
-                          boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
-                          border: '1px solid #f1f5f9'
-                        }}>
-                          <img
-                            src={`http://localhost:5001${previewQueue[0].filePath}`}
-                            alt="Next"
-                            style={{
-                              width: '60px',
-                              height: '60px',
-                              borderRadius: '10px',
-                              objectFit: 'cover'
-                            }}
-                          />
-                          <div style={{ textAlign: 'left' }}>
-                            <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>กำลังจะแสดง:</div>
-                            <div style={{ fontSize: '15px', fontWeight: '600', color: '#1e293b' }}>
-                              {previewQueue[0].sender || 'ไม่ระบุชื่อ'}
-                            </div>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '15px',
+                        padding: '15px 25px',
+                        background: 'white',
+                        borderRadius: '16px',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+                        border: '1px solid #f1f5f9'
+                      }}>
+                        <img
+                          src={`http://localhost:5001${previewQueue[0].filePath}`}
+                          alt="Next"
+                          style={{
+                            width: '60px',
+                            height: '60px',
+                            borderRadius: '10px',
+                            objectFit: 'cover'
+                          }}
+                        />
+                        <div style={{ textAlign: 'left' }}>
+                          <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>กำลังจะแสดง:</div>
+                          <div style={{ fontSize: '15px', fontWeight: '600', color: '#1e293b' }}>
+                            {previewQueue[0].sender || 'ไม่ระบุชื่อ'}
                           </div>
                         </div>
+                      </div>
                     )}
                   </div>
                 ) : (
@@ -1608,7 +1609,7 @@ function ImageQueue() {
                 </p>
                 <div className="queue-list">
                   {previewQueue.map((queueImage, index) => (
-                    <div 
+                    <div
                       key={queueImage._id || queueImage.id}
                       className="queue-item"
                       draggable="true"
@@ -1616,7 +1617,7 @@ function ImageQueue() {
                       onDragEnd={handleDragEnd}
                       onDragOver={(e) => handleDragOver(e, index)}
                       onDrop={handleDrop}
-                      style={{ 
+                      style={{
                         cursor: 'grab',
                         transition: 'all 0.2s ease',
                         opacity: draggedIndex === index ? 0.5 : 1
@@ -1638,8 +1639,8 @@ function ImageQueue() {
                           {queueImage.text ? queueImage.text.slice(0, 15) + '...' : 'ไม่มีข้อความ'}
                         </div>
                       </div>
-                      <div className="drag-handle" style={{ 
-                        fontSize: '18px', 
+                      <div className="drag-handle" style={{
+                        fontSize: '18px',
                         color: '#94a3b8',
                         marginLeft: 'auto',
                         cursor: 'grab'

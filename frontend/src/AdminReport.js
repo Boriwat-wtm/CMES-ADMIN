@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import API_BASE_URL from "./config/apiConfig";
 import "./AdminReport.css";
 
-const API_BASE = "http://localhost:5001";
+const API_BASE = API_BASE_URL;
 
 const STATUS_META = {
   new: { label: "ใหม่", badge: "status-new" },

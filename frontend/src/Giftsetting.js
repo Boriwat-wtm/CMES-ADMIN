@@ -1,21 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import API_BASE_URL from "./config/apiConfig";
 import "./Giftsetting.css";
 
-const resolveApiBase = () => {
-	const fromEnv = process.env.REACT_APP_ADMIN_API?.replace(/\/$/, "");
-	if (fromEnv) return fromEnv;
-	if (typeof window !== "undefined" && window.location?.origin) {
-		const { origin } = window.location;
-		if (origin.includes("localhost")) {
-			return "http://localhost:5001";
-		}
-		return origin.replace(/\/$/, "");
-	}
-	return "http://localhost:5001";
-};
-
-const API_BASE = resolveApiBase();
+const API_BASE = API_BASE_URL;
 
 function Giftsetting() {
 	const [items, setItems] = useState([]);

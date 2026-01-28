@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import API_BASE_URL from "./config/apiConfig";
 import "./CheckHistory.css";
 
 function CheckHistory() {
@@ -13,14 +14,14 @@ function CheckHistory() {
   }, []);
 
   const fetchHistory = () => {
-    fetch("http://localhost:5001/api/check-history")
+    fetch(`${API_BASE_URL}/api/check-history`)
       .then((res) => res.json())
       .then((data) => setHistory(data));
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm("ยืนยันการลบรายการนี้?")) return;
-    await fetch("http://localhost:5001/api/delete-history", {
+    await fetch(`${API_BASE_URL}/api/delete-history`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
@@ -30,7 +31,7 @@ function CheckHistory() {
 
   const handleDeleteAll = async () => {
     if (!window.confirm("ยืนยันการลบประวัติทั้งหมด?")) return;
-    await fetch("http://localhost:5001/api/delete-all-history", {
+    await fetch(`${API_BASE_URL}/api/delete-all-history`, {
       method: "POST",
     });
     fetchHistory();
@@ -97,7 +98,7 @@ function CheckHistory() {
                   </ul>
                 </div>
               )}
-               {item.price > 0 && (
+              {item.price > 0 && (
                 <div style={{ color: "#1e293b" }}>
                   <b>ราคา:</b> {item.price}
                 </div>
@@ -105,14 +106,14 @@ function CheckHistory() {
               <div style={{ color: "#1e293b" }}>
                 <b>สถานะ:</b> {
                   item.status === "approved" ? "อนุมัติ" :
-                  item.status === "completed" ? "แสดงเสร็จสิ้น" :
-                  "ปฏิเสธ"
+                    item.status === "completed" ? "แสดงเสร็จสิ้น" :
+                      "ปฏิเสธ"
                 }
               </div>
               {item.filePath && (
                 <div>
                   <img
-                    src={`http://localhost:5001${item.filePath}`}
+                    src={`${API_BASE_URL}${item.filePath}`}
                     alt="img"
                     style={{
                       maxWidth: 180,
@@ -230,7 +231,7 @@ function CheckHistory() {
                 <b>รูปภาพ:</b>
                 <br />
                 <img
-                  src={`http://localhost:5001${selected.filePath}`}
+                  src={`${API_BASE_URL}${selected.filePath}`}
                   alt="img"
                   style={{
                     maxWidth: 180,

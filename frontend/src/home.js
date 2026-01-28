@@ -1,19 +1,12 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { io } from "socket.io-client";
+import API_BASE_URL from "./config/apiConfig";
 import "./home.css";
 
-const socket = io("http://localhost:4005");
-const API_BASE_URL = (() => {
-  const envUrl = (process.env.REACT_APP_ADMIN_API_BASE || "").trim();
-  if (envUrl) return envUrl.replace(/\/$/, "");
-  if (typeof window !== "undefined") {
-    const origin = window.location.origin.replace(/\/$/, "");
-    if (!origin.includes("localhost")) {
-      return origin;
-    }
-  }
-  return "http://localhost:5001";
-})();
+// Realtime Server URL
+const REALTIME_URL = process.env.REACT_APP_REALTIME_URL || "http://localhost:4005";
+const socket = io(REALTIME_URL);
+
 const RANK_LIMIT = 10;
 
 const formatCurrency = (value) => Number(value || 0).toLocaleString("th-TH");
@@ -459,7 +452,7 @@ function Home() {
                     {adminUsername}
                   </span>
                 </div>
-                
+
                 {/* Image Overlay Link */}
                 <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
                   <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Image & Text Overlay:</label>
@@ -467,7 +460,7 @@ function Home() {
                     <input
                       type="text"
                       readOnly
-                      value={`http://localhost:5001/obs-image-overlay.html?shopId=${adminId}`}
+                      value={`/obs-image-overlay.html?shopId=${adminId}`}
                       style={{
                         flex: 1,
                         padding: "8px 12px",
@@ -480,7 +473,7 @@ function Home() {
                     />
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(`http://localhost:5001/obs-image-overlay.html?shopId=${adminId}`);
+                        navigator.clipboard.writeText(`/obs-image-overlay.html?shopId=${adminId}`);
                         alert("คัดลอกลิงก์แล้ว!");
                       }}
                       style={{
@@ -507,7 +500,7 @@ function Home() {
                     <input
                       type="text"
                       readOnly
-                      value={`http://localhost:5001/obs-ranking-overlay.html?shopId=${adminId}`}
+                      value={`/obs-ranking-overlay.html?shopId=${adminId}`}
                       style={{
                         flex: 1,
                         padding: "8px 12px",
@@ -520,7 +513,7 @@ function Home() {
                     />
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(`http://localhost:5001/obs-ranking-overlay.html?shopId=${adminId}`);
+                        navigator.clipboard.writeText(`/obs-ranking-overlay.html?shopId=${adminId}`);
                         alert("คัดลอกลิงก์แล้ว!");
                       }}
                       style={{
@@ -547,7 +540,7 @@ function Home() {
                     <input
                       type="text"
                       readOnly
-                      value={`http://localhost:5001/obs-lucky-wheel.html?shopId=${adminId}`}
+                      value={`/obs-lucky-wheel.html?shopId=${adminId}`}
                       style={{
                         flex: 1,
                         padding: "8px 12px",
@@ -560,7 +553,7 @@ function Home() {
                     />
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(`http://localhost:5001/obs-lucky-wheel.html?shopId=${adminId}`);
+                        navigator.clipboard.writeText(`/obs-lucky-wheel.html?shopId=${adminId}`);
                         alert("คัดลอกลิงก์แล้ว!");
                       }}
                       style={{
@@ -664,7 +657,7 @@ function Home() {
                 <span className="broadcast-title">📺 Public Display Control</span>
                 <span className="broadcast-subtitle">ควบคุมการแสดงผลบนหน้าจอผู้ใช้</span>
               </div>
-              
+
               <div className="broadcast-buttons">
                 <button
                   className={`broadcast-btn ${publicRankingType === "daily" ? "active" : ""}`}
@@ -694,10 +687,10 @@ function Home() {
             </div>
 
             {/* Divider */}
-            <div style={{ 
-              height: "1px", 
-              background: "linear-gradient(90deg, transparent, #e2e8f0, transparent)", 
-              margin: "20px 0" 
+            <div style={{
+              height: "1px",
+              background: "linear-gradient(90deg, transparent, #e2e8f0, transparent)",
+              margin: "20px 0"
             }}></div>
 
             {/* ADMIN LOCAL VIEW SECTION */}
@@ -760,7 +753,7 @@ function Home() {
                   let points = entry.points || 0;
                   if (rankingType === "daily") points = entry.dailyPoints || 0;
                   else if (rankingType === "monthly") points = entry.monthlyPoints || 0;
-                  
+
                   return (
                     <li
                       className={`rank-list-item tier-${pos <= 3 ? pos : "default"
@@ -827,7 +820,7 @@ function Home() {
                     let points = entry.points || 0;
                     if (rankingType === "daily") points = entry.dailyPoints || 0;
                     else if (rankingType === "monthly") points = entry.monthlyPoints || 0;
-                    
+
                     return (
                       <li key={`${entry.name}-${position}`}>
                         <span className="rank-index">#{position}</span>

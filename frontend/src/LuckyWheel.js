@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom"; // Import Link
+import API_BASE_URL from "./config/apiConfig";
 import "./LuckyWheel.css";
 
 function getRandomInt(min, max) {
@@ -28,7 +29,7 @@ function LuckyWheel() {
   // Auto-update OBS if previewing
   useEffect(() => {
     if (previewing && segments.length > 0) {
-      fetch('http://localhost:5001/api/lucky-wheel/preview', {
+      fetch('/api/lucky-wheel/preview', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ segments })
@@ -40,15 +41,15 @@ function LuckyWheel() {
     const newState = !previewing;
     setPreviewing(newState);
     if (newState) {
-       // Turn ON
-       fetch('http://localhost:5001/api/lucky-wheel/preview', {
+      // Turn ON
+      fetch('/api/lucky-wheel/preview', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ segments })
       });
     } else {
-       // Turn OFF (Hide)
-       fetch('http://localhost:5001/api/lucky-wheel/hide', { method: "POST" });
+      // Turn OFF (Hide)
+      fetch('/api/lucky-wheel/hide', { method: "POST" });
     }
   };
 
@@ -115,7 +116,7 @@ function LuckyWheel() {
     const finalDeg = 360 * 30 + (360 - winnerIdx * degPerSeg - degPerSeg / 2);
 
     // Call Backend API to sync with OBS
-    fetch('http://localhost:5001/api/lucky-wheel/spin', {
+    fetch('/api/lucky-wheel/spin', {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -226,167 +227,167 @@ function LuckyWheel() {
         </div>
         <Link to="/home" className="back-home-btn">🏠 กลับหน้า Home</Link>
       </header>
-      
-    <div className="lucky-wheel-flex">
-      <div className="lucky-wheel-left">
-        <div className="wheel-area" style={{ width: 380, height: 380 }}>
-          <div
-            style={{
-              position: "absolute",
-              left: "50%",
-              top: 0,
-              transform: "translateX(-50%)",
-              width: 36,
-              height: 36,
-              zIndex: 2,
-              pointerEvents: "none",
-            }}
-          >
-            <svg width="36" height="36">
-              <polygon
-                points="18,24 28,0 18,6 8,0"
-                fill="#fbbf24"
-                stroke="#eab308"
-                strokeWidth="2"
-              />
-            </svg>
-          </div>
-          <div
-            className="wheel-svg"
-            ref={wheelRef}
-            style={{
-              width: 360,
-              height: 360,
-              margin: "0 auto",
-              borderRadius: "50%",
-              background: "#fff",
-              transition: "transform 4s cubic-bezier(.17,.67,.83,.67)"
-            }}
-          >
-            {renderWheel()}
-          </div>
-        </div>
-        
-        <div style={{ display: 'flex', gap: '10px', marginTop: 18, justifyContent: 'center' }}>
-          <button
-            className="spin-btn"
-            onClick={togglePreview}
-            disabled={spinning || segments.length === 0}
-            style={{ fontSize: 20, padding: "8px 32px", margin: 0 }}
-          >
-            {previewing ? "👁️ ปิดจอ OBS" : "👁️ แสดงจอ OBS"}
-          </button>
 
-          <button
-            className="spin-btn"
-            onClick={spinWheel}
-            disabled={spinning || segments.length < 2}
-            style={{ fontSize: 20, padding: "8px 32px", margin: 0 }}
-          >
-            {spinning ? "🎡 กำลังหมุน..." : "🎯 หมุนวงล้อ"}
-          </button>
-        </div>
+      <div className="lucky-wheel-flex">
+        <div className="lucky-wheel-left">
+          <div className="wheel-area" style={{ width: 380, height: 380 }}>
+            <div
+              style={{
+                position: "absolute",
+                left: "50%",
+                top: 0,
+                transform: "translateX(-50%)",
+                width: 36,
+                height: 36,
+                zIndex: 2,
+                pointerEvents: "none",
+              }}
+            >
+              <svg width="36" height="36">
+                <polygon
+                  points="18,24 28,0 18,6 8,0"
+                  fill="#fbbf24"
+                  stroke="#eab308"
+                  strokeWidth="2"
+                />
+              </svg>
+            </div>
+            <div
+              className="wheel-svg"
+              ref={wheelRef}
+              style={{
+                width: 360,
+                height: 360,
+                margin: "0 auto",
+                borderRadius: "50%",
+                background: "#fff",
+                transition: "transform 4s cubic-bezier(.17,.67,.83,.67)"
+              }}
+            >
+              {renderWheel()}
+            </div>
+          </div>
 
-        <div className="reward-row">
-          <label>🎁 ของรางวัล:</label>
-          <input
-            type="text"
-            className="reward-input"
-            placeholder="กรอกของรางวัล..."
-            value={reward}
-            onChange={e => setReward(e.target.value)}
-            disabled={spinning}
-          />
-        </div>
-      </div>
-      <div className="lucky-wheel-right">
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-          <h3 style={{margin:0}}>⚙️ ตั้งค่า</h3>
-          <button className="delete-all-btn" onClick={handleDeleteAll} disabled={spinning || segments.length === 0} style={{fontSize:"12px", padding:"8px 4px"}}>ลบทั้งหมด</button>
-        </div>
-        <textarea
-          ref={textareaRef}
-          className="wheel-textarea"
-          placeholder="พิมพ์ชื่อแต่ละช่อง↵"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          rows={6}
-          disabled={spinning}
-          style={{borderRadius: "10px", border: "2px solid #e0e0e0", padding: "10px", marginBottom: "8px", fontFamily: "inherit"}}
-        />
-        <button
-          className="add-btn"
-          onClick={handleAddFromTextarea}
-          disabled={spinning || !input.trim()}
-          style={{background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", color: "#fff", border: "none", borderRadius: "10px", padding: "8px", marginBottom: "8px", cursor: "pointer", fontWeight: "600", transition: "all 0.3s"}}
-        >
-          ➕ เพิ่มช่อง
-        </button>
-        <div className="table-range-row" style={{display: "flex", gap: "6px", marginBottom: "12px"}}>
-          <input
-            type="number"
-            placeholder="จาก"
-            value={tableRange.from}
-            onChange={e => setTableRange({ ...tableRange, from: e.target.value })}
-            disabled={spinning}
-            style={{flex: 1, padding: "1px", border: "2px solid #e0e0e0", borderRadius: "8px"}}
-          />
-          <input
-            type="number"
-            placeholder="ถึง"
-            value={tableRange.to}
-            onChange={e => setTableRange({ ...tableRange, to: e.target.value })}
-            disabled={spinning}
-            style={{flex: 1, padding: "1px", border: "2px solid #e0e0e0", borderRadius: "8px"}}
-          />
-          <button onClick={handleAddTables} disabled={spinning || !tableRange.from || !tableRange.to} style={{background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", color: "#fff", border: "none", borderRadius: "8px", padding: "8px 12px", cursor: "pointer", fontWeight: "600"}}>เพิ่มโต๊ะ</button>
-        </div>
-        <div className="wheel-edit-list small">
-          {segments.map((seg, idx) => (
-            <div key={idx} className="wheel-segment-edit small">
-              {editIndex === idx ? (
-                <>
-                  <input
-                    value={editValue}
-                    onChange={e => setEditValue(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && handleEditSave(idx)}
-                    autoFocus
-                    style={{ width: 80, padding: "4px", border: "1px solid #fff", borderRadius: "4px", background: "rgba(255,255,255,0.2)", color: "#fff" }}
-                  />
-                  <button onClick={() => handleEditSave(idx)} style={{background: "#fff", color: "#667eea", border: "none", borderRadius: "4px", padding: "2px 6px", cursor: "pointer", fontSize: "12px"}}>✓</button>
-                  <button onClick={() => setEditIndex(null)} style={{background: "rgba(255,255,255,0.3)", color: "#fff", border: "none", borderRadius: "4px", padding: "2px 6px", cursor: "pointer", fontSize: "12px"}}>✕</button>
-                </>
-              ) : (
-                <>
-                  <span>{seg}</span>
-                  <button onClick={() => handleEdit(idx)} disabled={spinning} style={{background: "rgba(255,255,255,0.3)", color: "#fff", border: "none", borderRadius: "4px", padding: "2px 6px", cursor: "pointer", fontSize: "12px"}}>✎</button>
-                  <button onClick={() => handleDelete(idx)} disabled={spinning} style={{background: "rgba(255,255,255,0.3)", color: "#fff", border: "none", borderRadius: "4px", padding: "2px 6px", cursor: "pointer", fontSize: "12px"}}>✕</button>
-                </>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-      {showPopup && winner !== null && (
-        <div className={`winner-popup ${popupEffect ? "show" : ""}`} onClick={closePopup}>
-          <div className="winner-popup-content">
-            <div className="winner-firework">✨</div>
-            <div className="winner-title">🎉 ผลลัพธ์การสุ่ม</div>
-            <div className="winner-name">{segments[winner]}</div>
-            <div className="winner-reward">
-              {reward && (
-                <>
-                  <span>🎁 ของรางวัล:</span>
-                  <span className="winner-reward-value">{reward}</span>
-                </>
-              )}
-            </div>
-            <div className="winner-firework">✨</div>
-            <button className="winner-close-btn" onClick={closePopup}>ปิด</button>
+          <div style={{ display: 'flex', gap: '10px', marginTop: 18, justifyContent: 'center' }}>
+            <button
+              className="spin-btn"
+              onClick={togglePreview}
+              disabled={spinning || segments.length === 0}
+              style={{ fontSize: 20, padding: "8px 32px", margin: 0 }}
+            >
+              {previewing ? "👁️ ปิดจอ OBS" : "👁️ แสดงจอ OBS"}
+            </button>
+
+            <button
+              className="spin-btn"
+              onClick={spinWheel}
+              disabled={spinning || segments.length < 2}
+              style={{ fontSize: 20, padding: "8px 32px", margin: 0 }}
+            >
+              {spinning ? "🎡 กำลังหมุน..." : "🎯 หมุนวงล้อ"}
+            </button>
+          </div>
+
+          <div className="reward-row">
+            <label>🎁 ของรางวัล:</label>
+            <input
+              type="text"
+              className="reward-input"
+              placeholder="กรอกของรางวัล..."
+              value={reward}
+              onChange={e => setReward(e.target.value)}
+              disabled={spinning}
+            />
           </div>
         </div>
-      )}
-    </div>
+        <div className="lucky-wheel-right">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <h3 style={{ margin: 0 }}>⚙️ ตั้งค่า</h3>
+            <button className="delete-all-btn" onClick={handleDeleteAll} disabled={spinning || segments.length === 0} style={{ fontSize: "12px", padding: "8px 4px" }}>ลบทั้งหมด</button>
+          </div>
+          <textarea
+            ref={textareaRef}
+            className="wheel-textarea"
+            placeholder="พิมพ์ชื่อแต่ละช่อง↵"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            rows={6}
+            disabled={spinning}
+            style={{ borderRadius: "10px", border: "2px solid #e0e0e0", padding: "10px", marginBottom: "8px", fontFamily: "inherit" }}
+          />
+          <button
+            className="add-btn"
+            onClick={handleAddFromTextarea}
+            disabled={spinning || !input.trim()}
+            style={{ background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", color: "#fff", border: "none", borderRadius: "10px", padding: "8px", marginBottom: "8px", cursor: "pointer", fontWeight: "600", transition: "all 0.3s" }}
+          >
+            ➕ เพิ่มช่อง
+          </button>
+          <div className="table-range-row" style={{ display: "flex", gap: "6px", marginBottom: "12px" }}>
+            <input
+              type="number"
+              placeholder="จาก"
+              value={tableRange.from}
+              onChange={e => setTableRange({ ...tableRange, from: e.target.value })}
+              disabled={spinning}
+              style={{ flex: 1, padding: "1px", border: "2px solid #e0e0e0", borderRadius: "8px" }}
+            />
+            <input
+              type="number"
+              placeholder="ถึง"
+              value={tableRange.to}
+              onChange={e => setTableRange({ ...tableRange, to: e.target.value })}
+              disabled={spinning}
+              style={{ flex: 1, padding: "1px", border: "2px solid #e0e0e0", borderRadius: "8px" }}
+            />
+            <button onClick={handleAddTables} disabled={spinning || !tableRange.from || !tableRange.to} style={{ background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", color: "#fff", border: "none", borderRadius: "8px", padding: "8px 12px", cursor: "pointer", fontWeight: "600" }}>เพิ่มโต๊ะ</button>
+          </div>
+          <div className="wheel-edit-list small">
+            {segments.map((seg, idx) => (
+              <div key={idx} className="wheel-segment-edit small">
+                {editIndex === idx ? (
+                  <>
+                    <input
+                      value={editValue}
+                      onChange={e => setEditValue(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && handleEditSave(idx)}
+                      autoFocus
+                      style={{ width: 80, padding: "4px", border: "1px solid #fff", borderRadius: "4px", background: "rgba(255,255,255,0.2)", color: "#fff" }}
+                    />
+                    <button onClick={() => handleEditSave(idx)} style={{ background: "#fff", color: "#667eea", border: "none", borderRadius: "4px", padding: "2px 6px", cursor: "pointer", fontSize: "12px" }}>✓</button>
+                    <button onClick={() => setEditIndex(null)} style={{ background: "rgba(255,255,255,0.3)", color: "#fff", border: "none", borderRadius: "4px", padding: "2px 6px", cursor: "pointer", fontSize: "12px" }}>✕</button>
+                  </>
+                ) : (
+                  <>
+                    <span>{seg}</span>
+                    <button onClick={() => handleEdit(idx)} disabled={spinning} style={{ background: "rgba(255,255,255,0.3)", color: "#fff", border: "none", borderRadius: "4px", padding: "2px 6px", cursor: "pointer", fontSize: "12px" }}>✎</button>
+                    <button onClick={() => handleDelete(idx)} disabled={spinning} style={{ background: "rgba(255,255,255,0.3)", color: "#fff", border: "none", borderRadius: "4px", padding: "2px 6px", cursor: "pointer", fontSize: "12px" }}>✕</button>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+        {showPopup && winner !== null && (
+          <div className={`winner-popup ${popupEffect ? "show" : ""}`} onClick={closePopup}>
+            <div className="winner-popup-content">
+              <div className="winner-firework">✨</div>
+              <div className="winner-title">🎉 ผลลัพธ์การสุ่ม</div>
+              <div className="winner-name">{segments[winner]}</div>
+              <div className="winner-reward">
+                {reward && (
+                  <>
+                    <span>🎁 ของรางวัล:</span>
+                    <span className="winner-reward-value">{reward}</span>
+                  </>
+                )}
+              </div>
+              <div className="winner-firework">✨</div>
+              <button className="winner-close-btn" onClick={closePopup}>ปิด</button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
