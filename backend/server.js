@@ -28,7 +28,6 @@ const server = createServer(app);
 const io = new SocketIOServer(server, {
   cors: { origin: "*" }
 });
-const PORT = 5001;
 
 // เชื่อมต่อ MongoDB
 async function connectDB() {
@@ -69,6 +68,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+// JSON Body Parser Middleware (สำคัญ!)
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Serve static overlay assets
 app.use(express.static(path.join(__dirname, "public")));
@@ -301,57 +303,7 @@ async function findUser(username) {
   }
 }
 
-// API สำหรับ login
-app.post("/login", async (req, res) => {
-  try {
-    const { username, password } = req.body;
-
-    if (!username || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "กรุณากรอกชื่อผู้ใช้และรหัสผ่าน"
-      });
-    }
-
-    // ค้นหาผู้ใช้จาก users.json
-    const user = await findUser(username);
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง"
-      });
-    }
-
-    // ตรวจสอบรหัสผ่านด้วย bcrypt
-    const isPasswordValid = await verifyPassword(password, user.password);
-
-    if (isPasswordValid) {
-      res.json({
-        success: true,
-        message: "เข้าสู่ระบบสำเร็จ",
-        user: {
-          id: user.id || user.username, // 🔥 ส่ง ID กลับมาเพื่อใช้เป็น shopId
-          username: user.username,
-          role: "admin"
-        }
-      });
-    } else {
-      res.status(401).json({
-        success: false,
-        message: "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง"
-      });
-    }
-  } catch (error) {
-    console.error('Error during login:', error);
-    res.status(500).json({
-      success: false,
-      message: "เกิดข้อผิดพลาดในระบบ"
-    });
-  }
-});
-
-// ----- Gift Settings APIs -----
+// ===== GIFT SETTINGS API =====
 app.get("/api/gifts/settings", async (req, res) => {
   try {
     const gifts = await GiftSetting.find({});
@@ -1657,27 +1609,6 @@ app.patch("/api/reports/:id", async (req, res) => {
   }
 });
 
-server.listen(PORT, async () => {
-  console.log(`Admin backend + Socket.io running on port ${PORT} `);
-  console.log(`Health check: http://localhost:${PORT}/health`);
-  console.log(`Queue API: http://localhost:${PORT}/api/queue`);
-  console.log(`Login API: http://localhost:${PORT}/login`);
-  console.log(`Report API: http://localhost:${PORT}/api/admin/report`);
-  console.log(`OBS overlay: http://localhost:${PORT}/obs-image-overlay.html`);
-
-  // โหลดและแสดงผู้ใช้ที่มีอยู่
-  try {
-    const users = await loadUsers();
-    // Users loaded successfully
-  } catch (error) {
-    console.error("Error loading users:", error);
-  }
-
-  // Start Server-Side Queue Worker
-  console.log("[QueueWorker] Starting 1s interval loop...");
-  setInterval(processAutoQueue, 1000);
-});
-
 // ==========================================
 // GLOBAL PUBLIC RANKING STATE
 // ==========================================
@@ -1972,3 +1903,79 @@ app.post('/api/lucky-wheel/preview', (req, res) => {
   return res.json({ success: true });
 });
 
+// ===== ADMIN LOGIN ENDPOINT =====
+app.post('/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'กรุณากรอก Username และ Password'
+      });
+    }
+
+    // Find admin user from DB
+    const admin = await AdminUser.findOne({ username });
+
+    if (!admin) {
+      return res.status(401).json({
+        success: false,
+        message: 'Username หรือ Password ไม่ถูกต้อง'
+      });
+    }
+
+    // Verify password
+    const isPasswordValid = await verifyPassword(password, admin.password);
+
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: 'Username หรือ Password ไม่ถูกต้อง'
+      });
+    }
+
+    // Update last login
+    admin.lastLogin = new Date();
+    await admin.save();
+
+    // Return success
+    res.json({
+      success: true,
+      message: 'เข้าสู่ระบบสำเร็จ',
+      user: {
+        id: admin._id,
+        username: admin.username,
+        role: admin.role
+      }
+    });
+
+  } catch (error) {
+    console.error('[Login] Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ'
+    });
+  }
+});
+
+// ===== START SERVER =====
+const PORT = process.env.PORT || 5001;
+server.listen(PORT, async () => {
+  console.log(`[Admin] Server + Socket.IO running on port ${PORT}`);
+  console.log(`Health check: http://localhost:${PORT}/health`);
+  console.log(`Queue API: http://localhost:${PORT}/api/queue`);
+  console.log(`Login API: http://localhost:${PORT}/login`);
+
+  // โหลดและแสดงผู้ใช้ที่มีอยู่
+  try {
+    const users = await loadUsers();
+    // Users loaded successfully
+  } catch (error) {
+    console.error("Error loading users:", error);
+  }
+
+  // Start Server-Side Queue Worker
+  console.log("[QueueWorker] Starting 1s interval loop...");
+  setInterval(processAutoQueue, 1000);
+});
