@@ -246,6 +246,35 @@ REACT_APP_LOG_LEVEL=debug
 
 ## 🔐 Admin Setup
 
+### ⚠️ Critical Security Notes
+
+**NEVER expose sensitive information in version control:**
+- ❌ Do NOT commit `.env` files to GitHub
+- ❌ Do NOT hardcode passwords or secrets in code
+- ❌ Do NOT include real MongoDB credentials in documentation
+- ❌ Do NOT share JWT secrets or API keys
+- ❌ Never push email passwords to repositories
+
+**What to Keep Secret:**
+```
+- JWT_SECRET (use 32+ character random string)
+- MONGODB_URI with credentials
+- API keys and tokens
+- Email passwords
+- Admin passwords
+- Any authentication data
+```
+
+**Use .gitignore to protect:**
+```
+.env
+.env.local
+.env.*.local
+node_modules/
+uploads/
+logs/
+```
+
 ### Create Admin User
 
 **First Time Setup:**
@@ -651,8 +680,8 @@ CMD ["npm", "start"]
 cd backend
 docker build -t cmes-admin-backend .
 docker run -p 5001:5001 \
-  -e MONGODB_URI=mongodb://mongo:27017/cmes-admin \
-  -e JWT_SECRET=your-secret \
+  -e MONGODB_URI=<your-mongodb-uri> \
+  -e JWT_SECRET=<your-secure-random-string> \
   cmes-admin-backend
 ```
 
@@ -692,8 +721,10 @@ heroku logs --tail
 
 **MongoDB Atlas (Cloud Database):**
 ```bash
-# Use connection string in .env
-MONGODB_URI=mongodb+srv://user:password@cluster.mongodb.net/cmes-admin
+# Get connection string from MongoDB Atlas dashboard
+# Format: mongodb+srv://<username>:<password>@<cluster>.mongodb.net/cmes-admin
+# Note: Never commit credentials to version control!
+MONGODB_URI=<your-mongodb-atlas-connection-string>
 ```
 
 ---
