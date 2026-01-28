@@ -12,12 +12,37 @@ dotenv.config();
 const settingsPath = "./settings.json";
 
 const app = express();
-app.use(cors());
+
+// CORS Configuration - รองรับ Development และ Production
+const allowedOrigins = [
+  'http://localhost:3000',                    // Admin Frontend (Dev)
+  'http://localhost:3001',                    // User Frontend (Dev)
+  process.env.ADMIN_FRONTEND_URL,             // Admin Frontend (Production)
+  process.env.USER_FRONTEND_URL,              // User Frontend (Production)
+].filter(Boolean);
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.warn(`[Realtime] CORS blocked origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}));
 app.use(express.json());
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: "*" }
+  cors: {
+    origin: allowedOrigins,
+    credentials: true,
+    methods: ['GET', 'POST']
+  }
 });
 
 // Create separate connection for realtime server

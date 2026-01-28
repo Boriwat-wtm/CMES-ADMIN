@@ -44,8 +44,31 @@ async function connectDB() {
 }
 connectDB();
 
-app.use(cors());
-app.use(express.json());
+// CORS Configuration - รองรับ Development และ Production
+const allowedOrigins = [
+  'http://localhost:3000',                    // Admin Frontend (Dev)
+  'http://localhost:3001',                    // User Frontend (Dev)
+  process.env.ADMIN_FRONTEND_URL,             // Admin Frontend (Production)
+  process.env.USER_FRONTEND_URL,              // User Frontend (Production)
+].filter(Boolean);
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // อนุญาต requests ที่ไม่มี origin (เช่น Render internal calls)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.warn(`[Admin] CORS blocked origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 
 // Serve static overlay assets
 app.use(express.static(path.join(__dirname, "public")));
@@ -159,7 +182,7 @@ async function addRankingPoint(userId, name, amount, email = null, avatar = null
     if (ranking) {
       // Update all-time points
       ranking.points = (ranking.points || 0) + points;
-      
+
       // Update daily points (reset if date changed)
       if (ranking.dailyDate !== today) {
         ranking.dailyPoints = points;
@@ -167,7 +190,7 @@ async function addRankingPoint(userId, name, amount, email = null, avatar = null
       } else {
         ranking.dailyPoints = (ranking.dailyPoints || 0) + points;
       }
-      
+
       // Update monthly points (reset if month changed)
       if (ranking.monthlyPeriod !== currentMonth) {
         ranking.monthlyPoints = points;
@@ -175,7 +198,7 @@ async function addRankingPoint(userId, name, amount, email = null, avatar = null
       } else {
         ranking.monthlyPoints = (ranking.monthlyPoints || 0) + points;
       }
-      
+
       ranking.name = userName; // อัปเดตชื่อถ้ามีการเปลี่ยน
       if (email) ranking.email = email;
       if (avatar) ranking.avatar = avatar;
@@ -515,13 +538,13 @@ app.get("/api/rankings", async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
     const type = req.query.type || "alltime"; // daily, monthly, alltime
-    
+
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
-    
+
     let query = {};
     let sortField = { points: -1 };
-    
+
     if (type === "daily") {
       query = { dailyDate: today };
       sortField = { dailyPoints: -1 };
@@ -529,7 +552,7 @@ app.get("/api/rankings", async (req, res) => {
       query = { monthlyPeriod: currentMonth };
       sortField = { monthlyPoints: -1 };
     }
-    
+
     const rankings = await Ranking.find(query)
       .sort(sortField)
       .limit(limit)
@@ -560,10 +583,10 @@ app.get("/api/rankings/top", async (req, res) => {
     const type = req.query.type || "alltime";
     const today = new Date().toISOString().split('T')[0];
     const currentMonth = new Date().toISOString().slice(0, 7);
-    
+
     let query = {};
     let sortField = { points: -1 };
-    
+
     if (type === "daily") {
       query = { dailyDate: today };
       sortField = { dailyPoints: -1 };
@@ -571,12 +594,12 @@ app.get("/api/rankings/top", async (req, res) => {
       query = { monthlyPeriod: currentMonth };
       sortField = { monthlyPoints: -1 };
     }
-    
+
     const top = await Ranking.find(query)
       .sort(sortField)
       .limit(3)
       .lean();
-      
+
     res.json({
       success: true,
       ranks: top,
@@ -919,7 +942,7 @@ app.post("/api/confirm-payment/:uploadId", async (req, res) => {
 
     // ค้นหา queue item
     const queueItem = await ImageQueue.findById(uploadId);
-    
+
     if (!queueItem) {
       console.log("[Admin] Upload not found");
       return res.status(404).json({ success: false, error: "ไม่พบข้อมูลการอัปโหลด" });
@@ -1133,7 +1156,7 @@ app.post("/api/complete/:id", async (req, res) => {
 
     // Start 15s Delay
     console.log("[API] Manual complete, starting 15s delay...");
-    nextPlayTime = Date.now() + 15000; 
+    nextPlayTime = Date.now() + 15000;
     if (typeof io !== 'undefined') io.emit('pause-display', { remaining: 15, isCountingDown: true });
 
     res.json({ success: true, message: 'Item completed and saved to history' });
@@ -1901,7 +1924,7 @@ async function playNextItem() {
         type: updated.type || (updated.filePath ? "image" : "text"),
         playingAt: updated.playingAt
       });
-      
+
       // Update Admin UI
       io.emit("admin-update-queue");
     }
@@ -1916,7 +1939,7 @@ async function playNextItem() {
 // --- Lucky Wheel API ---
 app.post('/api/lucky-wheel/spin', (req, res) => {
   const { segments, winnerIndex, reward } = req.body;
-  
+
   if (!segments || winnerIndex === undefined) {
     return res.status(400).json({ error: 'Missing segments or winnerIndex' });
   }
@@ -1944,7 +1967,7 @@ app.post('/api/lucky-wheel/hide', (req, res) => {
 app.post('/api/lucky-wheel/preview', (req, res) => {
   const { segments } = req.body;
   if (!segments) return res.status(400).json({ error: 'Missing segments' });
-  
+
   io.emit('lucky-wheel-preview', { segments });
   return res.json({ success: true });
 });
