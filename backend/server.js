@@ -47,8 +47,10 @@ connectDB();
 const allowedOrigins = [
   'http://localhost:3000',                    // Admin Frontend (Dev)
   'http://localhost:3001',                    // User Frontend (Dev)
-  process.env.ADMIN_FRONTEND_URL,             // Admin Frontend (Production)
-  process.env.USER_FRONTEND_URL,              // User Frontend (Production)
+  'https://cmesadminfrontend.vercel.app',     // Admin Frontend (Production)
+  'https://cmesuserfrontend.vercel.app',      // User Frontend (Production)
+  process.env.ADMIN_FRONTEND_URL,             // Admin Frontend (Custom)
+  process.env.USER_FRONTEND_URL,              // User Frontend (Custom)
 ].filter(Boolean);
 
 app.use(cors({
@@ -1962,10 +1964,11 @@ app.post('/login', async (req, res) => {
 // ===== START SERVER =====
 const PORT = process.env.PORT || 5001;
 server.listen(PORT, async () => {
+  const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
   console.log(`[Admin] Server + Socket.IO running on port ${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
-  console.log(`Queue API: http://localhost:${PORT}/api/queue`);
-  console.log(`Login API: http://localhost:${PORT}/login`);
+  console.log(`Health check: ${baseUrl}/health`);
+  console.log(`Queue API: ${baseUrl}/api/queue`);
+  console.log(`Login API: ${baseUrl}/login`);
 
   // โหลดและแสดงผู้ใช้ที่มีอยู่
   try {

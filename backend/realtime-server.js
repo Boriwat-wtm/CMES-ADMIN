@@ -17,8 +17,10 @@ const app = express();
 const allowedOrigins = [
   'http://localhost:3000',                    // Admin Frontend (Dev)
   'http://localhost:3001',                    // User Frontend (Dev)
-  process.env.ADMIN_FRONTEND_URL,             // Admin Frontend (Production)
-  process.env.USER_FRONTEND_URL,              // User Frontend (Production)
+  'https://cmesadminfrontend.vercel.app',     // Admin Frontend (Production)
+  'https://cmesuserfrontend.vercel.app',      // User Frontend (Production)
+  process.env.ADMIN_FRONTEND_URL,             // Admin Frontend (Custom)
+  process.env.USER_FRONTEND_URL,              // User Frontend (Custom)
 ].filter(Boolean);
 
 app.use(cors({
@@ -235,4 +237,9 @@ io.on("connection", (socket) => {
   });
 });
 
-server.listen(4005, () => console.log("Realtime Server running on port 4005"));
+const REALTIME_PORT = process.env.REALTIME_PORT || 4005;
+server.listen(REALTIME_PORT, () => {
+  const baseUrl = process.env.REALTIME_URL || `http://localhost:${REALTIME_PORT}`;
+  console.log(`[Realtime] Server running on port ${REALTIME_PORT}`);
+  console.log(`[Realtime] URL: ${baseUrl}`);
+});
