@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import API_BASE_URL from "./config/apiConfig";
+import { API_BASE_URL, REALTIME_URL } from "./config/apiConfig";
 import "./AdminReport.css";
 
 const API_BASE = API_BASE_URL;

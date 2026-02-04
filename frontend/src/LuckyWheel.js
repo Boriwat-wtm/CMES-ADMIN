@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom"; // Import Link
-import API_BASE_URL from "./config/apiConfig";
+import { API_BASE_URL, REALTIME_URL }  from "./config/apiConfig";
 import "./LuckyWheel.css";
 
 function getRandomInt(min, max) {
