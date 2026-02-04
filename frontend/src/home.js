@@ -4,7 +4,7 @@ import API_BASE_URL from "./config/apiConfig";
 import "./home.css";
 
 // Realtime Server URL
-const REALTIME_URL = process.env.REACT_APP_REALTIME_URL || "http://localhost:4005";
+const REALTIME_URL = process.env.REACT_APP_REALTIME_URL || "https://cmes-admin-realtime.onrender.com";
 const socket = io(REALTIME_URL);
 
 const RANK_LIMIT = 10;
