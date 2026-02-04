@@ -315,7 +315,7 @@ function ImageQueue() {
 
   const fetchHistory = async () => {
     try {
-      const response = await fetch("/api/history");
+      const response = await fetch(`${API_BASE_URL}/api/history`);
       if (response.ok) {
         const data = await response.json();
         setHistoryItems(data);

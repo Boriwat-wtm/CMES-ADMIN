@@ -9,6 +9,8 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import cron from "node-cron"; // Import node-cron
+import { v2 as cloudinary } from 'cloudinary';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
 
 import AdminReport from "./models/AdminReport.js";
 import CheckHistory from "./models/CheckHistory.js";
@@ -42,6 +44,18 @@ async function connectDB() {
   }
 }
 connectDB();
+
+// ===== CLOUDINARY CONFIGURATION =====
+cloudinary.config({ 
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dfcqbb9pt', 
+  api_key: process.env.CLOUDINARY_API_KEY || '396185692714272', 
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+console.log("[Admin] ✓ Cloudinary configured:", {
+  cloud_name: cloudinary.config().cloud_name,
+  api_key: cloudinary.config().api_key ? '***' + cloudinary.config().api_key.slice(-4) : 'NOT SET'
+});
 
 // CORS Configuration - รองรับ Development และ Production
 const allowedOrigins = [
@@ -91,37 +105,37 @@ app.use("/uploads/qr-codes", express.static(path.join(__dirname, 'uploads/qr-cod
 // Legacy support
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// --- Multer Configuration ---
+// --- Cloudinary Storage Configuration ---
 
-// 1. Gift Storage (ถาวร)
-const giftStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, giftUploadDir);
-  },
-  filename: (req, file, cb) => {
-    // Keep original extension
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, "gift-" + uniqueSuffix + path.extname(file.originalname));
-  },
+// 1. Gift Storage (Cloudinary - ถาวร)
+const giftStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'cmes-admin/gifts',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+    transformation: [{ width: 800, height: 800, crop: 'limit' }],
+    public_id: (req, file) => `gift-${Date.now()}-${Math.round(Math.random() * 1e9)}`
+  }
 });
 
-// 2. User Upload Storage (ชั่วคราว, ลบอัตโนมัติ)
-const qrCodeUploadDir = path.join(__dirname, 'uploads/qr-codes');
-if (!fs.existsSync(qrCodeUploadDir)) fs.mkdirSync(qrCodeUploadDir, { recursive: true });
-
-const userStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
+// 2. User Upload Storage (Cloudinary)
+const userStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: (req, file) => {
     if (file.fieldname === 'qrCode') {
-      cb(null, qrCodeUploadDir);
+      return {
+        folder: 'cmes-admin/qr-codes',
+        allowed_formats: ['jpg', 'jpeg', 'png'],
+        public_id: `qr-${Date.now()}-${Math.round(Math.random() * 1e9)}`
+      };
     } else {
-      cb(null, userUploadDir);
+      return {
+        folder: 'cmes-admin/user-uploads',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4'],
+        public_id: `user-${Date.now()}-${Math.round(Math.random() * 1e9)}`
+      };
     }
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const prefix = file.fieldname === 'qrCode' ? 'qr-' : 'user-';
-    cb(null, prefix + uniqueSuffix + path.extname(file.originalname));
-  },
+  }
 });
 
 const uploadGift = multer({ storage: giftStorage });
@@ -130,36 +144,7 @@ const uploadUser = multer({ storage: userStorage }).fields([
   { name: 'qrCode', maxCount: 1 }
 ]);
 
-// --- Cron Job: Cleanup User Uploads (Every midnight) ---
-// ลบไฟล์ใน uploads/user-uploads ที่เก่ากว่า 2 วัน
-cron.schedule('0 0 * * *', () => {
-  console.log('[Cleanup] Running daily cleanup for user uploads...');
-  const twoDaysAgo = Date.now() - (2 * 24 * 60 * 60 * 1000);
-
-  fs.readdir(userUploadDir, (err, files) => {
-    if (err) {
-      console.error('[Cleanup] Error reading directory:', err);
-      return;
-    }
-
-    files.forEach(file => {
-      const filePath = path.join(userUploadDir, file);
-      fs.stat(filePath, (err, stats) => {
-        if (err) {
-          console.error(`[Cleanup] Error stat file ${file}:`, err);
-          return;
-        }
-
-        if (stats.mtimeMs < twoDaysAgo) {
-          fs.unlink(filePath, (err) => {
-            if (err) console.error(`[Cleanup] Failed to delete ${file}:`, err);
-            else console.log(`[Cleanup] Deleted old file: ${file}`);
-          });
-        }
-      });
-    });
-  });
-});
+// Note: Cron cleanup removed - Cloudinary manages storage automatically
 
 // ----- Ranking Storage (using Database) -----
 async function addRankingPoint(userId, name, amount, email = null, avatar = null) {
@@ -477,8 +462,10 @@ app.post("/api/gifts/upload", uploadGift.single("image"), async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ success: false, message: "No file uploaded" });
     }
-    const filePath = `/uploads/gifts/${req.file.filename}`;
-    res.json({ success: true, url: filePath });
+    // Cloudinary returns URL in req.file.path
+    const fileUrl = req.file.path;
+    console.log("[Admin] ✓ Gift image uploaded to Cloudinary:", fileUrl);
+    res.json({ success: true, url: fileUrl });
   } catch (error) {
     console.error("Error uploading gift:", error);
     res.status(500).json({ success: false, message: "Upload failed" });
@@ -751,16 +738,20 @@ app.post("/api/upload", uploadUser, async (req, res) => {
     console.log("=== Upload request received ===");
     const mainFile = req.files?.file?.[0];
     const qrFile = req.files?.qrCode?.[0];
+    const imageUrl = req.body.imageUrl; // รับ Cloudinary URL จาก User Backend
 
     if (mainFile) {
-      console.log("Main file received:", mainFile.filename);
+      console.log("Main file received:", mainFile.originalname);
     }
     if (qrFile) {
-      console.log("QR Code file received:", qrFile.filename);
+      console.log("QR Code file received:", qrFile.originalname);
+    }
+    if (imageUrl) {
+      console.log("Image URL received:", imageUrl);
     }
 
-    if (!mainFile && !req.body.text) {
-      console.log("No file or text received");
+    if (!mainFile && !req.body.text && !imageUrl) {
+      console.log("No file, text, or imageUrl received");
     }
 
     const {
@@ -778,10 +769,10 @@ app.post("/api/upload", uploadUser, async (req, res) => {
       composed
     } = req.body;
 
-    // ตรวจสอบไฟล์ (ถ้าประเภทไม่ใช่ text หรือ gift ต้องมีไฟล์)
-    if (!mainFile && type !== "text" && type !== "gift" && type !== "birthday") {
-      console.error("[Admin] No file received in upload");
-      return res.status(400).json({ success: false, error: "No file received" });
+    // ตรวจสอบไฟล์ (ถ้าประเภทไม่ใช่ text หรือ gift ต้องมีไฟล์หรือ imageUrl)
+    if (!mainFile && !imageUrl && type !== "text" && type !== "gift" && type !== "birthday") {
+      console.error("[Admin] No file or imageUrl received in upload");
+      return res.status(400).json({ success: false, error: "No file or imageUrl received" });
     }
 
     // ตรวจสอบเงื่อนไขการใช้งานฟีเจอร์วันเกิด
@@ -839,8 +830,8 @@ app.post("/api/upload", uploadUser, async (req, res) => {
       textColor: textColor || "white",
       socialType: socialType || null,
       socialName: socialName || null,
-      filePath: mainFile ? `/uploads/user-uploads/${mainFile.filename}` : null,
-      qrCodePath: qrFile ? `/uploads/qr-codes/${qrFile.filename}` : null,
+      filePath: imageUrl || (mainFile ? mainFile.path : null), // ใช้ Cloudinary URL หรือ path จาก multer
+      qrCodePath: qrFile ? qrFile.path : null, // Cloudinary URL
       composed: composed === "1" || composed === "true",
       status: req.body.status || "pending", // ใช้ค่าจาก frontend หรือค่า default "pending"
       userId: userId || null,
