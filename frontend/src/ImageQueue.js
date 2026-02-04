@@ -264,7 +264,7 @@ function ImageQueue() {
 
   const fetchImages = async () => {
     try {
-      const response = await fetch("/api/queue");
+      const response = await fetch(`${API_BASE_URL}/api/queue`);
       if (response.ok) {
         const data = await response.json();
         setImages(data);
@@ -327,7 +327,7 @@ function ImageQueue() {
 
   const fetchGiftSettings = async () => {
     try {
-      const response = await fetch("/api/gifts/settings");
+      const response = await fetch(`${API_BASE_URL}/api/gifts/settings`);
       if (response.ok) {
         const data = await response.json();
         // data structure is { tableCount, items: [...] }
