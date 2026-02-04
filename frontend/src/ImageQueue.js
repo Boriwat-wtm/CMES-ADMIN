@@ -6,7 +6,7 @@ import fbLogo from "./data-icon/facebook-logo.png";
 import lineLogo from "./data-icon/line-logo.png";
 import tiktokLogo from "./data-icon/tiktok-logo.png";
 import io from "socket.io-client";
-import { API_BASE_URL, REALTIME_URL } from "./config/apiConfig";
+import { API_BASE_URL, REALTIME_URL, USER_API_URL } from "./config/apiConfig";
 
 // Connect to Admin Backend Socket
 const socket = io(API_BASE_URL, { transports: ['websocket', 'polling'] });
@@ -739,7 +739,7 @@ function ImageQueue() {
             <div className="avatar-circle">
               {avatarUrl ? (
                 <img
-                  src={avatarUrl.startsWith('http') ? avatarUrl : `https://cmes-user.onrender.com${avatarUrl}`}
+                  src={avatarUrl.startsWith('http') ? avatarUrl : `${USER_API_URL}${avatarUrl}`}
                   alt={senderInfo}
                   className="avatar-user-image"
                   onError={(e) => {
@@ -1146,7 +1146,7 @@ function ImageQueue() {
                           ) : image.filePath ? (
                             <>
                               <img
-                                src={`${API_BASE_URL}${image.filePath}`}
+                                src={image.filePath.startsWith('http') ? image.filePath : `${API_BASE_URL}${image.filePath}`}
                                 alt="Preview"
                                 className="preview-image"
                                 style={{
@@ -1359,9 +1359,8 @@ function ImageQueue() {
                           background: "rgba(255, 255, 255, 0.05)",
                           borderRadius: "12px",
                           border: "1px solid rgba(255, 255, 255, 0.1)"
-                        }}>
-                          <img
-                            src={`${API_BASE_URL}${previewQueue[0].filePath}`}
+                        }}>  <img
+                            src={previewQueue[0].filePath.startsWith('http') ? previewQueue[0].filePath : `${API_BASE_URL}${previewQueue[0].filePath}`}
                             alt="Next preview"
                             style={{
                               width: "60px",
@@ -1390,7 +1389,7 @@ function ImageQueue() {
                     renderGiftOrderFull(currentPreview, true)
                   ) : currentPreview.filePath ? (
                     <img
-                      src={`${API_BASE_URL}${currentPreview.filePath}`}
+                      src={currentPreview.filePath.startsWith('http') ? currentPreview.filePath : `${API_BASE_URL}${currentPreview.filePath}`}
                       alt="Preview"
                       className="preview-image"
                       style={{ width: "100%", height: "400px", objectFit: "contain" }}
@@ -1566,9 +1565,8 @@ function ImageQueue() {
                         borderRadius: '16px',
                         boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
                         border: '1px solid #f1f5f9'
-                      }}>
-                        <img
-                          src={`${API_BASE_URL}${previewQueue[0].filePath}`}
+                      }}>  <img
+                          src={previewQueue[0].filePath.startsWith('http') ? previewQueue[0].filePath : `${API_BASE_URL}${previewQueue[0].filePath}`}
                           alt="Next"
                           style={{
                             width: '60px',
@@ -1626,7 +1624,7 @@ function ImageQueue() {
                       <div className="queue-item-number">#{index + 1}</div>
                       <div className="queue-item-image">
                         <img
-                          src={`${API_BASE_URL}${queueImage.filePath}`}
+                          src={queueImage.filePath.startsWith('http') ? queueImage.filePath : `${API_BASE_URL}${queueImage.filePath}`}
                           alt="Queue preview"
                           onError={(e) => {
                             e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjZjlmYWZiIi8+PC9zdmc+';
@@ -1699,7 +1697,7 @@ function ImageQueue() {
                       overflow: "hidden"
                     }}>
                       <img
-                        src={`${API_BASE_URL}${selectedImage.filePath}`}
+                        src={selectedImage.filePath.startsWith('http') ? selectedImage.filePath : `${API_BASE_URL}${selectedImage.filePath}`}
                         alt="Full preview"
                         style={{
                           width: "100%",
@@ -1783,7 +1781,7 @@ function ImageQueue() {
                               สแกนเลย!
                             </span>
                             <img
-                              src={`${API_BASE_URL}${selectedImage.qrCodePath}`}
+                              src={selectedImage.qrCodePath.startsWith('http') ? selectedImage.qrCodePath : `${API_BASE_URL}${selectedImage.qrCodePath}`}
                               alt="QR Code"
                               style={{
                                 width: "120px",
@@ -2170,10 +2168,9 @@ function ImageQueue() {
                           alignItems: "center",
                           justifyContent: "center",
                           overflow: "hidden"
-                        }}>
-                          {item.mediaUrl ? (
+                        }}>  {item.mediaUrl ? (
                             <img
-                              src={`${API_BASE_URL}${item.mediaUrl}`}
+                              src={item.mediaUrl.startsWith('http') ? item.mediaUrl : `${API_BASE_URL}${item.mediaUrl}`}
                               alt="History preview"
                               style={{
                                 width: "100%",
