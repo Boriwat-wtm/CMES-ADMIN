@@ -237,9 +237,9 @@ io.on("connection", (socket) => {
   });
 });
 
-const REALTIME_PORT = process.env.REALTIME_PORT || 4005;
+const REALTIME_PORT = process.env.PORT || 4005;
 server.listen(REALTIME_PORT, () => {
-  const baseUrl = process.env.REALTIME_URL || `http://localhost:${REALTIME_PORT}`;
+  const baseUrl = process.env.REALTIME_URL || 'https://cmes-admin-realtime.onrender.com';
   console.log(`[Realtime] Server running on port ${REALTIME_PORT}`);
   console.log(`[Realtime] URL: ${baseUrl}`);
 });

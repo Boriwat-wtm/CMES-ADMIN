@@ -1514,12 +1514,22 @@ app.get("/api/admin/report", async (req, res) => {
 });
 
 // Health check endpoint
-app.get("/health", (req, res) => {
-  res.json({
-    status: "OK",
-    timestamp: new Date().toISOString(),
-    queueLength: imageQueue.length
-  });
+app.get("/health", async (req, res) => {
+  try {
+    const queueLength = await ImageQueue.countDocuments({ status: { $in: ['pending', 'approved', 'playing'] } });
+    res.json({
+      status: "OK",
+      timestamp: new Date().toISOString(),
+      queueLength: queueLength,
+      database: mongoose.connection.readyState === 1 ? "connected" : "disconnected"
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "ERROR",
+      timestamp: new Date().toISOString(),
+      error: error.message
+    });
+  }
 });
 
 // OBS overlay (HTML) - served from /public
