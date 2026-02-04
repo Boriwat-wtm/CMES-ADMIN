@@ -6,7 +6,7 @@ import fbLogo from "./data-icon/facebook-logo.png";
 import lineLogo from "./data-icon/line-logo.png";
 import tiktokLogo from "./data-icon/tiktok-logo.png";
 import io from "socket.io-client";
-import API_BASE_URL from "./config/apiConfig";
+import { API_BASE_URL, REALTIME_URL } from "./config/apiConfig";
 
 // Connect to Admin Backend Socket
 const socket = io(API_BASE_URL, { transports: ['websocket', 'polling'] });
