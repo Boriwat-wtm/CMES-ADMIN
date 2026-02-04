@@ -739,6 +739,7 @@ app.post("/api/upload", uploadUser, async (req, res) => {
     const mainFile = req.files?.file?.[0];
     const qrFile = req.files?.qrCode?.[0];
     const imageUrl = req.body.imageUrl; // รับ Cloudinary URL จาก User Backend
+    const qrCodeUrl = req.body.qrCodeUrl; // รับ QR Code URL จาก User Backend
 
     if (mainFile) {
       console.log("Main file received:", mainFile.originalname);
@@ -748,6 +749,9 @@ app.post("/api/upload", uploadUser, async (req, res) => {
     }
     if (imageUrl) {
       console.log("Image URL received:", imageUrl);
+    }
+    if (qrCodeUrl) {
+      console.log("QR Code URL received:", qrCodeUrl);
     }
 
     if (!mainFile && !req.body.text && !imageUrl) {
@@ -831,7 +835,7 @@ app.post("/api/upload", uploadUser, async (req, res) => {
       socialType: socialType || null,
       socialName: socialName || null,
       filePath: imageUrl || (mainFile ? mainFile.path : null), // ใช้ Cloudinary URL หรือ path จาก multer
-      qrCodePath: qrFile ? qrFile.path : null, // Cloudinary URL
+      qrCodePath: qrCodeUrl || (qrFile ? qrFile.path : null), // ใช้ URL จาก User Backend หรือ upload ใหม่
       composed: composed === "1" || composed === "true",
       status: req.body.status || "pending", // ใช้ค่าจาก frontend หรือค่า default "pending"
       userId: userId || null,
