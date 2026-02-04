@@ -49,6 +49,11 @@ function Home() {
   const adminId = localStorage.getItem("adminId") || "default-admin";
   const adminUsername = localStorage.getItem("adminUsername") || "Admin";
 
+  // Copy button states
+  const [copiedImage, setCopiedImage] = useState(false);
+  const [copiedRanking, setCopiedRanking] = useState(false);
+  const [copiedWheel, setCopiedWheel] = useState(false);
+
   /*
    * Load system config from socket.io
    */
@@ -459,7 +464,7 @@ function Home() {
                     <input
                       type="text"
                       readOnly
-                      value={`/obs-image-overlay.html?shopId=${adminId}`}
+                      value={`${API_BASE_URL}/obs-image-overlay.html?shopId=${adminId}`}
                       style={{
                         flex: 1,
                         padding: "8px 12px",
@@ -472,22 +477,25 @@ function Home() {
                     />
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(`/obs-image-overlay.html?shopId=${adminId}`);
-                        alert("คัดลอกลิงก์แล้ว!");
+                        navigator.clipboard.writeText(`${API_BASE_URL}/obs-image-overlay.html?shopId=${adminId}`);
+                        setCopiedImage(true);
+                        setTimeout(() => setCopiedImage(false), 2000);
                       }}
                       style={{
                         padding: "8px 16px",
-                        background: "linear-gradient(135deg, #0ea5e9, #0284c7)",
+                        background: copiedImage ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
                         color: "#fff",
                         border: "none",
                         borderRadius: "8px",
                         cursor: "pointer",
                         fontSize: "13px",
                         fontWeight: "600",
-                        whiteSpace: "nowrap"
+                        whiteSpace: "nowrap",
+                        transition: "all 0.3s ease",
+                        transform: copiedImage ? "scale(0.95)" : "scale(1)"
                       }}
                     >
-                      📋 Copy
+                      {copiedImage ? "✓ Copied!" : "📋 Copy"}
                     </button>
                   </div>
                 </div>
@@ -499,7 +507,7 @@ function Home() {
                     <input
                       type="text"
                       readOnly
-                      value={`/obs-ranking-overlay.html?shopId=${adminId}`}
+                      value={`${API_BASE_URL}/obs-ranking-overlay.html?shopId=${adminId}`}
                       style={{
                         flex: 1,
                         padding: "8px 12px",
@@ -512,22 +520,25 @@ function Home() {
                     />
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(`/obs-ranking-overlay.html?shopId=${adminId}`);
-                        alert("คัดลอกลิงก์แล้ว!");
+                        navigator.clipboard.writeText(`${API_BASE_URL}/obs-ranking-overlay.html?shopId=${adminId}`);
+                        setCopiedRanking(true);
+                        setTimeout(() => setCopiedRanking(false), 2000);
                       }}
                       style={{
                         padding: "8px 16px",
-                        background: "linear-gradient(135deg, #0ea5e9, #0284c7)",
+                        background: copiedRanking ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
                         color: "#fff",
                         border: "none",
                         borderRadius: "8px",
                         cursor: "pointer",
                         fontSize: "13px",
                         fontWeight: "600",
-                        whiteSpace: "nowrap"
+                        whiteSpace: "nowrap",
+                        transition: "all 0.3s ease",
+                        transform: copiedRanking ? "scale(0.95)" : "scale(1)"
                       }}
                     >
-                      📋 Copy
+                      {copiedRanking ? "✓ Copied!" : "📋 Copy"}
                     </button>
                   </div>
                 </div>
@@ -539,7 +550,7 @@ function Home() {
                     <input
                       type="text"
                       readOnly
-                      value={`/obs-lucky-wheel.html?shopId=${adminId}`}
+                      value={`${API_BASE_URL}/obs-lucky-wheel.html?shopId=${adminId}`}
                       style={{
                         flex: 1,
                         padding: "8px 12px",
@@ -552,22 +563,25 @@ function Home() {
                     />
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(`/obs-lucky-wheel.html?shopId=${adminId}`);
-                        alert("คัดลอกลิงก์แล้ว!");
+                        navigator.clipboard.writeText(`${API_BASE_URL}/obs-lucky-wheel.html?shopId=${adminId}`);
+                        setCopiedWheel(true);
+                        setTimeout(() => setCopiedWheel(false), 2000);
                       }}
                       style={{
                         padding: "8px 16px",
-                        background: "linear-gradient(135deg, #0ea5e9, #0284c7)",
+                        background: copiedWheel ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
                         color: "#fff",
                         border: "none",
                         borderRadius: "8px",
                         cursor: "pointer",
                         fontSize: "13px",
                         fontWeight: "600",
-                        whiteSpace: "nowrap"
+                        whiteSpace: "nowrap",
+                        transition: "all 0.3s ease",
+                        transform: copiedWheel ? "scale(0.95)" : "scale(1)"
                       }}
                     >
-                      📋 Copy
+                      {copiedWheel ? "✓ Copied!" : "📋 Copy"}
                     </button>
                   </div>
                 </div>
