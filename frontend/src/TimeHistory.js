@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { io } from "socket.io-client";
 import { Link } from "react-router-dom";
+import { REALTIME_URL } from "./config/apiConfig";
 import "./TimeHistory.css";
 
 function TimeHistory() {
@@ -10,7 +11,7 @@ function TimeHistory() {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const response = await fetch("http://localhost:4005/api/check-history");
+        const response = await fetch(`${REALTIME_URL}/api/check-history`);
         if (response.ok) {
           const data = await response.json();
           console.log("[TimeHistory] Fetched history:", data);
@@ -24,7 +25,7 @@ function TimeHistory() {
     fetchHistory();
     const interval = setInterval(fetchHistory, 5000);
 
-    socketRef.current = io("http://localhost:4005");
+    socketRef.current = io(REALTIME_URL);
     socketRef.current.on("status", (data) => {
       console.log("[TimeHistory] Received status event, refetching...");
       fetchHistory();

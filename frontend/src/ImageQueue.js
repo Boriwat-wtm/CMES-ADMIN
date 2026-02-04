@@ -739,7 +739,7 @@ function ImageQueue() {
             <div className="avatar-circle">
               {avatarUrl ? (
                 <img
-                  src={avatarUrl.startsWith('http') ? avatarUrl : `http://localhost:4000${avatarUrl}`}
+                  src={avatarUrl.startsWith('http') ? avatarUrl : `https://cmes-user.onrender.com${avatarUrl}`}
                   alt={senderInfo}
                   className="avatar-user-image"
                   onError={(e) => {
@@ -795,7 +795,7 @@ function ImageQueue() {
               <div key={`${item._id || item.id}-${giftItem.id || idx}`} className="gift-item-card">
                 {itemImage ? (
                   <img
-                    src={itemImage.startsWith('http') ? itemImage : `http://localhost:5001${itemImage}`}
+                    src={itemImage.startsWith('http') ? itemImage : `${API_BASE_URL}${itemImage}`}
                     alt={giftItem.name}
                     className="gift-item-image"
                     onError={(e) => {
@@ -1146,7 +1146,7 @@ function ImageQueue() {
                           ) : image.filePath ? (
                             <>
                               <img
-                                src={`http://localhost:5001${image.filePath}`}
+                                src={`${API_BASE_URL}${image.filePath}`}
                                 alt="Preview"
                                 className="preview-image"
                                 style={{
@@ -1361,7 +1361,7 @@ function ImageQueue() {
                           border: "1px solid rgba(255, 255, 255, 0.1)"
                         }}>
                           <img
-                            src={`http://localhost:5001${previewQueue[0].filePath}`}
+                            src={`${API_BASE_URL}${previewQueue[0].filePath}`}
                             alt="Next preview"
                             style={{
                               width: "60px",
@@ -1390,7 +1390,7 @@ function ImageQueue() {
                     renderGiftOrderFull(currentPreview, true)
                   ) : currentPreview.filePath ? (
                     <img
-                      src={`http://localhost:5001${currentPreview.filePath}`}
+                      src={`${API_BASE_URL}${currentPreview.filePath}`}
                       alt="Preview"
                       className="preview-image"
                       style={{ width: "100%", height: "400px", objectFit: "contain" }}
@@ -1568,7 +1568,7 @@ function ImageQueue() {
                         border: '1px solid #f1f5f9'
                       }}>
                         <img
-                          src={`http://localhost:5001${previewQueue[0].filePath}`}
+                          src={`${API_BASE_URL}${previewQueue[0].filePath}`}
                           alt="Next"
                           style={{
                             width: '60px',
@@ -1626,7 +1626,7 @@ function ImageQueue() {
                       <div className="queue-item-number">#{index + 1}</div>
                       <div className="queue-item-image">
                         <img
-                          src={`http://localhost:5001${queueImage.filePath}`}
+                          src={`${API_BASE_URL}${queueImage.filePath}`}
                           alt="Queue preview"
                           onError={(e) => {
                             e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjZjlmYWZiIi8+PC9zdmc+';
@@ -1699,7 +1699,7 @@ function ImageQueue() {
                       overflow: "hidden"
                     }}>
                       <img
-                        src={`http://localhost:5001${selectedImage.filePath}`}
+                        src={`${API_BASE_URL}${selectedImage.filePath}`}
                         alt="Full preview"
                         style={{
                           width: "100%",
@@ -1783,7 +1783,7 @@ function ImageQueue() {
                               สแกนเลย!
                             </span>
                             <img
-                              src={`http://localhost:5001${selectedImage.qrCodePath}`}
+                              src={`${API_BASE_URL}${selectedImage.qrCodePath}`}
                               alt="QR Code"
                               style={{
                                 width: "120px",
@@ -2173,7 +2173,7 @@ function ImageQueue() {
                         }}>
                           {item.mediaUrl ? (
                             <img
-                              src={`http://localhost:5001${item.mediaUrl}`}
+                              src={`${API_BASE_URL}${item.mediaUrl}`}
                               alt="History preview"
                               style={{
                                 width: "100%",
