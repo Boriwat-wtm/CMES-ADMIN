@@ -524,7 +524,9 @@
 
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script>
-    const socket = io('http://localhost:5001', { transports: ['websocket', 'polling'] });
+    const REALTIME_URL = 'https://cmes-admin-realtime.onrender.com';
+    const API_BASE_URL = 'https://cmes-admin-server.onrender.com';
+    const socket = io(REALTIME_URL, { transports: ['websocket', 'polling'] });
 
     // เก็บการตั้งค่ารูปภาพสินค้า
     let giftSettingsItems = [];
@@ -532,7 +534,7 @@
     // ฟังก์ชันดึงการตั้งค่ารูปภาพ
     async function fetchGiftSettings() {
       try {
-        const response = await fetch("http://localhost:5001/api/gifts/settings");
+        const response = await fetch(`${API_BASE_URL}/api/gifts/settings`);
         if (response.ok) {
           const data = await response.json();
           giftSettingsItems = data.items || [];
@@ -569,10 +571,10 @@
     let remainingTime = 0; // เวลาที่เหลืออยู่เมื่อหยุด
 
     const logoMap = {
-      ig: 'http://localhost:5001/data-icon/ig-logo.png',
-      fb: 'http://localhost:5001/data-icon/facebook-logo.png',
-      line: 'http://localhost:5001/data-icon/line-logo.png',
-      tiktok: 'http://localhost:5001/data-icon/tiktok-logo.png'
+      ig: `${API_BASE_URL}/data-icon/ig-logo.png`,
+      fb: `${API_BASE_URL}/data-icon/facebook-logo.png`,
+      line: `${API_BASE_URL}/data-icon/line-logo.png`,
+      tiktok: `${API_BASE_URL}/data-icon/tiktok-logo.png`
     };
 
     function show(payload = {}) {
@@ -611,7 +613,7 @@
           if (!resolved.startsWith('/')) {
             resolved = `/uploads/user-uploads/${resolved}`;
           }
-          resolved = `http://localhost:5001${resolved}`;
+          resolved = `${API_BASE_URL}${resolved}`;
         }
 
         thumb.src = resolved;
@@ -673,7 +675,7 @@
           if (!resolvedQR.startsWith('/')) {
             resolvedQR = `/uploads/qr-codes/${resolvedQR}`;
           }
-          resolvedQR = `http://localhost:5001${resolvedQR}`;
+          resolvedQR = `${API_BASE_URL}${resolvedQR}`;
         }
 
         console.log('[Debug] QR Code URL:', resolvedQR);
@@ -823,7 +825,7 @@
         // Avatar comes from User Backend (port 4000)
         // If it's a full URL, use it directly. If it's a relative path, prepend user backend URL.
         // It might also be a Google avatar which is a full URL.
-        const avatarUrl = avatar.startsWith('http') ? avatar : `http://localhost:4000${avatar}`;
+        const avatarUrl = avatar.startsWith('http') ? avatar : `https://cmes-user.onrender.com${avatar}`;
         console.log('[OBS] Loading avatar:', avatarUrl);
 
         const avatarImg = document.createElement('img');
@@ -860,7 +862,7 @@
         
         // ถ้ามีรูป
         const imgHtml = itemImage 
-          ? `<img src="${itemImage.startsWith('http') ? itemImage : 'http://localhost:5001' + itemImage}" alt="${item.name}" />` 
+          ? `<img src="${itemImage.startsWith('http') ? itemImage : API_BASE_URL + itemImage}" alt="${item.name}" />` 
           : `<div style="width:100px;height:100px;background:rgba(255,255,255,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 0.5rem;font-size:2rem;color:#777;">?</div>`;
 
         return `
@@ -1089,7 +1091,7 @@
     }
 
     // --- Lucky Wheel Logic moved to obs-lucky-wheel.html ---
-    // Please add http://localhost:5001/obs-lucky-wheel.html as a new Browser Source in OBS
+    // Please add https://cmes-admin-realtime.onrender.com/obs-lucky-wheel.html as a new Browser Source in OBS
     /*
     socket.on('lucky-wheel-spin', (data) => {
        // ... moved ...

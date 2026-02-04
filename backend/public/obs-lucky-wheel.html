@@ -307,7 +307,8 @@
   </div>
 
   <script>
-    const socket = io('http://localhost:5001');
+    const REALTIME_URL = 'https://cmes-admin-realtime.onrender.com';
+    const socket = io(REALTIME_URL);
 
     const wheelOverlay = document.getElementById('wheel-overlay');
     const wheelSvgContainer = document.getElementById('obs-wheel-svg-container');
