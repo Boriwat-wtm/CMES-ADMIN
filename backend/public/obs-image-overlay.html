@@ -526,7 +526,7 @@
   <script>
     const REALTIME_URL = 'https://cmes-admin-realtime.onrender.com';
     const API_BASE_URL = 'https://cmes-admin-server.onrender.com';
-    const socket = io(REALTIME_URL, { transports: ['websocket', 'polling'] });
+    const socket = io(API_BASE_URL, { transports: ['websocket', 'polling'] });
 
     // เก็บการตั้งค่ารูปภาพสินค้า
     let giftSettingsItems = [];

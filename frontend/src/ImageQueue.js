@@ -8,8 +8,8 @@ import tiktokLogo from "./data-icon/tiktok-logo.png";
 import io from "socket.io-client";
 import { API_BASE_URL, REALTIME_URL, USER_API_URL } from "./config/apiConfig";
 
-// Connect to Realtime Socket Server (same as OBS)
-const socket = io(REALTIME_URL, { transports: ['websocket', 'polling'] });
+// Connect to Admin Backend Socket
+const socket = io(API_BASE_URL, { transports: ['websocket', 'polling'] });
 
 function ImageQueue() {
   const [images, setImages] = useState([]);
@@ -104,43 +104,6 @@ function ImageQueue() {
       console.log("[Playing] Marked as playing:", imageId);
     } catch (err) {
       console.error("Error marking as playing:", err);
-    }
-
-    // ส่งสัญญาณไป OBS เพื่อแสดงผล
-    if (image.type === 'gift') {
-      // ส่งแบบของขวัญ
-      socket.emit('now-playing-gift', {
-        id: imageId,
-        sender: image.sender,
-        avatar: image.giftOrder?.avatar || null,
-        tableNumber: image.giftOrder?.tableNumber || 1,
-        items: image.giftOrder?.items || [],
-        note: image.giftOrder?.note || '',
-        totalPrice: image.price,
-        time: image.time,
-        duration: image.time,
-        playingAt: now
-      });
-      console.log("[OBS] Sent gift to display:", imageId);
-    } else {
-      // ส่งแบบรูปภาพ/ข้อความ
-      socket.emit('now-playing-image', {
-        id: imageId,
-        sender: image.sender,
-        price: image.price,
-        time: image.time,
-        duration: image.time,
-        filePath: image.filePath,
-        text: image.text,
-        textColor: image.textColor,
-        socialType: image.socialType,
-        socialName: image.socialName,
-        qrCodePath: image.qrCodePath,
-        width: image.width,
-        height: image.height,
-        playingAt: now
-      });
-      console.log("[OBS] Sent image/text to display:", imageId);
     }
   };
 
@@ -568,20 +531,21 @@ function ImageQueue() {
       }));
       setShowModal(false);
 
-      // 2. Add to Queue and Start Preview (RE-ENABLED for immediate display)
+      // 2. Add to Queue Locally - DISABLED!
+      // Server-Driven Architecture: We do NOT force startPreview here anymore.
+      // We just approve it, and the server's QueueWorker will pick it up 
+      // based on the queue order (custom or FIFO).
+      /*
       const imageToApprove = { ...selectedImage, width: editWidth, height: editHeight, status: 'approved' };
-      
       if (!currentPreview && !isActive) {
-        // ไม่มีรูปที่กำลังแสดง → แสดงทันที
         startPreview(imageToApprove);
       } else {
-        // มีรูปแสดงอยู่แล้ว → เพิ่มเข้าคิว
         setPreviewQueue(prev => {
-          // เช็คว่ามีอยู่ในคิวแล้วหรือไม่
           if (prev.find(p => (p._id || p.id) === (imageToApprove._id || imageToApprove.id))) return prev;
           return [...prev, imageToApprove];
         });
       }
+      */
 
       // 3. Send Request
       const response = await fetch(`${API_BASE_URL}/api/approve/${id}`, {
