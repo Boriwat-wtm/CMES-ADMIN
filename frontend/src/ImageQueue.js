@@ -98,7 +98,7 @@ function ImageQueue() {
 
     // อัพเดทสถานะเป็น 'playing' ใน DB
     try {
-      await fetch(`/api/playing/${imageId}`, {
+      await fetch(`${API_BASE_URL}/api/playing/${imageId}`, {
         method: "POST"
       });
       console.log("[Playing] Marked as playing:", imageId);
@@ -152,7 +152,7 @@ function ImageQueue() {
 
     // Call backend to complete
     try {
-      const response = await fetch(`/api/complete/${imageId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/complete/${imageId}`, {
         method: "POST"
       });
       const result = await response.json();
@@ -345,7 +345,7 @@ function ImageQueue() {
     if (!currentPreview) return;
     const imageId = currentPreview._id || currentPreview.id;
     try {
-      await fetch(`/api/complete/${imageId}`, { method: "POST" });
+      await fetch(`${API_BASE_URL}/api/complete/${imageId}`, { method: "POST" });
     } catch (err) {
       console.error("Error skipping current image:", err);
     }
@@ -379,7 +379,7 @@ function ImageQueue() {
   const handleRestoreToQueue = async (historyId) => {
     try {
       console.log("[Frontend] Restoring history ID:", historyId);
-      const response = await fetch(`/api/history/restore/${historyId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/history/restore/${historyId}`, {
         method: "POST",
       });
       if (response.ok) {
@@ -548,7 +548,7 @@ function ImageQueue() {
       */
 
       // 3. Send Request
-      const response = await fetch(`/api/approve/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/approve/${id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -575,7 +575,7 @@ function ImageQueue() {
   const handleReject = async (id) => {
     try {
       console.log('[Reject] Rejecting image with ID:', id);
-      const response = await fetch(`/api/reject/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/reject/${id}`, {
         method: "POST",
       });
       if (response.ok) {
