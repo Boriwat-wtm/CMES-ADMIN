@@ -553,6 +553,57 @@ app.get("/api/rankings/top", async (req, res) => {
   }
 });
 
+// อัปเดต avatar ของ user ใน ranking (ถูกเรียกจาก User Backend เมื่อมีการเปลี่ยน avatar)
+app.put("/api/rankings/update-avatar", async (req, res) => {
+  try {
+    const { userId, email, avatar, username } = req.body;
+
+    if (!userId && !email) {
+      return res.status(400).json({
+        success: false,
+        message: "userId or email is required"
+      });
+    }
+
+    // หา ranking record โดยใช้ userId หรือ email
+    let query = {};
+    if (userId) {
+      query.userId = userId;
+    } else if (email) {
+      query.email = email;
+    }
+
+    const ranking = await Ranking.findOne(query);
+
+    if (ranking) {
+      // อัปเดต avatar และชื่อถ้ามี
+      if (avatar !== undefined) ranking.avatar = avatar;
+      if (username) ranking.name = username;
+      
+      await ranking.save();
+      console.log(`[Ranking] Avatar updated for user ${ranking.name} (${ranking.userId})`);
+      
+      return res.json({
+        success: true,
+        message: "Avatar updated successfully"
+      });
+    } else {
+      // ถ้ายังไม่มี ranking record ก็ไม่ต้องสร้าง (จะสร้างตอนซื้อครั้งแรก)
+      console.log(`[Ranking] No ranking record found for user, will create on first purchase`);
+      return res.json({
+        success: true,
+        message: "No ranking record yet, will update on first purchase"
+      });
+    }
+  } catch (error) {
+    console.error("Error updating avatar in ranking:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update avatar"
+    });
+  }
+});
+
 // ===== Birthday Spending Requirement APIs =====
 
 // ดึงค่า birthday spending requirement
