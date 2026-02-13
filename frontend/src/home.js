@@ -350,8 +350,10 @@ function Home() {
 
       if (res.ok) {
         // Broadcast perks update to all users via Socket.IO
+        console.log("[Admin] 🔥 Broadcasting perks update via Socket.IO:", perks.length, "items");
         socket.emit("adminUpdatePerks", { perks });
-        alert("✅ บันทึกสิทธิพิเศษสำเร็จ");
+        console.log("[Admin] ✅ Socket emitted: adminUpdatePerks");
+        alert("✅ บันทึกสิทธิพิเศษสำเร็จ\n\nการเปลี่ยนแปลงจะแสดงแบบ Real-time บนหน้า User ทันที");
         handleClosePerksModal();
       } else {
         alert("เกิดข้อผิดพลาดในการบันทึก");
@@ -1454,6 +1456,35 @@ function Home() {
               {/* Save All Button */}
               <div style={{ marginTop: "24px", display: "flex", gap: "12px" }}>
                 <button
+                  onClick={handleClosePerksModal}
+                  disabled={savingPerks}
+                  style={{
+                    padding: "16px 24px",
+                    background: savingPerks ? "#cbd5e1" : "#f1f5f9",
+                    color: savingPerks ? "#94a3b8" : "#64748b",
+                    border: savingPerks ? "none" : "2px solid #e2e8f0",
+                    borderRadius: "12px",
+                    cursor: savingPerks ? "not-allowed" : "pointer",
+                    fontSize: "16px",
+                    fontWeight: "700",
+                    transition: "all 0.2s ease"
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!savingPerks) {
+                      e.target.style.background = "#e2e8f0";
+                      e.target.style.borderColor = "#cbd5e1";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!savingPerks) {
+                      e.target.style.background = "#f1f5f9";
+                      e.target.style.borderColor = "#e2e8f0";
+                    }
+                  }}
+                >
+                  ปิด
+                </button>
+                <button
                   onClick={handleSaveAllPerks}
                   disabled={savingPerks || perks.length === 0}
                   style={{
@@ -1471,22 +1502,6 @@ function Home() {
                   }}
                 >
                   {savingPerks ? "กำลังบันทึก..." : "💾 บันทึกทั้งหมด"}
-                </button>
-                <button
-                  onClick={handleClosePerksModal}
-                  disabled={savingPerks}
-                  style={{
-                    padding: "16px 24px",
-                    background: savingPerks ? "#cbd5e1" : "linear-gradient(135deg, #64748b, #475569)",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: "12px",
-                    cursor: savingPerks ? "not-allowed" : "pointer",
-                    fontSize: "16px",
-                    fontWeight: "700"
-                  }}
-                >
-                  ปิด
                 </button>
               </div>
 
