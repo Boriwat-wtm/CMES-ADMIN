@@ -1303,8 +1303,7 @@ app.get("/api/check-history", async (req, res) => {
         checkedAt: item.approvalDate,
         createdAt: item.receivedAt || item.createdAt, // Fix: Use receivedAt for "Receive Data" time, fallback to createdAt
         type: item.type || (item.filePath ? 'image' : 'text'),
-        filePath: isNew ? item.mediaUrl : item.filePath,
-        filePath: isNew ? item.mediaUrl : item.filePath,
+        filePath: isNew ? item.mediaUrl : item.filePath, // Use mediaUrl for new schema, filePath for legacy
         tableNumber: isNew ? (item.metadata?.tableNumber || 0) : item.tableNumber,
 
         // New fields

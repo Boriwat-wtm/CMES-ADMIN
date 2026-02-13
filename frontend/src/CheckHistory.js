@@ -16,7 +16,20 @@ function CheckHistory() {
   const fetchHistory = () => {
     fetch(`${API_BASE_URL}/api/check-history`)
       .then((res) => res.json())
-      .then((data) => setHistory(data));
+      .then((data) => {
+        console.log("[CheckHistory] Fetched data:", data);
+        // Debug: Check if images have filePath
+        const imagesWithPath = data.filter(item => item.type === 'image');
+        console.log("[CheckHistory] Images with filePath:", imagesWithPath.map(i => ({
+          id: i.id,
+          filePath: i.filePath,
+          fullUrl: i.filePath ? `${API_BASE_URL}${i.filePath}` : 'NO PATH'
+        })));
+        setHistory(data);
+      })
+      .catch((err) => {
+        console.error("[CheckHistory] Error fetching history:", err);
+      });
   };
 
   const handleDelete = async (id) => {
@@ -41,6 +54,13 @@ function CheckHistory() {
   const imageHistory = history.filter((item) => item.type === "image");
   const giftHistory = history.filter((item) => item.type === "gift");
   const birthdayHistory = history.filter((item) => item.type === "birthday");
+
+  // Helper to ensure filePath has leading slash
+  const getImageUrl = (filePath) => {
+    if (!filePath) return null;
+    const normalizedPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
+    return `${API_BASE_URL}${normalizedPath}`;
+  };
 
   const formatDate = (dateString) => {
     if (!dateString) return "-";
@@ -113,7 +133,7 @@ function CheckHistory() {
               {item.filePath && (
                 <div>
                   <img
-                    src={`${API_BASE_URL}${item.filePath}`}
+                    src={getImageUrl(item.filePath)}
                     alt="img"
                     style={{
                       maxWidth: 180,
@@ -121,7 +141,15 @@ function CheckHistory() {
                       borderRadius: 8,
                       boxShadow: "0 1px 4px 0 rgba(30,41,59,.08)",
                     }}
+                    onError={(e) => {
+                      console.error("[CheckHistory] Image failed to load:", getImageUrl(item.filePath));
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'block';
+                    }}
                   />
+                  <div style={{ display: 'none', color: '#ef4444', fontSize: '0.875rem', marginTop: '8px' }}>
+                    ⚠️ ไม่สามารถโหลดรูปภาพได้
+                  </div>
                 </div>
               )}
               <button
@@ -231,14 +259,22 @@ function CheckHistory() {
                 <b>รูปภาพ:</b>
                 <br />
                 <img
-                  src={`${API_BASE_URL}${selected.filePath}`}
+                  src={getImageUrl(selected.filePath)}
                   alt="img"
                   style={{
                     maxWidth: 180,
                     borderRadius: 8,
                     marginTop: 4,
                   }}
+                  onError={(e) => {
+                    console.error("[CheckHistory Modal] Image failed to load:", getImageUrl(selected.filePath));
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'block';
+                  }}
                 />
+                <div style={{ display: 'none', color: '#ef4444', fontSize: '0.875rem', marginTop: '4px' }}>
+                  ⚠️ ไม่สามารถโหลดรูปภาพได้
+                </div>
               </div>
             )}
 
