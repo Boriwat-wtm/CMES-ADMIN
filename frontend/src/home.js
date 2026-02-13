@@ -1459,6 +1459,7 @@ function Home() {
                   onClick={handleClosePerksModal}
                   disabled={savingPerks}
                   style={{
+                    width: "120px",
                     padding: "16px 24px",
                     background: savingPerks ? "#cbd5e1" : "#f1f5f9",
                     color: savingPerks ? "#94a3b8" : "#64748b",
