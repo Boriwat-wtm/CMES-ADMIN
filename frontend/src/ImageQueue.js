@@ -299,9 +299,11 @@ function ImageQueue() {
 
           if (newVal <= 0) {
             clearInterval(countdownTimer);
-            // Use setTimeout to ensure this runs after state update
+            // Clear isPaused state when countdown finishes
             setTimeout(() => {
-              console.log("[Countdown] Finished, waiting for server to start next item...");
+              console.log("[Countdown] Finished, clearing pause state");
+              setIsPaused(false);
+              setPauseTimeLeft(0);
               // processNextFromQueue(); // DISABLED: Let Server Drive to avoid Race Condition
             }, 100);
             return 0;
@@ -1399,7 +1401,7 @@ function ImageQueue() {
               <>
                 <div className="preview-image-container" style={{ position: "relative", minHeight: "400px", maxHeight: "400px" }}>
                   {/* Countdown Overlay for Next Queue */}
-                  {isPaused && previewQueue.length > 0 && (
+                  {isPaused && pauseTimeLeft > 0 && previewQueue.length > 0 && (
                     <div style={{
                       position: "absolute",
                       top: 0,
@@ -1575,7 +1577,7 @@ function ImageQueue() {
                   {timeLeft === 0 && !isPaused && (
                     <div className="time-up-message">หมดเวลาแล้ว!</div>
                   )}
-                  {isPaused && (
+                  {isPaused && pauseTimeLeft > 0 && (
                     <div className="pause-message">กำลังเปลี่ยนรูป...</div>
                   )}
                   <button
@@ -1627,8 +1629,8 @@ function ImageQueue() {
                 )}
               </>
             ) : (
-              <div className="no-preview" style={isPaused ? { minHeight: '450px', background: '#fff', border: '1px solid #e2e8f0', boxShadow: '0 10px 30px -10px rgba(0,0,0,0.05)' } : {}}>
-                {isPaused ? (
+              <div className="no-preview" style={isPaused && pauseTimeLeft > 0 ? { minHeight: '450px', background: '#fff', border: '1px solid #e2e8f0', boxShadow: '0 10px 30px -10px rgba(0,0,0,0.05)' } : {}}>
+                {isPaused && pauseTimeLeft > 0 ? (
                   <div style={{
                     display: 'flex',
                     flexDirection: 'column',
