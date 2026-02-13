@@ -1268,7 +1268,7 @@ function ImageQueue() {
                             </span>
                           </div>
                           <div className="price" style={{ fontWeight: "700", color: "#10b981", fontSize: "14px" }}>
-                            ฿{image.price}
+                            {image.price === 0 ? 'ฟรี' : `฿${image.price}`}
                           </div>
                         </div>
                       </div>
@@ -1377,7 +1377,7 @@ function ImageQueue() {
                               {previewQueue[0].sender}
                             </div>
                             <div style={{ color: "#9ca3af", fontSize: "12px", marginTop: "2px" }}>
-                              {previewQueue[0].time} วินาที · ฿{previewQueue[0].price}
+                              {previewQueue[0].time} วินาที · {previewQueue[0].price === 0 ? 'ฟรี' : `฿${previewQueue[0].price}`}
                             </div>
                           </div>
                         </div>
@@ -1948,7 +1948,7 @@ function ImageQueue() {
                             {giftItem.name}
                           </span>
                           <span style={{ fontSize: '14px', color: '#64748b' }}>
-                            x{giftItem.quantity} · ฿{giftItem.price}
+                            x{giftItem.quantity} · {giftItem.price === 0 ? 'ฟรี' : `฿${giftItem.price}`}
                           </span>
                         </div>
                       ))}
@@ -1961,7 +1961,7 @@ function ImageQueue() {
                         alignItems: 'center'
                       }}>
                         <span style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>รวมทั้งหมด</span>
-                        <span style={{ fontSize: '16px', fontWeight: '700', color: '#8b5cf6' }}>฿{selectedImage.price}</span>
+                        <span style={{ fontSize: '16px', fontWeight: '700', color: '#8b5cf6' }}>{selectedImage.price === 0 ? 'ฟรี' : `฿${selectedImage.price}`}</span>
                       </div>
                     </div>
                   </div>
@@ -1974,7 +1974,7 @@ function ImageQueue() {
                 </div>
                 <div className="detail-row">
                   <span className="label">ราคา:</span>
-                  <span className="value">฿{selectedImage.price}</span>
+                  <span className="value">{selectedImage.price === 0 ? 'ฟรี' : `฿${selectedImage.price}`}</span>
                 </div>
                 <div className="detail-row">
                   <span className="label">ส่งเมื่อ:</span>
@@ -2278,7 +2278,7 @@ function ImageQueue() {
                               <div>
                                 <div style={{ fontSize: "11px", color: "#64748b" }}>ราคา</div>
                                 <div style={{ fontSize: "14px", fontWeight: "700", color: "#1e293b" }}>
-                                  ฿{item.price}
+                                  {item.price === 0 ? 'ฟรี' : `฿${item.price}`}
                                 </div>
                               </div>
                             </div>

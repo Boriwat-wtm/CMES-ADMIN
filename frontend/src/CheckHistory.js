@@ -98,9 +98,9 @@ function CheckHistory() {
                   </ul>
                 </div>
               )}
-              {item.price > 0 && (
+              {item.price !== undefined && (
                 <div style={{ color: "#1e293b" }}>
-                  <b>ราคา:</b> {item.price}
+                  <b>ราคา:</b> {item.price === 0 ? 'ฟรี' : `${item.price} บาท`}
                 </div>
               )}
               <div style={{ color: "#1e293b" }}>
@@ -285,7 +285,7 @@ function CheckHistory() {
             {/* --- Price --- */}
             {selected.price !== undefined && (
               <div style={{ marginBottom: 8 }}>
-                <b>ราคา:</b> {selected.price} บาท
+                <b>ราคา:</b> {selected.price === 0 ? 'ฟรี' : `${selected.price} บาท`}
               </div>
             )}
 

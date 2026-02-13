@@ -76,7 +76,7 @@ function TimeHistory() {
                 </div>
                 <div>
                   <span className="th-minimal-label">💵 ราคา:</span>
-                  <span>{item.price} บาท</span>
+                  <span>{item.price === 0 ? 'ฟรี' : `${item.price} บาท`}</span>
                 </div>
                 <button
                   className="th-minimal-remove-btn"
@@ -105,7 +105,7 @@ function TimeHistory() {
                 </div>
                 <div>
                   <span className="th-minimal-label">💵 ราคา:</span>
-                  <span>{item.price} บาท</span>
+                  <span>{item.price === 0 ? 'ฟรี' : `${item.price} บาท`}</span>
                 </div>
                 <button
                   className="th-minimal-remove-btn"
@@ -134,7 +134,7 @@ function TimeHistory() {
                 </div>
                 <div>
                   <span className="th-minimal-label">💵 ราคา:</span>
-                  <span>{item.price} บาท</span>
+                  <span>{item.price === 0 ? 'ฟรี' : `${item.price} บาท`}</span>
                 </div>
                 <button
                   className="th-minimal-remove-btn"

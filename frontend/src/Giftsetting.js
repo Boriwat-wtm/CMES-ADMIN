@@ -308,7 +308,7 @@ function Giftsetting() {
 										</div>
 									</div>
 									<div className="gift-row-actions">
-										<span className="price">฿{item.price}</span>
+									<span className="price">{item.price === 0 ? 'ฟรี' : `฿${item.price}`}</span>
 										<button className="ghost-button" onClick={() => handleDelete(item.id)}>
 											ลบ
 										</button>
