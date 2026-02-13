@@ -1074,9 +1074,19 @@ app.post("/api/playing/:id", async (req, res) => {
       return res.status(404).json({ success: false, message: 'Item not found' });
     }
 
+    // Debug: ตรวจสอบ type และ giftOrder
+    console.log('[Playing] Updated item:', {
+      id: updated._id,
+      type: updated.type,
+      hasGiftOrder: !!updated.giftOrder,
+      giftOrderKeys: updated.giftOrder ? Object.keys(updated.giftOrder) : [],
+      giftOrderItems: updated.giftOrder?.items?.length || 0
+    });
+
     // ส่ง event ไป overlay ให้ OBS ทราบว่ามีรูปใหม่กำลังเล่น
     // ถ้าเป็น Gift ให้ใช้ event พิเศษและส่งข้อมูลเพิ่มเติม
     if (updated.type === "gift" && updated.giftOrder) {
+      console.log('[Playing] Sending now-playing-gift event');
       io.emit("now-playing-gift", {
         id: updated._id?.toString(),
         sender: updated.sender || "Guest",
@@ -1089,6 +1099,7 @@ app.post("/api/playing/:id", async (req, res) => {
         type: "gift"
       });
     } else {
+      console.log('[Playing] Sending now-playing-image event (not gift)');
       io.emit("now-playing-image", {
         id: updated._id?.toString(),
         sender: updated.sender,
