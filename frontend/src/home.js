@@ -54,6 +54,10 @@ function Home() {
   const [copiedRanking, setCopiedRanking] = useState(false);
   const [copiedWheel, setCopiedWheel] = useState(false);
 
+  // QR Code Modal states
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState("");
+
   /*
    * Load system config from socket.io
    */
@@ -287,6 +291,16 @@ function Home() {
   };
 
   /*
+   * Generate QR Code for User App
+   */
+  const generateQRCode = () => {
+    const userAppUrl = `https://cmesuserfrontend.vercel.app/?shopId=${adminId}`;
+    const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(userAppUrl)}&format=png&ecc=H`;
+    setQrCodeUrl(qrApiUrl);
+    setShowQrModal(true);
+  };
+
+  /*
    * Ranking modal
    */
   const handleOpenAllRanks = async () => {
@@ -322,7 +336,7 @@ function Home() {
     <div className="admin-home-minimal">
       <header className="admin-header-minimal">
         <div className="brand-minimal">
-          <span className="brand-title">CMS ADMIN</span>
+          <span className="brand-title">CMES ADMIN</span>
         </div>
         <nav className="nav-minimal">
           <a href="/TimeHistory">ประวัติการตั้งเวลา</a>
@@ -590,6 +604,45 @@ function Home() {
                   💡 คัดลอกลิงก์เหล่านี้ไปเพิ่มใน OBS Studio เป็น Browser Source (ลิงก์เฉพาะร้านของคุณ)
                 </small>
               </div>
+
+              {/* QR Code Section */}
+              <div className="toggle-card" style={{ 
+                flexDirection: "column", 
+                alignItems: "center", 
+                gap: "12px", 
+                marginTop: "16px", 
+                background: "linear-gradient(135deg, #fef3c7, #fde68a)", 
+                border: "2px solid #f59e0b",
+                padding: "20px"
+              }}>
+                <span style={{ fontSize: "16px", fontWeight: "700", color: "#92400e", textAlign: "center" }}>
+                  📱 QR Code สำหรับลูกค้า
+                </span>
+                
+                <button
+                  onClick={generateQRCode}
+                  style={{
+                    padding: "12px 24px",
+                    background: "linear-gradient(135deg, #f59e0b, #d97706)",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    width: "100%",
+                    transition: "transform 0.2s ease"
+                  }}
+                  onMouseEnter={(e) => e.target.style.transform = "scale(1.02)"}
+                  onMouseLeave={(e) => e.target.style.transform = "scale(1)"}
+                >
+                  🎯 สร้าง QR Code
+                </button>
+
+                <small style={{ color: "#92400e", fontSize: "11px", textAlign: "center" }}>
+                  💡 ลูกค้าสแกน QR Code เพื่อเข้าสู่ระบบของร้านคุณ
+                </small>
+              </div>
             </div>
           </section>
 
@@ -850,6 +903,146 @@ function Home() {
                     );
                   })}
                 </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QR Code Modal */}
+      {showQrModal && (
+        <div className="rank-modal-overlay" onClick={() => setShowQrModal(false)}>
+          <div className="rank-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "500px" }}>
+            <div className="rank-modal-header">
+              <div>
+                <h3>📱 QR Code สำหรับลูกค้า</h3>
+                <p>สแกนเพื่อเข้าสู่ระบบของร้านคุณ</p>
+              </div>
+              <button
+                type="button"
+                className="close-rank-modal"
+                onClick={() => setShowQrModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="rank-modal-body" style={{ textAlign: "center", padding: "30px" }}>
+              {qrCodeUrl ? (
+                <>
+                  <div style={{ 
+                    background: "#fff", 
+                    padding: "20px", 
+                    borderRadius: "12px",
+                    boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+                    display: "inline-block"
+                  }}>
+                    <img 
+                      src={qrCodeUrl} 
+                      alt="QR Code" 
+                      style={{ 
+                        width: "300px", 
+                        height: "300px",
+                        display: "block"
+                      }} 
+                    />
+                  </div>
+                  
+                  <div style={{ 
+                    marginTop: "24px", 
+                    display: "flex", 
+                    gap: "10px", 
+                    flexDirection: "column" 
+                  }}>
+                    <a 
+                      href={qrCodeUrl} 
+                      download={`qr-code-shop-${adminId}.png`}
+                      style={{
+                        padding: "14px 24px",
+                        background: "linear-gradient(135deg, #10b981, #059669)",
+                        color: "#fff",
+                        textDecoration: "none",
+                        borderRadius: "10px",
+                        fontWeight: "600",
+                        display: "inline-block",
+                        transition: "transform 0.2s ease",
+                        fontSize: "15px"
+                      }}
+                      onMouseEnter={(e) => e.target.style.transform = "scale(1.02)"}
+                      onMouseLeave={(e) => e.target.style.transform = "scale(1)"}
+                    >
+                      💾 ดาวน์โหลด QR Code
+                    </a>
+                    
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`https://cmesuserfrontend.vercel.app/?shopId=${adminId}`);
+                        alert("✅ คัดลอกลิงก์สำเร็จ!");
+                      }}
+                      style={{
+                        padding: "14px 24px",
+                        background: "linear-gradient(135deg, #0ea5e9, #0284c7)",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "10px",
+                        cursor: "pointer",
+                        fontWeight: "600",
+                        fontSize: "15px",
+                        transition: "transform 0.2s ease"
+                      }}
+                      onMouseEnter={(e) => e.target.style.transform = "scale(1.02)"}
+                      onMouseLeave={(e) => e.target.style.transform = "scale(1)"}
+                    >
+                      📋 คัดลอกลิงก์
+                    </button>
+                  </div>
+
+                  <div style={{ 
+                    marginTop: "20px",
+                    padding: "16px",
+                    background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)",
+                    borderRadius: "10px",
+                    border: "1px solid #0ea5e9"
+                  }}>
+                    <small style={{ 
+                      display: "block", 
+                      color: "#0369a1", 
+                      fontSize: "13px",
+                      fontWeight: "600",
+                      marginBottom: "8px"
+                    }}>
+                      🔗 URL ของคุณ:
+                    </small>
+                    <small style={{ 
+                      display: "block", 
+                      color: "#64748b", 
+                      fontSize: "12px",
+                      wordBreak: "break-all",
+                      fontFamily: "monospace"
+                    }}>
+                      https://cmesuserfrontend.vercel.app/?shopId={adminId}
+                    </small>
+                  </div>
+
+                  <div style={{
+                    marginTop: "16px",
+                    padding: "12px",
+                    background: "#fef3c7",
+                    borderRadius: "8px",
+                    border: "1px solid #f59e0b"
+                  }}>
+                    <small style={{ 
+                      color: "#92400e", 
+                      fontSize: "12px",
+                      display: "block"
+                    }}>
+                      💡 <strong>คำแนะนำ:</strong> พิมพ์ QR Code นี้ติดไว้ที่โต๊ะหรือบริเวณร้าน<br/>
+                      ลูกค้าสามารถสแกนเพื่อเข้าใช้งานระบบของคุณได้ทันที
+                    </small>
+                  </div>
+                </>
+              ) : (
+                <p style={{ color: "#64748b" }}>กำลังสร้าง QR Code...</p>
               )}
             </div>
           </div>

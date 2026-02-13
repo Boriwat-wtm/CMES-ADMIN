@@ -54,8 +54,12 @@ function Giftsetting() {
 
 	const handleAddItem = async (e) => {
 		e.preventDefault();
-		if (!form.name || !form.price) {
-			setMessage("กรุณากรอกชื่อและราคา");
+		if (!form.name || form.price === "") {
+			setMessage("กรุณากรอกชื่อและราคา (ใส่ 0 สำหรับแจกฟรี)");
+			return;
+		}
+		if (Number(form.price) < 0) {
+			setMessage("ราคาต้องไม่ติดลบ");
 			return;
 		}
 		setSaving(true);
@@ -184,7 +188,7 @@ function Giftsetting() {
 		<div className="giftsetting-shell">
 			<header className="giftsetting-hero">
 				<div className="hero-info">
-					<p className="eyebrow">CMS ADMIN</p>
+					<p className="eyebrow">CMES ADMIN</p>
 					<h1>ตั้งค่าส่งของขวัญ</h1>
 					<p className="subtitle">กำหนดจำนวนโต๊ะและสินค้าที่พร้อมให้ผู้ใช้เลือก</p>
 				</div>
@@ -241,10 +245,10 @@ function Giftsetting() {
 								<label>ราคา (บาท)</label>
 								<input
 									type="number"
-									min="1"
-									value={form.price}
-									onChange={(e) => handleInputChange("price", e.target.value)}
-									placeholder="เช่น 150"
+								min="0"
+								value={form.price}
+								onChange={(e) => handleInputChange("price", e.target.value)}
+								placeholder="เช่น 150 (ใส่ 0 สำหรับแจกฟรี)"
 								/>
 							</div>
 							<div className="form-field file-field">
