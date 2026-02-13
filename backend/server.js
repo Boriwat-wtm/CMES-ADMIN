@@ -1981,22 +1981,40 @@ async function playNextItem() {
 
     if (updated) {
       // Broadcast to Overlay & Client
-      io.emit("now-playing-image", {
-        id: updated._id.toString(),
-        sender: updated.sender,
-        price: updated.price,
-        time: updated.time,
-        filePath: updated.filePath,
-        text: updated.text,
-        textColor: updated.textColor,
-        socialType: updated.socialType,
-        socialName: updated.socialName,
-        qrCodePath: updated.qrCodePath,
-        width: updated.width,
-        height: updated.height,
-        type: updated.type || (updated.filePath ? "image" : "text"),
-        playingAt: updated.playingAt
-      });
+      // ถ้าเป็น Gift ให้ใช้ event พิเศษและส่งข้อมูลเพิ่มเติม
+      if (updated.type === "gift" && updated.giftOrder) {
+        console.log('[QueueWorker] Sending now-playing-gift event');
+        io.emit("now-playing-gift", {
+          id: updated._id?.toString(),
+          sender: updated.sender || "Guest",
+          avatar: updated.avatar || null,
+          tableNumber: updated.giftOrder.tableNumber || 1,
+          items: updated.giftOrder.items || [],
+          note: updated.giftOrder.note || "",
+          totalPrice: updated.giftOrder.totalPrice || updated.price || 0,
+          time: updated.time,
+          type: "gift",
+          playingAt: updated.playingAt
+        });
+      } else {
+        console.log('[QueueWorker] Sending now-playing-image event');
+        io.emit("now-playing-image", {
+          id: updated._id.toString(),
+          sender: updated.sender,
+          price: updated.price,
+          time: updated.time,
+          filePath: updated.filePath,
+          text: updated.text,
+          textColor: updated.textColor,
+          socialType: updated.socialType,
+          socialName: updated.socialName,
+          qrCodePath: updated.qrCodePath,
+          width: updated.width,
+          height: updated.height,
+          type: updated.type || (updated.filePath ? "image" : "text"),
+          playingAt: updated.playingAt
+        });
+      }
 
       // Update Admin UI
       io.emit("admin-update-queue");
