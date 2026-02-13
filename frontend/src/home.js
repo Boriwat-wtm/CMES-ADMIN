@@ -58,6 +58,18 @@ function Home() {
   const [showQrModal, setShowQrModal] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState("");
 
+  // Perks Modal states
+  const [showPerksModal, setShowPerksModal] = useState(false);
+  const [perks, setPerks] = useState([
+    "🎁 แล้งข้อแลวโปรไฟล์ฟรีกับหน้าอันดับผู้สนับสนุน",
+    "🌟 ป้าย Diamond/Gold/Silver ที่ช่วยแยกความโดดเด่น",
+    "💎 สิทธิเข้าถึงโปรโมชั่นพิเศษหรือกิจกรรมทดลองใหม่",
+    "💬 ช่องทางติดต่อทีมเซทอัพสำหรับแคลงค่า"
+  ]);
+  const [editingPerkIndex, setEditingPerkIndex] = useState(null);
+  const [perkInputValue, setPerkInputValue] = useState("");
+  const [savingPerks, setSavingPerks] = useState(false);
+
   /*
    * Load system config from socket.io
    */
@@ -246,6 +258,107 @@ function Home() {
     } catch (error) {
       console.error("[Admin] Failed to save birthday requirement:", error);
       alert("เกิดข้อผิดพลาดในการบันทึก");
+    }
+  };
+
+  /*
+   * Load perks (สิทธิพิเศษ)
+   */
+  useEffect(() => {
+    const loadPerks = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/config/perks`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.perks && data.perks.length > 0) {
+            setPerks(data.perks);
+          }
+        }
+      } catch (error) {
+        console.error("[Admin] Failed to load perks:", error);
+      }
+    };
+    loadPerks();
+  }, []);
+
+  /*
+   * Perks Modal Functions
+   */
+  const handleOpenPerksModal = () => {
+    setShowPerksModal(true);
+  };
+
+  const handleClosePerksModal = () => {
+    setShowPerksModal(false);
+    setEditingPerkIndex(null);
+    setPerkInputValue("");
+  };
+
+  const handleEditPerk = (index) => {
+    setEditingPerkIndex(index);
+    setPerkInputValue(perks[index]);
+  };
+
+  const handleSavePerk = () => {
+    if (!perkInputValue.trim()) {
+      alert("กรุณากรอกข้อความสิทธิพิเศษ");
+      return;
+    }
+
+    const newPerks = [...perks];
+    newPerks[editingPerkIndex] = perkInputValue.trim();
+    setPerks(newPerks);
+    setEditingPerkIndex(null);
+    setPerkInputValue("");
+  };
+
+  const handleCancelEditPerk = () => {
+    setEditingPerkIndex(null);
+    setPerkInputValue("");
+  };
+
+  const handleAddPerk = () => {
+    if (!perkInputValue.trim()) {
+      alert("กรุณากรอกข้อความสิทธิพิเศษ");
+      return;
+    }
+
+    setPerks([...perks, perkInputValue.trim()]);
+    setPerkInputValue("");
+  };
+
+  const handleDeletePerk = (index) => {
+    if (window.confirm("ต้องการลบสิทธิพิเศษนี้หรือไม่?")) {
+      const newPerks = perks.filter((_, i) => i !== index);
+      setPerks(newPerks);
+    }
+  };
+
+  const handleSaveAllPerks = async () => {
+    if (perks.length === 0) {
+      alert("ต้องมีสิทธิพิเศษอย่างน้อย 1 รายการ");
+      return;
+    }
+
+    setSavingPerks(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/config/perks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ perks })
+      });
+
+      if (res.ok) {
+        alert("✅ บันทึกสิทธิพิเศษสำเร็จ");
+        handleClosePerksModal();
+      } else {
+        alert("เกิดข้อผิดพลาดในการบันทึก");
+      }
+    } catch (error) {
+      console.error("[Admin] Failed to save perks:", error);
+      alert("เกิดข้อผิดพลาดในการบันทึก");
+    } finally {
+      setSavingPerks(false);
     }
   };
 
@@ -851,6 +964,42 @@ function Home() {
             >
               ดูอันดับทั้งหมด
             </button>
+
+            {/* ปุ่มจัดการสิทธิพิเศษ */}
+            <button
+              type="button"
+              className="manage-perks-btn"
+              onClick={handleOpenPerksModal}
+              style={{
+                width: "100%",
+                marginTop: "12px",
+                padding: "14px 20px",
+                background: "linear-gradient(135deg, #f59e0b, #d97706)",
+                color: "#fff",
+                border: "none",
+                borderRadius: "12px",
+                cursor: "pointer",
+                fontSize: "15px",
+                fontWeight: "700",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+                transition: "all 0.3s ease",
+                boxShadow: "0 4px 12px rgba(245, 158, 11, 0.3)"
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.transform = "translateY(-2px)";
+                e.target.style.boxShadow = "0 6px 16px rgba(245, 158, 11, 0.4)";
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = "translateY(0)";
+                e.target.style.boxShadow = "0 4px 12px rgba(245, 158, 11, 0.3)";
+              }}
+            >
+              <span>⚙️</span>
+              <span>จัดการสิทธิพิเศษ</span>
+            </button>
           </aside>
         </div>
       </main>
@@ -1046,6 +1195,273 @@ function Home() {
               ) : (
                 <p style={{ color: "#64748b" }}>กำลังสร้าง QR Code...</p>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Perks Management Modal */}
+      {showPerksModal && (
+        <div className="rank-modal-overlay" onClick={handleClosePerksModal}>
+          <div 
+            className="rank-modal" 
+            onClick={(e) => e.stopPropagation()} 
+            style={{ maxWidth: "650px", maxHeight: "90vh", display: "flex", flexDirection: "column" }}
+          >
+            <div className="rank-modal-header">
+              <div>
+                <h3>⚙️ จัดการสิทธิพิเศษสำหรับสมาชิกพรีเมียม</h3>
+                <p>แก้ไขสิทธิพิเศษที่จะแสดงให้กับสมาชิก Top Rank</p>
+              </div>
+              <button
+                type="button"
+                className="close-rank-modal"
+                onClick={handleClosePerksModal}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="rank-modal-body" style={{ padding: "24px", overflowY: "auto", flex: 1 }}>
+              <div style={{ marginBottom: "20px" }}>
+                <h4 style={{ fontSize: "16px", fontWeight: "700", color: "#1e293b", marginBottom: "12px" }}>
+                  📋 รายการสิทธิพิเศษปัจจุบัน
+                </h4>
+                
+                {perks.length === 0 ? (
+                  <div style={{ 
+                    padding: "24px", 
+                    background: "#f8fafc", 
+                    borderRadius: "12px", 
+                    textAlign: "center",
+                    color: "#64748b"
+                  }}>
+                    ยังไม่มีสิทธิพิเศษ กรุณาเพิ่มสิทธิพิเศษด้านล่าง
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    {perks.map((perk, index) => (
+                      <div 
+                        key={index}
+                        style={{
+                          padding: "16px",
+                          background: editingPerkIndex === index ? "#fef3c7" : "#f8fafc",
+                          borderRadius: "12px",
+                          border: editingPerkIndex === index ? "2px solid #f59e0b" : "2px solid #e2e8f0",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "12px",
+                          transition: "all 0.3s ease"
+                        }}
+                      >
+                        {editingPerkIndex === index ? (
+                          <>
+                            <input
+                              type="text"
+                              value={perkInputValue}
+                              onChange={(e) => setPerkInputValue(e.target.value)}
+                              style={{
+                                flex: 1,
+                                padding: "10px 14px",
+                                border: "2px solid #f59e0b",
+                                borderRadius: "8px",
+                                fontSize: "14px",
+                                outline: "none"
+                              }}
+                              placeholder="แก้ไขข้อความสิทธิพิเศษ"
+                              autoFocus
+                            />
+                            <button
+                              onClick={handleSavePerk}
+                              style={{
+                                padding: "8px 16px",
+                                background: "linear-gradient(135deg, #10b981, #059669)",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: "8px",
+                                cursor: "pointer",
+                                fontSize: "13px",
+                                fontWeight: "600",
+                                whiteSpace: "nowrap"
+                              }}
+                            >
+                              ✓ บันทึก
+                            </button>
+                            <button
+                              onClick={handleCancelEditPerk}
+                              style={{
+                                padding: "8px 16px",
+                                background: "linear-gradient(135deg, #64748b, #475569)",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: "8px",
+                                cursor: "pointer",
+                                fontSize: "13px",
+                                fontWeight: "600",
+                                whiteSpace: "nowrap"
+                              }}
+                            >
+                              ✕ ยกเลิก
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <div style={{ flex: 1, fontSize: "14px", color: "#1e293b", fontWeight: "500" }}>
+                              {perk}
+                            </div>
+                            <button
+                              onClick={() => handleEditPerk(index)}
+                              style={{
+                                padding: "8px 16px",
+                                background: "linear-gradient(135deg, #0ea5e9, #0284c7)",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: "8px",
+                                cursor: "pointer",
+                                fontSize: "13px",
+                                fontWeight: "600",
+                                whiteSpace: "nowrap"
+                              }}
+                            >
+                              ✏️ แก้ไข
+                            </button>
+                            <button
+                              onClick={() => handleDeletePerk(index)}
+                              style={{
+                                padding: "8px 16px",
+                                background: "linear-gradient(135deg, #ef4444, #dc2626)",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: "8px",
+                                cursor: "pointer",
+                                fontSize: "13px",
+                                fontWeight: "600",
+                                whiteSpace: "nowrap"
+                              }}
+                            >
+                              🗑️ ลบ
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Add New Perk */}
+              <div style={{ 
+                marginTop: "24px", 
+                padding: "20px", 
+                background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)", 
+                borderRadius: "12px",
+                border: "2px solid #0ea5e9"
+              }}>
+                <h4 style={{ fontSize: "16px", fontWeight: "700", color: "#0369a1", marginBottom: "12px" }}>
+                  ➕ เพิ่มสิทธิพิเศษใหม่
+                </h4>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <input
+                    type="text"
+                    value={editingPerkIndex === null ? perkInputValue : ""}
+                    onChange={(e) => setPerkInputValue(e.target.value)}
+                    disabled={editingPerkIndex !== null}
+                    placeholder="เช่น: 🎁 ลดราคาพิเศษ 10% สำหรับสมาชิก VIP"
+                    style={{
+                      flex: 1,
+                      padding: "12px 16px",
+                      border: "2px solid #0ea5e9",
+                      borderRadius: "10px",
+                      fontSize: "14px",
+                      outline: "none",
+                      opacity: editingPerkIndex !== null ? 0.5 : 1
+                    }}
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter" && editingPerkIndex === null) {
+                        handleAddPerk();
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={handleAddPerk}
+                    disabled={editingPerkIndex !== null}
+                    style={{
+                      padding: "12px 24px",
+                      background: editingPerkIndex !== null ? "#cbd5e1" : "linear-gradient(135deg, #10b981, #059669)",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: "10px",
+                      cursor: editingPerkIndex !== null ? "not-allowed" : "pointer",
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      whiteSpace: "nowrap"
+                    }}
+                  >
+                    ➕ เพิ่ม
+                  </button>
+                </div>
+                <small style={{ display: "block", marginTop: "8px", color: "#0369a1", fontSize: "12px" }}>
+                  💡 เคล็ดลับ: เริ่มต้นด้วย emoji เพื่อให้ดูน่าสนใจมากขึ้น เช่น 🎁 🌟 💎 📱
+                </small>
+              </div>
+
+              {/* Save All Button */}
+              <div style={{ marginTop: "24px", display: "flex", gap: "12px" }}>
+                <button
+                  onClick={handleSaveAllPerks}
+                  disabled={savingPerks || perks.length === 0}
+                  style={{
+                    flex: 1,
+                    padding: "16px 24px",
+                    background: savingPerks || perks.length === 0 ? "#cbd5e1" : "linear-gradient(135deg, #f59e0b, #d97706)",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "12px",
+                    cursor: savingPerks || perks.length === 0 ? "not-allowed" : "pointer",
+                    fontSize: "16px",
+                    fontWeight: "700",
+                    transition: "all 0.3s ease",
+                    boxShadow: savingPerks || perks.length === 0 ? "none" : "0 4px 12px rgba(245, 158, 11, 0.3)"
+                  }}
+                >
+                  {savingPerks ? "กำลังบันทึก..." : "💾 บันทึกทั้งหมด"}
+                </button>
+                <button
+                  onClick={handleClosePerksModal}
+                  disabled={savingPerks}
+                  style={{
+                    padding: "16px 24px",
+                    background: savingPerks ? "#cbd5e1" : "linear-gradient(135deg, #64748b, #475569)",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "12px",
+                    cursor: savingPerks ? "not-allowed" : "pointer",
+                    fontSize: "16px",
+                    fontWeight: "700"
+                  }}
+                >
+                  ปิด
+                </button>
+              </div>
+
+              {/* Note */}
+              <div style={{
+                marginTop: "20px",
+                padding: "16px",
+                background: "#fef3c7",
+                borderRadius: "10px",
+                border: "1px solid #f59e0b"
+              }}>
+                <small style={{ 
+                  color: "#92400e", 
+                  fontSize: "13px",
+                  display: "block",
+                  lineHeight: "1.6"
+                }}>
+                  <strong>📌 หมายเหตุ:</strong> สิทธิพิเศษเหล่านี้จะแสดงบนหน้าแรกของผู้ใช้<br/>
+                  เพื่อดึงดูดให้สมาชิกเข้าร่วมการแข่งขัน Top Rank มากขึ้น
+                </small>
+              </div>
             </div>
           </div>
         </div>

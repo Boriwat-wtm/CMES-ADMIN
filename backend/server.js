@@ -662,6 +662,80 @@ app.post("/api/config/birthday-requirement", (req, res) => {
   }
 });
 
+// ===== Perks Management APIs =====
+
+// ดึงรายการสิทธิพิเศษ
+app.get("/api/config/perks", (req, res) => {
+  try {
+    const settingsPath = path.join(__dirname, "settings.json");
+    let perks = [
+      "🎁 แล้งข้อแลวโปรไฟล์ฟรีกับหน้าอันดับผู้สนับสนุน",
+      "🌟 ป้าย Diamond/Gold/Silver ที่ช่วยแยกความโดดเด่น",
+      "💎 สิทธิเข้าถึงโปรโมชั่นพิเศษหรือกิจกรรมทดลองใหม่",
+      "💬 ช่องทางติดต่อทีมเซทอัพสำหรับแคลงค่า"
+    ]; // default perks
+
+    if (fs.existsSync(settingsPath)) {
+      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+      if (settings.perks && Array.isArray(settings.perks) && settings.perks.length > 0) {
+        perks = settings.perks;
+      }
+    }
+
+    res.json({
+      success: true,
+      perks: perks
+    });
+  } catch (error) {
+    console.error("Error fetching perks:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch perks" });
+  }
+});
+
+// อัปเดตรายการสิทธิพิเศษ
+app.post("/api/config/perks", (req, res) => {
+  try {
+    const { perks } = req.body;
+
+    if (!Array.isArray(perks) || perks.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "ต้องมีสิทธิพิเศษอย่างน้อย 1 รายการ"
+      });
+    }
+
+    // Validate each perk is a non-empty string
+    const validPerks = perks.filter(perk => typeof perk === 'string' && perk.trim().length > 0);
+
+    if (validPerks.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "สิทธิพิเศษต้องเป็นข้อความที่ไม่ว่างเปล่า"
+      });
+    }
+
+    const settingsPath = path.join(__dirname, "settings.json");
+    let settings = {};
+
+    if (fs.existsSync(settingsPath)) {
+      settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    }
+
+    settings.perks = validPerks;
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+
+    console.log(`[Admin] Perks updated. Total: ${validPerks.length} perks`);
+
+    res.json({
+      success: true,
+      perks: validPerks
+    });
+  } catch (error) {
+    console.error("Error updating perks:", error);
+    res.status(500).json({ success: false, message: "Failed to update perks" });
+  }
+});
+
 // ตรวจสอบว่า user มีสิทธิ์ใช้ฟีเจอร์วันเกิดหรือไม่
 app.get("/api/birthday-eligibility/:email", async (req, res) => {
   try {
