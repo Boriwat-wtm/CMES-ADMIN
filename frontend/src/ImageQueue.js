@@ -1125,7 +1125,8 @@ function ImageQueue() {
                           display: "flex",
                           justifyContent: "space-between",
                           alignItems: "center",
-                          borderBottom: "1px solid #f1f5f9"
+                          borderBottom: "1px solid #f1f5f9",
+                          gap: "12px"
                         }}>
                           <span className="queue-number" style={{
                             background: categoryColor,
@@ -1133,17 +1134,70 @@ function ImageQueue() {
                             padding: "2px 8px",
                             borderRadius: "6px",
                             fontSize: "12px",
-                            fontWeight: "700"
+                            fontWeight: "700",
+                            flexShrink: 0
                           }}>#{index + 1}</span>
-                          <span className="sender" style={{
-                            fontSize: "14px",
-                            fontWeight: "600",
-                            color: "#334155",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                            maxWidth: "140px"
-                          }}>{image.sender}</span>
+                          
+                          {/* Avatar + Sender */}
+                          <div style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            flex: 1,
+                            minWidth: 0
+                          }}>
+                            {/* Avatar */}
+                            <div style={{
+                              width: "32px",
+                              height: "32px",
+                              borderRadius: "50%",
+                              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
+                              overflow: "hidden"
+                            }}>
+                              {image.avatar ? (
+                                <img
+                                  src={getImageUrl(image.avatar, USER_API_URL)}
+                                  alt={image.sender}
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover"
+                                  }}
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    const initial = document.createElement('span');
+                                    initial.textContent = (image.sender || 'U').charAt(0).toUpperCase();
+                                    initial.style.fontSize = '14px';
+                                    initial.style.fontWeight = '700';
+                                    initial.style.color = '#fff';
+                                    e.target.parentElement.appendChild(initial);
+                                  }}
+                                />
+                              ) : (
+                                <span style={{
+                                  fontSize: "14px",
+                                  fontWeight: "700",
+                                  color: "#fff"
+                                }}>
+                                  {(image.sender || 'U').charAt(0).toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+                            
+                            {/* Sender Name */}
+                            <span className="sender" style={{
+                              fontSize: "14px",
+                              fontWeight: "600",
+                              color: "#334155",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap"
+                            }}>{image.sender}</span>
+                          </div>
                         </div>
 
                         {/* Main Content */}
