@@ -1547,7 +1547,7 @@ app.post("/api/report", async (req, res) => {
       reportId: reportId || Date.now().toString(),
       category: category || "other",
       description: detail.trim(),
-      status: "open"
+      status: "new"  // เปลี่ยนจาก open เป็น new ให้ตรงกับ Admin Frontend
     });
 
     console.log('Report saved successfully to database');

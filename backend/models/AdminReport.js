@@ -11,7 +11,7 @@ const adminReportSchema = new mongoose.Schema(
     description: String,
     category: {
       type: String,
-      enum: ["technical", "payment", "display", "other"],
+      enum: ["technical", "display", "payment", "upload", "account", "suggestion", "other"],
       default: "other",
     },
     priority: {
