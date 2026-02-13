@@ -604,45 +604,6 @@ function Home() {
                   💡 คัดลอกลิงก์เหล่านี้ไปเพิ่มใน OBS Studio เป็น Browser Source (ลิงก์เฉพาะร้านของคุณ)
                 </small>
               </div>
-
-              {/* QR Code Section */}
-              <div className="toggle-card" style={{ 
-                flexDirection: "column", 
-                alignItems: "center", 
-                gap: "12px", 
-                marginTop: "16px", 
-                background: "linear-gradient(135deg, #fef3c7, #fde68a)", 
-                border: "2px solid #f59e0b",
-                padding: "20px"
-              }}>
-                <span style={{ fontSize: "16px", fontWeight: "700", color: "#92400e", textAlign: "center" }}>
-                  📱 QR Code สำหรับลูกค้า
-                </span>
-                
-                <button
-                  onClick={generateQRCode}
-                  style={{
-                    padding: "12px 24px",
-                    background: "linear-gradient(135deg, #f59e0b, #d97706)",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: "8px",
-                    cursor: "pointer",
-                    fontSize: "14px",
-                    fontWeight: "600",
-                    width: "100%",
-                    transition: "transform 0.2s ease"
-                  }}
-                  onMouseEnter={(e) => e.target.style.transform = "scale(1.02)"}
-                  onMouseLeave={(e) => e.target.style.transform = "scale(1)"}
-                >
-                  🎯 สร้าง QR Code
-                </button>
-
-                <small style={{ color: "#92400e", fontSize: "11px", textAlign: "center" }}>
-                  💡 ลูกค้าสแกน QR Code เพื่อเข้าสู่ระบบของร้านคุณ
-                </small>
-              </div>
             </div>
           </section>
 
@@ -713,6 +674,47 @@ function Home() {
             >
               บันทึกแพ็คเกจ
             </button>
+
+            {/* QR Code Section */}
+            <div style={{ 
+              marginTop: "24px",
+              padding: "20px",
+              background: "linear-gradient(135deg, #fef3c7, #fde68a)", 
+              border: "2px solid #f59e0b",
+              borderRadius: "12px",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "12px"
+            }}>
+              <span style={{ fontSize: "16px", fontWeight: "700", color: "#92400e", textAlign: "center" }}>
+                📱 QR Code สำหรับลูกค้า
+              </span>
+              
+              <button
+                onClick={generateQRCode}
+                style={{
+                  padding: "12px 24px",
+                  background: "linear-gradient(135deg, #f59e0b, #d97706)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  width: "100%",
+                  transition: "transform 0.2s ease"
+                }}
+                onMouseEnter={(e) => e.target.style.transform = "scale(1.02)"}
+                onMouseLeave={(e) => e.target.style.transform = "scale(1)"}
+              >
+                🎯 สร้าง QR Code
+              </button>
+
+              <small style={{ color: "#92400e", fontSize: "11px", textAlign: "center" }}>
+                💡 ลูกค้าสแกน QR Code เพื่อเข้าสู่ระบบของร้านคุณ
+              </small>
+            </div>
           </section>
 
           {/* กล่องขวา - VIP Supporters */}
