@@ -726,7 +726,7 @@ function ImageQueue() {
     const gift = item.giftOrder || {};
     const senderInfo = item.sender || 'ผู้ส่ง';
     const targetTable = gift.tableNumber || '-';
-    const avatarUrl = gift.avatar || null;
+    const avatarUrl = item.avatar || null;
 
     // Debug: ตรวจสอบข้อมูลสินค้า
     console.log('[Gift Card] Rendering gift:', gift);
