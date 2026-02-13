@@ -73,11 +73,58 @@ function ImageQueue() {
       setPauseTimeLeft(0);
     });
 
+    // Socket Listener for Item Completed - Clear display when server confirms completion
+    socket.on('item-completed', (data) => {
+      console.log("[Socket] Item completed:", data);
+      
+      // Verify this is the current item (prevent race condition)
+      const savedPreview = localStorage.getItem("currentPreview");
+      if (savedPreview) {
+        try {
+          const preview = JSON.parse(savedPreview);
+          const previewId = preview._id || preview.id;
+          const completedId = data.id || data._id;
+          
+          // Only clear if IDs match or if we're being extra safe
+          if (previewId !== completedId) {
+            console.log("[Socket] ID mismatch - ignoring. Expected:", previewId, "Got:", completedId);
+            return;
+          }
+        } catch (err) {
+          console.error("[Socket] Error parsing preview:", err);
+        }
+      }
+      
+      // Guard: Prevent duplicate event handling
+      if (!currentPreview && !localStorage.getItem("currentPreview")) {
+        console.log("[Socket] Already cleared - ignoring duplicate event");
+        return;
+      }
+      
+      // Clear current preview
+      setCurrentPreview(null);
+      setIsActive(false);
+      setTimeLeft(0);
+      setIsPaused(false);
+      setPauseTimeLeft(0);
+      isCompletingRef.current = false;
+      
+      // Clear localStorage
+      localStorage.removeItem("currentPreview");
+      localStorage.removeItem("isActive");
+      localStorage.removeItem("startTimestamp");
+      localStorage.removeItem("duration");
+      
+      // Refresh queue
+      fetchImages();
+    });
+
     return () => {
       socket.off('admin-update-queue');
       socket.off('new-upload');
       socket.off('pause-display');
       socket.off('resume-display');
+      socket.off('item-completed');
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
