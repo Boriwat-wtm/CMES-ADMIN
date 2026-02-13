@@ -202,6 +202,18 @@ io.on("connection", (socket) => {
     }
   });
 
+  // 🔥 Handle perks update broadcast from Admin
+  socket.on("adminUpdatePerks", (data) => {
+    const { perks } = data;
+    if (perks && Array.isArray(perks)) {
+      console.log(`[Realtime] Perks updated, broadcasting to all users. Total perks: ${perks.length}`);
+      // Broadcast to ALL clients (especially Users)
+      io.emit("perksUpdated", { perks });
+    } else {
+      console.warn(`[Realtime] Invalid perks data received:`, data);
+    }
+  });
+
   // Add History -> Save to DB
   socket.on("addSetting", async (setting) => {
     try {
