@@ -21,6 +21,11 @@ const checkHistorySchema = new mongoose.Schema(
     content: { type: String, default: "" }, // สำหรับ Text message หรือ Gift Name
     mediaUrl: { type: String, default: null }, // สำหรับ Image path, เดิม filePath
 
+    // User information
+    userId: { type: String, default: null },
+    email: { type: String, default: null },
+    avatar: { type: String, default: null },
+
     // Metadata for specific types (Gift, etc.)
     metadata: {
       tableNumber: { type: Number, default: 0 },

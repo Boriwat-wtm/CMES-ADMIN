@@ -1185,6 +1185,9 @@ app.post("/api/reject/:id", async (req, res) => {
       status: 'rejected',
       content: item.text || '',
       mediaUrl: item.filePath || null,
+      userId: item.userId || null,
+      email: item.email || null,
+      avatar: item.avatar || null,
       metadata: {
         duration: item.time,
         tableNumber: Number(item.giftOrder?.tableNumber) || 0,
@@ -1262,7 +1265,7 @@ app.post("/api/history/restore/:id", async (req, res) => {
       return res.status(404).json({ success: false, message: 'History item not found' });
     }
 
-    // สร้างรายการใหม่ใน ImageQueue พร้อมคืน QR Code
+    // สร้างรายการใหม่ใน ImageQueue พร้อมคืน QR Code และข้อมูล user
     const newQueueItem = await ImageQueue.create({
       sender: historyItem.sender || 'Unknown',
       price: historyItem.price || 0,
@@ -1276,6 +1279,9 @@ app.post("/api/history/restore/:id", async (req, res) => {
       type: historyItem.type || 'image',
       status: 'pending',
       receivedAt: new Date(),
+      userId: historyItem.userId || null,
+      email: historyItem.email || null,
+      avatar: historyItem.avatar || null,
       giftOrder: historyItem.type === 'gift' ? {
         tableNumber: historyItem.metadata?.tableNumber || null,
         items: historyItem.metadata?.giftItems || [],
@@ -1316,6 +1322,11 @@ app.get("/api/check-history", async (req, res) => {
         type: item.type || (item.filePath ? 'image' : 'text'),
         filePath: isNew ? item.mediaUrl : item.filePath, // Use mediaUrl for new schema, filePath for legacy
         tableNumber: isNew ? (item.metadata?.tableNumber || 0) : item.tableNumber,
+
+        // User information
+        userId: item.userId || null,
+        email: item.email || null,
+        avatar: item.avatar || null,
 
         // New fields
         giftItems: isNew ? (item.metadata?.giftItems || []) : [],
@@ -1905,6 +1916,9 @@ async function completeItem(item) {
       status: 'completed',
       content: item.text || '',
       mediaUrl: item.filePath || null,
+      userId: item.userId || null,
+      email: item.email || null,
+      avatar: item.avatar || null,
       metadata: {
         duration: item.time,
         tableNumber: Number(item.giftOrder?.tableNumber) || 0,

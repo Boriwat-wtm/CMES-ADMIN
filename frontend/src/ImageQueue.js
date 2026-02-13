@@ -2178,7 +2178,46 @@ function ImageQueue() {
                           alignItems: "center",
                           justifyContent: "center",
                           overflow: "hidden"
-                        }}>  {item.mediaUrl ? (
+                        }}>
+                          {item.type === 'gift' ? (
+                            // แสดงรูปของขวัญชิ้นแรก หรือไอคอน Gift
+                            (() => {
+                              const firstGiftItem = item.metadata?.giftItems?.[0];
+                              let giftImage = null;
+                              
+                              if (firstGiftItem) {
+                                // ลองหารูปจาก giftSettings
+                                giftImage = firstGiftItem.image;
+                                if (!giftImage && giftSettings.length > 0) {
+                                  const setting = giftSettings.find(s => s.id === firstGiftItem.id);
+                                  if (setting && setting.imageUrl) {
+                                    giftImage = setting.imageUrl;
+                                  }
+                                }
+                              }
+
+                              return giftImage ? (
+                                <img
+                                  src={getImageUrl(giftImage)}
+                                  alt="Gift preview"
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover"
+                                  }}
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.parentElement.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;gap:12px;color:#f59e0b"><div style="font-size:64px">🎁</div><span style="font-size:14px;font-weight:600">ของขวัญ</span></div>';
+                                  }}
+                                />
+                              ) : (
+                                <div style={{ textAlign: "center", color: "#f59e0b" }}>
+                                  <div style={{ fontSize: "64px", marginBottom: "8px" }}>🎁</div>
+                                  <p style={{ fontSize: "14px", fontWeight: "600", margin: 0 }}>ของขวัญ</p>
+                                </div>
+                              );
+                            })()
+                          ) : item.mediaUrl ? (
                             <img
                               src={getImageUrl(item.mediaUrl)}
                               alt="History preview"
@@ -2213,27 +2252,71 @@ function ImageQueue() {
                             alignItems: "start",
                             marginBottom: "12px"
                           }}>
-                            <div style={{ flex: 1 }}>
+                            <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "12px" }}>
+                              {/* Avatar */}
                               <div style={{
-                                fontSize: "16px",
-                                fontWeight: "700",
-                                color: "#1e293b",
-                                marginBottom: "4px"
-                              }}>
-                                {item.sender}
-                              </div>
-                              <div style={{
-                                fontSize: "12px",
-                                color: "#64748b",
+                                width: "48px",
+                                height: "48px",
+                                borderRadius: "50%",
+                                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
                                 display: "flex",
                                 alignItems: "center",
-                                gap: "4px"
+                                justifyContent: "center",
+                                flexShrink: 0,
+                                overflow: "hidden"
                               }}>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <circle cx="12" cy="12" r="10" />
-                                  <polyline points="12 6 12 12 16 14" />
-                                </svg>
-                                {formatDate(item.approvalDate)}
+                                {item.avatar ? (
+                                  <img
+                                    src={getImageUrl(item.avatar, USER_API_URL)}
+                                    alt={item.sender}
+                                    style={{
+                                      width: "100%",
+                                      height: "100%",
+                                      objectFit: "cover"
+                                    }}
+                                    onError={(e) => {
+                                      e.target.style.display = 'none';
+                                      const initial = document.createElement('span');
+                                      initial.textContent = (item.sender || 'U').charAt(0).toUpperCase();
+                                      initial.style.fontSize = '20px';
+                                      initial.style.fontWeight = '700';
+                                      initial.style.color = '#fff';
+                                      e.target.parentElement.appendChild(initial);
+                                    }}
+                                  />
+                                ) : (
+                                  <span style={{
+                                    fontSize: "20px",
+                                    fontWeight: "700",
+                                    color: "#fff"
+                                  }}>
+                                    {(item.sender || 'U').charAt(0).toUpperCase()}
+                                  </span>
+                                )}
+                              </div>
+                              {/* Name and Date */}
+                              <div>
+                                <div style={{
+                                  fontSize: "16px",
+                                  fontWeight: "700",
+                                  color: "#1e293b",
+                                  marginBottom: "4px"
+                                }}>
+                                  {item.sender}
+                                </div>
+                                <div style={{
+                                  fontSize: "12px",
+                                  color: "#64748b",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "4px"
+                                }}>
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <polyline points="12 6 12 12 16 14" />
+                                  </svg>
+                                  {formatDate(item.approvalDate)}
+                                </div>
                               </div>
                             </div>
                           </div>
