@@ -817,6 +817,12 @@
         duration = 30
       } = payload;
 
+      // Debug log
+      console.log('[Gift] Sender:', sender);
+      console.log('[Gift] Items:', items);
+      console.log('[Gift] Items length:', items.length);
+      console.log('[Gift] Gift Settings:', giftSettingsItems);
+
       // Set sender info
       giftSenderName.textContent = `⭐ คุณ ${sender} ⭐`;
       
@@ -825,7 +831,7 @@
         // Avatar comes from User Backend (port 4000)
         // If it's a full URL, use it directly. If it's a relative path, prepend user backend URL.
         // It might also be a Google avatar which is a full URL.
-        const avatarUrl = avatar.startsWith('http') ? avatar : `https://cmes-user.onrender.com${avatar}`;
+        const avatarUrl = (avatar.startsWith && avatar.startsWith('http')) ? avatar : `https://cmes-user.onrender.com${avatar}`;
         console.log('[OBS] Loading avatar:', avatarUrl);
 
         const avatarImg = document.createElement('img');
@@ -850,28 +856,42 @@
       giftTableNumber.textContent = `โต๊ะ ${tableNumber}`;
 
       // Set items
-      giftItems.innerHTML = items.map(item => {
-        // Logic ค้นหารูปภาพเหมือนใน Admin
-        let itemImage = item.image;
-        if (!itemImage && giftSettingsItems.length > 0) {
-          const setting = giftSettingsItems.find(s => s.id === item.id);
-          if (setting && setting.imageUrl) {
-            itemImage = setting.imageUrl;
+      if (!items || items.length === 0) {
+        console.warn('[Gift] No items found in payload!');
+        giftItems.innerHTML = `
+          <div style="text-align:center;color:#ffd700;padding:2rem;font-size:1.2rem;">
+            ไม่มีรายการสินค้า
+          </div>
+        `;
+      } else {
+        console.log('[Gift] Rendering', items.length, 'items');
+        giftItems.innerHTML = items.map((item, idx) => {
+          console.log(`[Gift] Item ${idx}:`, item);
+          
+          // Logic ค้นหารูปภาพเหมือนใน Admin
+          let itemImage = item.image;
+          if (!itemImage && giftSettingsItems.length > 0) {
+            const setting = giftSettingsItems.find(s => s.id === item.id);
+            console.log(`[Gift] Looking for id ${item.id}, found setting:`, setting);
+            if (setting && setting.imageUrl) {
+              itemImage = setting.imageUrl;
+              console.log('[Gift] Using image from settings:', itemImage);
+            }
           }
-        }
-        
-        // ถ้ามีรูป
-        const imgHtml = itemImage 
-          ? `<img src="${itemImage.startsWith('http') ? itemImage : API_BASE_URL + itemImage}" alt="${item.name}" />` 
-          : `<div style="width:100px;height:100px;background:rgba(255,255,255,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 0.5rem;font-size:2rem;color:#777;">?</div>`;
+          
+          // ถ้ามีรูป
+          const imgHtml = itemImage 
+            ? `<img src="${(itemImage.startsWith && itemImage.startsWith('http')) ? itemImage : API_BASE_URL + itemImage}" alt="${item.name}" />` 
+            : `<div style="width:100px;height:100px;background:rgba(255,255,255,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 0.5rem;font-size:2rem;color:#777;">?</div>`;
 
-        return `
-        <div class="gift-item">
-          ${imgHtml}
-          <span class="gift-item-qty">x${item.quantity}</span>
-          <div class="gift-item-name">${item.name}</div>
-        </div>
-      `}).join('');
+          return `
+          <div class="gift-item">
+            ${imgHtml}
+            <span class="gift-item-qty">x${item.quantity}</span>
+            <div class="gift-item-name">${item.name}</div>
+          </div>
+        `}).join('');
+      }
 
       // Set note
       if (note) {
