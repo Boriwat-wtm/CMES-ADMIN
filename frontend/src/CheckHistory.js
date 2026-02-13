@@ -58,6 +58,11 @@ function CheckHistory() {
   // Helper to ensure filePath has leading slash
   const getImageUrl = (filePath) => {
     if (!filePath) return null;
+    // If filePath is already a full URL (Cloudinary, etc.), use it directly
+    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+      return filePath;
+    }
+    // Otherwise, prepend base URL
     const normalizedPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
     return `${API_BASE_URL}${normalizedPath}`;
   };

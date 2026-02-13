@@ -36,6 +36,16 @@ function ImageQueue() {
   const totalDuration = currentPreview ? Math.max(currentPreview.time || 0, 1) : 1;
   const progressRatio = Math.max(0, Math.min(1, (totalDuration - timeLeft) / totalDuration));
 
+  // Helper function to safely handle image URLs
+  const getImageUrl = (filePath, baseUrl = API_BASE_URL) => {
+    if (!filePath) return null;
+    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+      return filePath;
+    }
+    const normalizedPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
+    return `${baseUrl}${normalizedPath}`;
+  };
+
   useEffect(() => {
     fetchImages();
     fetchGiftSettings();
@@ -739,7 +749,7 @@ function ImageQueue() {
             <div className="avatar-circle">
               {avatarUrl ? (
                 <img
-                  src={avatarUrl.startsWith('http') ? avatarUrl : `${USER_API_URL}${avatarUrl}`}
+                  src={getImageUrl(avatarUrl, USER_API_URL)}
                   alt={senderInfo}
                   className="avatar-user-image"
                   onError={(e) => {
@@ -795,7 +805,7 @@ function ImageQueue() {
               <div key={`${item._id || item.id}-${giftItem.id || idx}`} className="gift-item-card">
                 {itemImage ? (
                   <img
-                    src={itemImage.startsWith('http') ? itemImage : `${API_BASE_URL}${itemImage}`}
+                    src={getImageUrl(itemImage)}
                     alt={giftItem.name}
                     className="gift-item-image"
                     onError={(e) => {
@@ -1146,7 +1156,7 @@ function ImageQueue() {
                           ) : image.filePath ? (
                             <>
                               <img
-                                src={image.filePath.startsWith('http') ? image.filePath : `${API_BASE_URL}${image.filePath}`}
+                                src={getImageUrl(image.filePath)}
                                 alt="Preview"
                                 className="preview-image"
                                 style={{
@@ -1360,7 +1370,7 @@ function ImageQueue() {
                           borderRadius: "12px",
                           border: "1px solid rgba(255, 255, 255, 0.1)"
                         }}>  <img
-                            src={previewQueue[0].filePath.startsWith('http') ? previewQueue[0].filePath : `${API_BASE_URL}${previewQueue[0].filePath}`}
+                            src={getImageUrl(previewQueue[0]?.filePath)}
                             alt="Next preview"
                             style={{
                               width: "60px",
@@ -1389,7 +1399,7 @@ function ImageQueue() {
                     renderGiftOrderFull(currentPreview, true)
                   ) : currentPreview.filePath ? (
                     <img
-                      src={currentPreview.filePath.startsWith('http') ? currentPreview.filePath : `${API_BASE_URL}${currentPreview.filePath}`}
+                      src={getImageUrl(currentPreview.filePath)}
                       alt="Preview"
                       className="preview-image"
                       style={{ width: "100%", height: "400px", objectFit: "contain" }}
@@ -1566,7 +1576,7 @@ function ImageQueue() {
                         boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
                         border: '1px solid #f1f5f9'
                       }}>  <img
-                          src={previewQueue[0].filePath.startsWith('http') ? previewQueue[0].filePath : `${API_BASE_URL}${previewQueue[0].filePath}`}
+                          src={getImageUrl(previewQueue[0].filePath)}
                           alt="Next"
                           style={{
                             width: '60px',
@@ -1624,7 +1634,7 @@ function ImageQueue() {
                       <div className="queue-item-number">#{index + 1}</div>
                       <div className="queue-item-image">
                         <img
-                          src={queueImage.filePath.startsWith('http') ? queueImage.filePath : `${API_BASE_URL}${queueImage.filePath}`}
+                          src={getImageUrl(queueImage.filePath)}
                           alt="Queue preview"
                           onError={(e) => {
                             e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjZjlmYWZiIi8+PC9zdmc+';
@@ -1697,7 +1707,7 @@ function ImageQueue() {
                       overflow: "hidden"
                     }}>
                       <img
-                        src={selectedImage.filePath.startsWith('http') ? selectedImage.filePath : `${API_BASE_URL}${selectedImage.filePath}`}
+                        src={getImageUrl(selectedImage.filePath)}
                         alt="Full preview"
                         style={{
                           width: "100%",
@@ -1781,7 +1791,7 @@ function ImageQueue() {
                               สแกนเลย!
                             </span>
                             <img
-                              src={selectedImage.qrCodePath.startsWith('http') ? selectedImage.qrCodePath : `${API_BASE_URL}${selectedImage.qrCodePath}`}
+                              src={getImageUrl(selectedImage.qrCodePath)}
                               alt="QR Code"
                               style={{
                                 width: "120px",
@@ -2170,7 +2180,7 @@ function ImageQueue() {
                           overflow: "hidden"
                         }}>  {item.mediaUrl ? (
                             <img
-                              src={item.mediaUrl.startsWith('http') ? item.mediaUrl : `${API_BASE_URL}${item.mediaUrl}`}
+                              src={getImageUrl(item.mediaUrl)}
                               alt="History preview"
                               style={{
                                 width: "100%",
