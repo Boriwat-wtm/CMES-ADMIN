@@ -1456,6 +1456,25 @@ function Home() {
               {/* Save All Button */}
               <div style={{ marginTop: "24px", display: "flex", gap: "12px" }}>
                 <button
+                  onClick={handleSaveAllPerks}
+                  disabled={savingPerks || perks.length === 0}
+                  style={{
+                    flex: 1,
+                    padding: "16px 24px",
+                    background: savingPerks || perks.length === 0 ? "#cbd5e1" : "linear-gradient(135deg, #f59e0b, #d97706)",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "12px",
+                    cursor: savingPerks || perks.length === 0 ? "not-allowed" : "pointer",
+                    fontSize: "16px",
+                    fontWeight: "700",
+                    transition: "all 0.3s ease",
+                    boxShadow: savingPerks || perks.length === 0 ? "none" : "0 4px 12px rgba(245, 158, 11, 0.3)"
+                  }}
+                >
+                  {savingPerks ? "กำลังบันทึก..." : "💾 บันทึกทั้งหมด"}
+                </button>
+                <button
                   onClick={handleClosePerksModal}
                   disabled={savingPerks}
                   style={{
@@ -1483,25 +1502,6 @@ function Home() {
                   }}
                 >
                   ปิด
-                </button>
-                <button
-                  onClick={handleSaveAllPerks}
-                  disabled={savingPerks || perks.length === 0}
-                  style={{
-                    flex: 1,
-                    padding: "16px 24px",
-                    background: savingPerks || perks.length === 0 ? "#cbd5e1" : "linear-gradient(135deg, #f59e0b, #d97706)",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: "12px",
-                    cursor: savingPerks || perks.length === 0 ? "not-allowed" : "pointer",
-                    fontSize: "16px",
-                    fontWeight: "700",
-                    transition: "all 0.3s ease",
-                    boxShadow: savingPerks || perks.length === 0 ? "none" : "0 4px 12px rgba(245, 158, 11, 0.3)"
-                  }}
-                >
-                  {savingPerks ? "กำลังบันทึก..." : "💾 บันทึกทั้งหมด"}
                 </button>
               </div>
 
