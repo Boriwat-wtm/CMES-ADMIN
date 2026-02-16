@@ -328,14 +328,19 @@ async function syncGiftSettingsFromDB() {
 app.post("/api/gifts/items", async (req, res) => {
   try {
     const { name, price, description, imageUrl } = req.body;
-    if (!name || !price) {
+    if (!name || price === undefined || price === null || price === "") {
       return res.status(400).json({ success: false, message: "กรุณาระบุชื่อสินค้าและราคา" });
+    }
+
+    const numPrice = Number(price);
+    if (isNaN(numPrice) || numPrice < 0) {
+      return res.status(400).json({ success: false, message: "ราคาต้องเป็นตัวเลขและไม่ติดลบ" });
     }
 
     const newGift = new GiftSetting({
       giftId: Date.now().toString(),
       giftName: name.trim(),
-      price: Number(price) || 0,
+      price: numPrice,
       description: description ? description.trim() : "",
       image: imageUrl || ""
     });
@@ -365,11 +370,18 @@ app.put("/api/gifts/items/:id", async (req, res) => {
     const { id } = req.params;
     const { name, price, description, imageUrl } = req.body;
 
+    if (price !== undefined) {
+      const numPrice = Number(price);
+      if (isNaN(numPrice) || numPrice < 0) {
+        return res.status(400).json({ success: false, message: "ราคาต้องเป็นตัวเลขและไม่ติดลบ" });
+      }
+    }
+
     const updatedGift = await GiftSetting.findByIdAndUpdate(
       id,
       {
         ...(name && { giftName: name.trim() }),
-        ...(price !== undefined && { price: Number(price) || 0 }),
+        ...(price !== undefined && { price: Number(price) }),
         ...(description !== undefined && { description: description.trim() }),
         ...(imageUrl !== undefined && { image: imageUrl })
       },
