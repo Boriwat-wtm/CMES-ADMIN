@@ -1,10 +1,12 @@
 /* ========================================
-   THEME.CSS - Global Design System
+   THEME.CSS - ระบบดีไซน์แบบใช้ทั่วทั้งระบบ
    ======================================== */
 
-/* Color Palette & Design Tokens */
+/* ==========================================
+   ตัวแปรสี & โทเคนดีไซน์
+   ========================================== */
 :root {
-  /* Primary Colors */
+  /* สีหลัก - Primary Colors */
   --primary-50: #f0f4ff;
   --primary-100: #e0e9ff;
   --primary-200: #c7d2fe;
@@ -16,7 +18,7 @@
   --primary-800: #3730a3;
   --primary-900: #312e81;
 
-  /* Accent Colors */
+  /* สีเน้น - Accent Colors */
   --accent-50: #fdf2f8;
   --accent-100: #fce7f3;
   --accent-200: #fbcfe8;
@@ -26,7 +28,7 @@
   --accent-600: #db2777;
   --accent-700: #be185d;
 
-  /* Success */
+  /* สีสำเร็จ - Success */
   --success-50: #f0fdf4;
   --success-100: #dcfce7;
   --success-200: #bbf7d0;
@@ -35,7 +37,7 @@
   --success-600: #059669;
   --success-700: #047857;
 
-  /* Warning */
+  /* สีเตือน - Warning */
   --warning-50: #fffbeb;
   --warning-100: #fef3c7;
   --warning-200: #fde68a;
@@ -43,7 +45,7 @@
   --warning-600: #d97706;
   --warning-700: #b45309;
 
-  /* Danger */
+  /* สีอันตราย - Danger */
   --danger-50: #fef2f2;
   --danger-100: #fee2e2;
   --danger-200: #fecaca;
@@ -51,7 +53,7 @@
   --danger-600: #dc2626;
   --danger-700: #b91c1c;
 
-  /* Neutral - Gray */
+  /* สีเทา - Neutral Gray */
   --gray-50: #f9fafb;
   --gray-100: #f3f4f6;
   --gray-200: #e5e7eb;
@@ -63,43 +65,47 @@
   --gray-800: #1f2937;
   --gray-900: #111827;
 
-  /* Shadows */
+  /* เงา - Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
   --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
 
-  /* Gradients */
+  /* ไล่สี - Gradients */
   --gradient-primary: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%);
   --gradient-accent: linear-gradient(135deg, var(--primary-600) 0%, var(--accent-600) 100%);
   --gradient-soft: linear-gradient(135deg, var(--primary-50) 0%, var(--primary-100) 100%);
 }
 
-/* Reset & Base Styles */
+/* ==========================================
+   รีเซ็ต & สไตล์พื้นฐาน
+   ========================================== */
 * {
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
+  box-sizing: border-box; /* รวม padding และ border ในความกว้าง/สูง */
 }
 
 html {
-  scroll-behavior: smooth;
+  scroll-behavior: smooth; /* การเลื่อนหน้าแบบนุ่มนวล */
 }
 
 body {
-  background: var(--gray-50);
-  color: var(--gray-900);
+  background: var(--gray-50); /* สีพื้นหลัง */
+  color: var(--gray-900); /* สีตัวอักษร */
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    'Prompt', 'Kanit', sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+    'Prompt', 'Kanit', sans-serif; /* ฟอนต์ภาษาไทย */
+  -webkit-font-smoothing: antialiased; /* ทำให้ตัวอักษรลื่น */
+  -moz-osx-font-smoothing: grayscale; /* ทำให้ตัวอักษรลื่นใน Firefox */
 }
 
-/* Utility Classes */
+/* ==========================================
+   คลาสตัวช่วย - Utility Classes
+   ========================================== */
 
-/* Backgrounds */
+/* สีพื้นหลัง - Backgrounds */
 .bg-primary {
   background: var(--primary-600);
   color: white;
@@ -120,7 +126,7 @@ body {
   color: white;
 }
 
-/* Text Colors */
+/* สีตัวอักษร - Text Colors */
 .text-primary {
   color: var(--primary-600);
 }
@@ -137,176 +143,205 @@ body {
   color: var(--danger-600);
 }
 
-/* Spacing Utilities */
-.mt-1 { margin-top: 0.25rem; }
-.mt-2 { margin-top: 0.5rem; }
-.mt-4 { margin-top: 1rem; }
-.mt-6 { margin-top: 1.5rem; }
-.mt-8 { margin-top: 2rem; }
+/* ==========================================
+   ระยะห่าง - Spacing Utilities
+   ========================================== */
+.mt-1 { margin-top: 0.25rem; } /* margin-top ค่า 1 */ /* margin-top ค่า 1 */
+.mt-2 { margin-top: 0.5rem; } /* margin-top ค่า 2 */
+.mt-4 { margin-top: 1rem; } /* margin-top ค่า 4 */
+.mt-6 { margin-top: 1.5rem; } /* margin-top ค่า 6 */
+.mt-8 { margin-top: 2rem; } /* margin-top ค่า 8 */
 
-.mb-1 { margin-bottom: 0.25rem; }
-.mb-2 { margin-bottom: 0.5rem; }
-.mb-4 { margin-bottom: 1rem; }
-.mb-6 { margin-bottom: 1.5rem; }
-.mb-8 { margin-bottom: 2rem; }
+.mb-1 { margin-bottom: 0.25rem; } /* margin-bottom ค่า 1 */
+.mb-2 { margin-bottom: 0.5rem; } /* margin-bottom ค่า 2 */
+.mb-4 { margin-bottom: 1rem; } /* margin-bottom ค่า 4 */
+.mb-6 { margin-bottom: 1.5rem; } /* margin-bottom ค่า 6 */
+.mb-8 { margin-bottom: 2rem; } /* margin-bottom ค่า 8 */
 
-.p-4 { padding: 1rem; }
-.p-6 { padding: 1.5rem; }
-.p-8 { padding: 2rem; }
+.p-4 { padding: 1rem; } /* padding ค่า 4 */
+.p-6 { padding: 1.5rem; } /* padding ค่า 6 */
+.p-8 { padding: 2rem; } /* padding ค่า 8 */ /* padding ค่า 8 */
 
-/* Flex Utilities */
-.flex { display: flex; }
-.flex-center { display: flex; align-items: center; justify-content: center; }
-.flex-between { display: flex; align-items: center; justify-content: space-between; }
-.flex-col { flex-direction: column; }
-.gap-2 { gap: 0.5rem; }
-.gap-4 { gap: 1rem; }
-.gap-6 { gap: 1.5rem; }
+/* ==========================================
+   Flexbox Utilities
+   ========================================== */
+.flex { display: flex; } /* จัดวางแบบ Flexbox */
+.flex-center { display: flex; align-items: center; justify-content: center; } /* จัดกลางทั้งแนวตั้งและแนวนอน */
+.flex-between { display: flex; align-items: center; justify-content: space-between; } /* จัดให้ห่างระหว่างองค์ประกอบ */
+.flex-col { flex-direction: column; } /* จัดแนวตั้ง */
+.gap-2 { gap: 0.5rem; } /* ช่องว่าง ค่า 2 */
+.gap-4 { gap: 1rem; } /* ช่องว่าง ค่า 4 */
+.gap-6 { gap: 1.5rem; } /* ช่องว่าง ค่า 6 */ /* ช่องว่าง ค่า 6 */
 
-/* Grid Utilities */
-.grid { display: grid; }
-.grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
-.grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+/* ==========================================
+   Grid Utilities
+   ========================================== */
+.grid { display: grid; } /* จัดวางแบบ Grid */
+.grid-cols-2 { grid-template-columns: repeat(2, 1fr); } /* ตาราง 2 คอลัมน์ */
+.grid-cols-3 { grid-template-columns: repeat(3, 1fr); } /* ตาราง 3 คอลัมน์ */ /* ตาราง 3 คอลัมน์ */
 
-/* Border Utilities */
-.border { border: 1px solid var(--gray-300); }
-.border-primary { border: 2px solid var(--primary-500); }
-.border-t { border-top: 1px solid var(--gray-200); }
-.border-b { border-bottom: 1px solid var(--gray-200); }
+/* ==========================================
+   ขอบ - Border Utilities
+   ========================================== */
+.border { border: 1px solid var(--gray-300); } /* ขอบทั่วไป */
+.border-primary { border: 2px solid var(--primary-500); } /* ขอบสีหลัก */
+.border-t { border-top: 1px solid var(--gray-200); } /* ขอบด้านบน */
+.border-b { border-bottom: 1px solid var(--gray-200); } /* ขอบด้านล่าง */
 
-.rounded { border-radius: 8px; }
-.rounded-lg { border-radius: 12px; }
-.rounded-full { border-radius: 999px; }
+.rounded { border-radius: 8px; } /* มุมมน */
+.rounded-lg { border-radius: 12px; } /* มุมมนใหญ่ */
+.rounded-full { border-radius: 999px; } /* มุมมนเต็มที่ (วงกลม) */ /* มุมมนเต็มที่ (วงกลม) */
 
-/* Shadow Utilities */
-.shadow { box-shadow: var(--shadow-md); }
-.shadow-lg { box-shadow: var(--shadow-lg); }
-.shadow-xl { box-shadow: var(--shadow-xl); }
+/* ==========================================
+   เงา - Shadow Utilities
+   ========================================== */
+.shadow { box-shadow: var(--shadow-md); } /* เงาขนาดปานกลาง */
+.shadow-lg { box-shadow: var(--shadow-lg); } /* เงาขนาดใหญ่ */
+.shadow-xl { box-shadow: var(--shadow-xl); } /* เงาขนาดใหญ่มาก */ /* เงาขนาดใหญ่มาก */
 
-/* Display Utilities */
-.hidden { display: none; }
-.block { display: block; }
-.inline-block { display: inline-block; }
+/* ==========================================
+   การแสดงผล - Display Utilities
+   ========================================== */
+.hidden { display: none; } /* ซ่อน */
+.block { display: block; } /* แสดงแบบ block */
+.inline-block { display: inline-block; } /* แสดงแบบ inline-block */ /* แสดงแบบ inline-block */
 
-/* Opacity */
-.opacity-50 { opacity: 0.5; }
-.opacity-75 { opacity: 0.75; }
+/* ==========================================
+   ความทึบ - Opacity
+   ========================================== */
+.opacity-50 { opacity: 0.5; } /* โปร่งแสง 50% */
+.opacity-75 { opacity: 0.75; } /* โปร่งแสง 75% */ /* โปร่งแสง 75% */
 
-/* Scrollbar Styling */
+/* ==========================================
+   สไตล์แถบเลื่อน - Scrollbar Styling
+   ========================================== */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 8px; /* ความกว้างแถบแนวตั้ง */
+  height: 8px; /* ความสูงแถบแนวนอน */
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--gray-100);
+  background: var(--gray-100); /* สีพื้นหลังของแถบ */
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--gray-300);
-  border-radius: 4px;
+  background: var(--gray-300); /* สีของตัวจับเลื่อน */
+  border-radius: 4px; /* มุมมน */
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--gray-400);
+  background: var(--gray-400); /* เปลี่ยนสีเมื่อ hover */
 }
 
-/* Animations */
+/* ==========================================
+   แอนิเมชั่น - Animations
+   ========================================== */
+/* แอนิเมชั่นค่อยๆ ปรากฏ */
 @keyframes fadeIn {
   from {
-    opacity: 0;
+    opacity: 0; /* เริ่มจากโปร่งใส */
   }
   to {
-    opacity: 1;
+    opacity: 1; /* ค่อยๆ ทึบแสง */
   }
 }
 
+/* แอนิเมชั่นเลื่อนขึ้น */
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(20px); /* เริ่มจากด้านล่าง */
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0); /* เลื่อนขึ้นมาที่ตำแหน่งปกติ */
   }
 }
 
+/* แอนิเมชั่นเลื่อนลง */
 @keyframes slideDown {
   from {
     opacity: 0;
-    transform: translateY(-20px);
+    transform: translateY(-20px); /* เริ่มจากด้านบน */
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0); /* เลื่อนลงมาที่ตำแหน่งปกติ */
   }
 }
 
+/* แอนิเมชั่นเลื่อนจากขวา */
 @keyframes slideLeft {
   from {
     opacity: 0;
-    transform: translateX(20px);
+    transform: translateX(20px); /* เริ่มจากขวา */
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateX(0); /* เลื่อนมาซ้าย */
   }
 }
 
+/* แอนิเมชั่นเลื่อนจากซ้าย */
 @keyframes slideRight {
   from {
     opacity: 0;
-    transform: translateX(-20px);
+    transform: translateX(-20px); /* เริ่มจากซ้าย */
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateX(0); /* เลื่อนมาขวา */
   }
 }
 
+/* แอนิเมชั่นกระพริบ */
 @keyframes pulse {
   0%, 100% {
-    opacity: 1;
+    opacity: 1; /* ทึบแสงเต็มที่ */
   }
   50% {
-    opacity: 0.5;
+    opacity: 0.5; /* โปร่งแสงครึ่งทาง */
   }
 }
 
+/* คลาสตัวช่วยสำหรับแอนิเมชั่น */
 .animate-fade-in {
-  animation: fadeIn 0.4s ease;
+  animation: fadeIn 0.4s ease; /* ใช้แอนิเมชั่น fadeIn */
 }
 
 .animate-slide-up {
-  animation: slideUp 0.4s ease;
+  animation: slideUp 0.4s ease; /* ใช้แอนิเมชั่น slideUp */
 }
 
-/* Responsive */
+/* ==========================================
+   Responsive Design - ดีไซน์แบบตอบสนอง
+   ========================================== */
+/* หน้าจอขนาดแท็บเล็ต (Tablet) */
 @media (max-width: 768px) {
   .grid-cols-2 {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr; /* เปลี่ยนจาก 2 คอลัมน์เป็น 1 คอลัมน์ */
   }
 
   .grid-cols-3 {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, 1fr); /* เปลี่ยนจาก 3 คอลัมน์เป็น 2 คอลัมน์ */
   }
 
   .hidden-mobile {
-    display: none;
+    display: none; /* ซ่อนในมือถือ */
   }
 }
 
+/* หน้าจอขนาดมือถือ (Mobile) */
 @media (max-width: 480px) {
   .grid-cols-3 {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr; /* เปลี่ยนเป็น 1 คอลัมน์สำหรับมือถือ */
   }
 
   .text-mobile-sm {
-    font-size: 0.9rem;
+    font-size: 0.9rem; /* ขนาดตัวอักษรเล็กสำหรับมือถือ */
   }
 
   .p-mobile-4 {
-    padding: 1rem;
+    padding: 1rem; /* padding สำหรับมือถือ */
   }
 }

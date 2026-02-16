@@ -1,23 +1,35 @@
+// ==========================================
+// 📦 นำเข้า Dependencies และ Modules
+// ==========================================
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_BASE_URL, REALTIME_URL } from "./config/apiConfig";
 import "./Register.css";
 
+// ==========================================
+// 🔐 Component หน้าล็อกอินสำหรับแอดมิน
+// ==========================================
 function Register() {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
+  // ==========================================
+  // 📌 State Management
+  // ==========================================
+  const [username, setUsername] = useState(""); // เก็บค่า username ที่กรอก
+  const [password, setPassword] = useState(""); // เก็บค่า password ที่กรอก
+  const [showPassword, setShowPassword] = useState(false); // สถานะแสดง/ซ่อนรหัสผ่าน
+  const [errorMessage, setErrorMessage] = useState(""); // ข้อความแสดงข้อผิดพลาด
+  const [isLoading, setIsLoading] = useState(false); // สถานะกำลังโหลด
+  const navigate = useNavigate(); // ใช้สำหรับเปลี่ยนหน้า // ใช้สำหรับเปลี่ยนหน้า
 
+  // ==========================================
+  // 🔑 ฟังก์ชันจัดการการล็อกอิน
+  // ==========================================
   const handleLogin = async (e) => {
-    e.preventDefault();
+    e.preventDefault(); // ป้องกันการ reload หน้า
 
-    // Clear previous error message
+    // ล้างข้อความแสดงข้อผิดพลาดก่อนหน้า
     setErrorMessage("");
 
-    // Validation
+    // ตรวจสอบความถูกต้องของข้อมูล
     if (!username.trim()) {
       setErrorMessage("กรุณากรอก Username");
       return;
@@ -27,51 +39,68 @@ function Register() {
       return;
     }
 
-    setIsLoading(true);
+    setIsLoading(true); // เริ่มสถานะกำลังโหลด // เริ่มสถานะกำลังโหลด
 
     try {
+      // ส่งคำขอล็อกอินไปยัง API
       const response = await fetch(`${API_BASE_URL}/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password }), // ส่งข้อมูล username และ password
       });
 
-      const data = await response.json();
+      const data = await response.json(); // แปลงข้อมูลที่ได้รับเป็น JSON
+      
+      // ตรวจสอบว่าล็อกอินสำเร็จหรือไม่
       if (response.ok && data.success) {
-        // 🔥 บันทึก adminId ใน localStorage
+        // บันทึกข้อมูลแอดมินใน localStorage
         if (data.user && data.user.id) {
           localStorage.setItem("adminId", data.user.id);
           localStorage.setItem("adminUsername", data.user.username);
         }
 
-        // Success notification
+        // ล้างข้อมูลฟอร์ม
         setUsername("");
         setPassword("");
+        
+        // นำทางไปหน้าหลัก
         navigate("/home");
       } else {
+        // แสดงข้อความแจ้งเตือนเมื่อล็อกอินไม่สำเร็จ
+        // แสดงข้อความแจ้งเตือนเมื่อล็อกอินไม่สำเร็จ
         setErrorMessage(data.message || "Username หรือ Password ไม่ถูกต้อง");
       }
     } catch (error) {
+      // จัดการข้อผิดพลาดที่เกิดขึ้นระหว่างการเชื่อมต่อ API
       console.error("Error during login:", error);
       setErrorMessage("เกิดข้อผิดพลาดในการเข้าสู่ระบบ โปรดลองอีกครั้ง");
     } finally {
-      setIsLoading(false);
+      setIsLoading(false); // หยุดสถานะกำลังโหลด
     }
   };
 
+  // ==========================================
+  // ⌨️ ฟังก์ชันจัดการการกดปุ่ม Enter
+  // ==========================================
   const handleKeyPress = (e) => {
     if (e.key === "Enter") {
-      handleLogin(e);
+      handleLogin(e); // กด Enter เพื่อล็อกอิน
     }
   };
 
+  // ==========================================
+  // 🎨 Render UI
+  // ==========================================
   return (
     <div className="register-container">
       <h1>ADMIN LOGIN</h1>
       <p>ยินดีต้อนรับเข้าสู่ระบบบริหารจัดการ</p>
+      
+      {/* ฟอร์มล็อกอิน */}
       <form className="register-form" onSubmit={handleLogin}>
+        {/* ช่องกรอก Username */}
         <div>
           <label htmlFor="username">👤 Username</label>
           <input
@@ -81,39 +110,43 @@ function Register() {
             onChange={(e) => setUsername(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="กรอก Username ของคุณ"
-            disabled={isLoading}
-            autoFocus
+            disabled={isLoading} // ปิดการใช้งานขณะกำลังโหลด
+            autoFocus // โฟกัสอัตโนมัติเมื่อเปิดหน้า
           />
         </div>
 
+        {/* ช่องกรอก Password */}
         <div>
           <label htmlFor="password">🔒 Password</label>
           <div className="password-container">
             <input
-              type={showPassword ? "text" : "password"}
+              type={showPassword ? "text" : "password"} // สลับระหว่างแสดง/ซ่อนรหัสผ่าน
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="กรอก Password ของคุณ"
-              disabled={isLoading}
+              disabled={isLoading} // ปิดการใช้งานขณะกำลังโหลด
             />
+            {/* ไอคอนแสดง/ซ่อนรหัสผ่าน */}
             <span
               className="toggle-password-icon"
-              onClick={() => setShowPassword(!showPassword)}
+              onClick={() => setShowPassword(!showPassword)} // สลับสถานะแสดง/ซ่อน
               title={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
             >
               {showPassword ? (
-                <i className="fas fa-eye"></i>
+                <i className="fas fa-eye"></i> // ไอคอนแสดงรหัสผ่าน
               ) : (
-                <i className="fas fa-eye-slash"></i>
+                <i className="fas fa-eye-slash"></i> // ไอคอนซ่อนรหัสผ่าน
               )}
             </span>
           </div>
         </div>
 
+        {/* แสดงข้อความแจ้งเตือนข้อผิดพลาด (ถ้ามี) */}
         {errorMessage && <p className="error-message">⚠️ {errorMessage}</p>}
 
+        {/* ปุ่มเข้าสู่ระบบ */}
         <button type="submit" disabled={isLoading}>
           {isLoading ? (
             <span>
@@ -128,4 +161,5 @@ function Register() {
   );
 }
 
+// ส่งออก Component
 export default Register;

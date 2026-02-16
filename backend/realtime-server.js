@@ -17,10 +17,13 @@ const app = express();
 const allowedOrigins = [
   'http://localhost:3000',                    // Admin Frontend (Dev)
   'http://localhost:3001',                    // User Frontend (Dev)
+  'http://localhost:5000',                    // Admin Backend (Dev) - สำหรับ OBS Overlay
   'https://cmesadminfrontend.vercel.app',     // Admin Frontend (Production)
   'https://cmesuserfrontend.vercel.app',      // User Frontend (Production)
+  'https://cmes-admin-server.onrender.com',   // Admin Backend (Production) - สำหรับ OBS Overlay
   process.env.ADMIN_FRONTEND_URL,             // Admin Frontend (Custom)
   process.env.USER_FRONTEND_URL,              // User Frontend (Custom)
+  process.env.ADMIN_BACKEND_URL,              // Admin Backend (Custom) - สำหรับ OBS Overlay
 ].filter(Boolean);
 
 app.use(cors({

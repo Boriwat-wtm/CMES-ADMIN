@@ -1,33 +1,50 @@
-/* CSS Variables for consistency */
+/* ==========================================
+   ตัวแปร CSS สำหรับความสอดคล้องของดีไซน์
+   ========================================== */
 :root {
+  /* พาเลทสีหลัก */
   --primary-50: #f0f9ff;
   --primary-100: #e0f2fe;
   --primary-200: #bae6fd;
   --primary-500: #0ea5e9;
   --primary-600: #0284c7;
   --primary-700: #0369a1;
+  
+  /* สีเน้น */
   --accent-600: #ec4899;
+  
+  /* สีเทา */
   --gray-100: #f1f5f9;
   --gray-200: #e2e8f0;
   --gray-400: #94a3b8;
   --gray-600: #475569;
   --gray-700: #334155;
   --gray-900: #0f172a;
+  
+  /* สีอันตราย */
   --danger-500: #ef4444;
   --danger-600: #dc2626;
+  
+  /* เงา */
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
+/* ==========================================
+   คอนเทนเนอร์หลัก
+   ========================================== */
 .th-minimal-container {
-  min-height: 100vh;
-  background: linear-gradient(135deg, var(--primary-50) 0%, var(--primary-100) 100%);
+  min-height: 100vh; /* ความสูงเต็มหน้าจอ */
+  background: linear-gradient(135deg, var(--primary-50) 0%, var(--primary-100) 100%); /* พื้นหลังไล่สี */
   display: flex;
   flex-direction: column;
-  font-family: 'Prompt', 'Kanit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Prompt', 'Kanit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; /* ฟอนต์ภาษาไทย */
 }
 
+/* ==========================================
+   ส่วนหัวของหน้า
+   ========================================== */
 .th-minimal-header {
   display: flex;
   align-items: center;
@@ -35,10 +52,11 @@
   gap: 2rem;
   padding: 1.5rem 2rem;
   background: white;
-  box-shadow: var(--shadow-lg);
-  border-bottom: 1px solid var(--gray-200);
+  box-shadow: var(--shadow-lg); /* เงาใหญ่ */
+  border-bottom: 1px solid var(--gray-200); /* เส้นขอบด้านล่าง */
 }
 
+/* ปุ่มกลับหน้าหลัก */
 .th-minimal-back-btn {
   display: flex;
   align-items: center;
@@ -51,140 +69,164 @@
   cursor: pointer;
   padding: 0.75rem 1.25rem;
   border-radius: 10px;
-  transition: all 0.3s ease;
-  text-decoration: none;
+  transition: all 0.3s ease; /* เอฟเฟกต์การเปลี่ยนแปลงแบบนุ่มนวล */
+  text-decoration: none; /* ไม่มีเส้นใต้ลิงก์ */
 }
 
+/* สไตล์เมื่อเมาส์ชี้ที่ปุ่มกลับ */
 .th-minimal-back-btn:hover {
-  background: var(--gray-200);
-  color: var(--gray-700);
-  transform: translateY(-2px);
+  background: var(--gray-200); /* เปลี่ยนสีพื้นหลัง */
+  color: var(--gray-700); /* เปลี่ยนสีตัวอักษร */
+  transform: translateY(-2px); /* ยกปุ่มขึ้นเล็กน้อย */
 }
 
+/* หัวข้อหลักของหน้า */
 .th-minimal-title {
   font-size: 1.5rem;
   color: var(--gray-900);
-  font-weight: 700;
-  letter-spacing: 0.5px;
+  font-weight: 700; /* ตัวหนา */
+  letter-spacing: 0.5px; /* เพิ่มระยะห่างระหว่างตัวอักษร */
   margin: 0;
-  text-align: center;
-  flex: 1;
+  text-align: center; /* จัดกลาง */
+  flex: 1; /* ขยายเต็มพื้นที่ */
 }
 
+/* ==========================================
+   ส่วนเนื้อหาหลัก
+   ========================================== */
 .th-minimal-main {
   display: flex;
   gap: 2rem;
-  justify-content: center;
-  align-items: flex-start;
+  justify-content: center; /* จัดกลาง */
+  align-items: flex-start; /* จัดชิดด้านบน */
   margin-top: 2rem;
   padding: 0 1rem 2rem;
-  flex-wrap: wrap;
+  flex-wrap: wrap; /* ขึ้นบรรทัดใหม่เมื่อเต็ม */
 }
 
+/* ==========================================
+   การ์ดแสดงข้อมูล
+   ========================================== */
 .th-minimal-card {
   background: white;
-  border-radius: 16px;
-  box-shadow: var(--shadow-xl);
+  border-radius: 16px; /* มุมมน */
+  box-shadow: var(--shadow-xl); /* เงาใหญ่มาก */
   padding: 2rem;
-  min-width: 320px;
-  max-width: 420px;
+  min-width: 320px; /* ความกว้างขั้นต่ำ */
+  max-width: 420px; /* ความกว้างสูงสุด */
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   border: 1px solid var(--gray-200);
-  transition: all 0.3s ease;
+  transition: all 0.3s ease; /* เอฟเฟกต์การเปลี่ยนแปลง */
 }
 
+/* การ์ดประเภทข้อความ - พื้นหลังสีชมพูอ่อน */
 .th-minimal-card.th-card-text {
   background: linear-gradient(135deg, #fdf2f8 0%, #ffffff 100%);
-  border-top: 4px solid var(--accent-600);
+  border-top: 4px solid var(--accent-600); /* ขอบบนสีชมพู */
 }
 
+/* การ์ดประเภทรูปภาพ - พื้นหลังสีฟ้าอ่อน */
 .th-minimal-card.th-card-image {
   background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
-  border-top: 4px solid var(--primary-600);
+  border-top: 4px solid var(--primary-600); /* ขอบบนสีฟ้า */
 }
 
+/* การ์ดประเภทวันเกิด - พื้นหลังสีเหลืองอ่อน */
 .th-minimal-card.th-card-birthday {
   background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
-  border-top: 4px solid #f59e0b;
+  border-top: 4px solid #f59e0b; /* ขอบบนสีเหลือง */
 }
 
+/* หัวข้อของการ์ด */
 .th-minimal-card-title {
   font-size: 1.4rem;
-  font-weight: 700;
+  font-weight: 700; /* ตัวหนา */
   margin: 0 0 1.5rem 0;
-  text-align: center;
-  letter-spacing: 0.5px;
+  text-align: center; /* จัดกลาง */
+  letter-spacing: 0.5px; /* เพิ่มระยะห่างตัวอักษร */
 }
 
+/* หัวข้อการ์ดข้อความ - สีชมพู */
 .th-minimal-card-title.th-text {
   color: var(--accent-600);
 }
 
+/* หัวข้อการ์ดรูปภาพ - สีฟ้า */
 .th-minimal-card-title.th-image {
   color: var(--primary-600);
 }
 
+/* หัวข้อการ์ดวันเกิด - สีเหลือง */
 .th-minimal-card-title.th-birthday {
   color: #f59e0b;
 }
 
+/* ข้อความแสดงเมื่อไม่มีข้อมูล */
 .th-minimal-empty {
-  text-align: center;
-  color: var(--gray-400);
+  text-align: center; /* จัดกลาง */
+  color: var(--gray-400); /* สีเทาอ่อน */
   font-size: 1rem;
   margin: 2rem 0;
   font-weight: 500;
 }
 
+/* ==========================================
+   รายการข้อมูลแต่ละรายการ
+   ========================================== */
 .th-minimal-item {
-  background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
-  border-radius: 12px;
+  background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%); /* พื้นหลังไล่สีเทาอ่อน */
+  border-radius: 12px; /* มุมมน */
   padding: 1.25rem;
   margin-bottom: 1rem;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-md); /* เงาปานกลาง */
   font-size: 0.95rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  border-left: 4px solid var(--primary-500);
-  transition: all 0.3s ease;
+  border-left: 4px solid var(--primary-500); /* ขอบซ้ายสีฟ้า */
+  transition: all 0.3s ease; /* เอฟเฟกต์การเปลี่ยนแปลง */
 }
 
+/* สไตล์เมื่อเมาส์ชี้ที่รายการ */
 .th-minimal-item:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px); /* ยกรายการขึ้นเล็กน้อย */
+  box-shadow: var(--shadow-lg); /* เงาใหญ่ขึ้น */
 }
 
+/* รายการประเภทข้อความ - ขอบซ้ายสีชมพู */
 .th-minimal-item.th-item-text {
   border-left-color: var(--accent-600);
   background: linear-gradient(135deg, #fdf2f8 0%, #fafafa 100%);
 }
 
 .th-minimal-item.th-item-text:hover {
-  border-left-color: #db2777;
+  border-left-color: #db2777; /* เปลี่ยนเป็นสีชมพูเข้มเมื่อ hover */
 }
 
+/* รายการประเภทรูปภาพ - ขอบซ้ายสีฟ้า */
 .th-minimal-item.th-item-image {
   border-left-color: var(--primary-600);
   background: linear-gradient(135deg, #f0f9ff 0%, #fafafa 100%);
 }
 
 .th-minimal-item.th-item-image:hover {
-  border-left-color: #0369a1;
+  border-left-color: #0369a1; /* เปลี่ยนเป็นสีฟ้าเข้มเมื่อ hover */
 }
 
+/* รายการประเภทวันเกิด - ขอบซ้ายสีเหลือง */
 .th-minimal-item.th-item-birthday {
   border-left-color: #f59e0b;
   background: linear-gradient(135deg, #fffbeb 0%, #fafafa 100%);
 }
 
 .th-minimal-item.th-item-birthday:hover {
-  border-left-color: #d97706;
+  border-left-color: #d97706; /* เปลี่ยนเป็นสีเหลืองเข้มเมื่อ hover */
 }
 
+/* แต่ละบรรทัดข้อมูลภายในรายการ */
 .th-minimal-item > div {
   display: flex;
   align-items: center;
@@ -192,28 +234,33 @@
   color: var(--gray-700);
 }
 
+/* ป้ายกำกับข้อมูล */
 .th-minimal-label {
-  font-weight: 600;
-  color: var(--gray-900);
+  font-weight: 600; /* ตัวหนา */
+  color: var(--gray-900); /* สีเทาเข้ม */
   font-size: 0.9rem;
 }
 
+/* ==========================================
+   ปุ่มลบรายการ
+   ========================================== */
 .th-minimal-remove-btn {
-  align-self: flex-end;
-  background: var(--danger-500);
+  align-self: flex-end; /* จัดชิดขวา */
+  background: var(--danger-500); /* สีแดง */
   color: white;
   padding: 0.5rem 1.25rem;
   border-radius: 8px;
-  font-weight: 600;
+  font-weight: 600; /* ตัวหนา */
   font-size: 0.9rem;
   margin-top: 0.5rem;
   border: none;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.3s ease; /* เอฟเฟกต์การเปลี่ยนแปลง */
 }
 
+/* สไตล์เมื่อเมาส์ชี้ที่ปุ่มลบ */
 .th-minimal-remove-btn:hover {
-  background: var(--danger-600);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  background: var(--danger-600); /* เปลี่ยนเป็นสีแดงเข้ม */
+  transform: translateY(-2px); /* ยกปุ่มขึ้น */
+  box-shadow: var(--shadow-md); /* เพิ่มเงา */
 }
