@@ -1,87 +1,99 @@
+// นำเข้า React hooks และ component ที่จำเป็น
 import React, { useState, useRef, useEffect } from "react";
-import { Link } from "react-router-dom"; // Import Link
-import { API_BASE_URL, REALTIME_URL }  from "./config/apiConfig";
+import { Link } from "react-router-dom"; // Import Link สำหรับการนำทาง
+import { API_BASE_URL, REALTIME_URL }  from "./config/apiConfig"; // URL ของ API และ Realtime Server
 import "./LuckyWheel.css";
 
+// ฟังก์ชันสุ่มเลขจำนวนเต็มระหว่าง min และ max
 function getRandomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+// สีเริ่มต้นสำหรับแต่ละช่องของวงล้อ (10 สี หมุนเวียนใช้)
 const defaultColors = [
   "#f87171", "#fbbf24", "#34d399", "#60a5fa", "#a78bfa", "#f472b6", "#facc15", "#4ade80", "#38bdf8", "#818cf8"
 ];
 
 function LuckyWheel() {
-  const [segments, setSegments] = useState(["โต๊ะ 1", "โต๊ะ 2", "โต๊ะ 3"]);
-  const [input, setInput] = useState("");
-  const [tableRange, setTableRange] = useState({ from: "", to: "" });
-  const [spinning, setSpinning] = useState(false);
-  const [winner, setWinner] = useState(null);
-  const [editIndex, setEditIndex] = useState(null);
-  const [editValue, setEditValue] = useState("");
-  const [showPopup, setShowPopup] = useState(false);
-  const [popupEffect, setPopupEffect] = useState(false);
-  const [reward, setReward] = useState("");
-  const [previewing, setPreviewing] = useState(false);
-  const textareaRef = useRef(null);
-  const wheelRef = useRef(null);
+  // ===== State Management =====
+  const [segments, setSegments] = useState(["โต๊ะ 1", "โต๊ะ 2", "โต๊ะ 3"]); // รายการช่องในวงล้อ
+  const [input, setInput] = useState(""); // ข้อความที่พิมพ์ใน textarea
+  const [tableRange, setTableRange] = useState({ from: "", to: "" }); // ช่วงเลขโต๊ะที่ต้องการเพิ่ม
+  const [spinning, setSpinning] = useState(false); // สถานะกำลังหมุนวงล้อหรือไม่
+  const [winner, setWinner] = useState(null); // index ของผู้ชนะ
+  const [editIndex, setEditIndex] = useState(null); // index ของช่องที่กำลังแก้ไข
+  const [editValue, setEditValue] = useState(""); // ค่าใหม่ที่กำลังแก้ไข
+  const [showPopup, setShowPopup] = useState(false); // แสดง popup ผู้ชนะหรือไม่
+  const [popupEffect, setPopupEffect] = useState(false); // เอฟเฟกต์การแสดง popup
+  const [reward, setReward] = useState(""); // ของรางวัล
+  const [previewing, setPreviewing] = useState(false); // สถานะการแสดงผลบน OBS
+  const textareaRef = useRef(null); // Reference ไปยัง textarea
+  const wheelRef = useRef(null); // Reference ไปยัง element วงล้อ
 
-  // Auto-update OBS if previewing
+  // ===== Effect Hook: อัปเดต OBS อัตโนมัติเมื่อมีการเปลี่ยนแปลงช่องขณะที่กำลัง preview =====
   useEffect(() => {
+    // ถ้ากำลัง preview อยู่และมีช่องในวงล้อ ให้อัปเดตไปยัง OBS
     if (previewing && segments.length > 0) {
-      fetch('/api/lucky-wheel/preview', {
+      fetch(`${REALTIME_URL}/api/lucky-wheel/preview`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ segments })
       }).catch(err => console.error(err));
     }
-  }, [segments, previewing]);
+  }, [segments, previewing]); // รันใหม่เมื่อ segments หรือ previewing เปลี่ยนแปลง
 
+  // ===== ฟังก์ชัน: เปิด/ปิดการแสดงผลบน OBS =====
   const togglePreview = () => {
     const newState = !previewing;
     setPreviewing(newState);
     if (newState) {
-      // Turn ON
-      fetch('/api/lucky-wheel/preview', {
+      // เปิดการแสดงผล - ส่งข้อมูลวงล้อไปแสดงบน OBS
+      fetch(`${REALTIME_URL}/api/lucky-wheel/preview`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ segments })
       });
     } else {
-      // Turn OFF (Hide)
-      fetch('/api/lucky-wheel/hide', { method: "POST" });
+      // ปิดการแสดงผล - ซ่อนวงล้อบน OBS
+      fetch(`${REALTIME_URL}/api/lucky-wheel/hide`, { method: "POST" });
     }
   };
 
+  // ===== ฟังก์ชัน: เพิ่มช่องจาก textarea (แบบพิมพ์ทีละบรรทัด) =====
   const handleAddFromTextarea = () => {
+    // แยกข้อความตามบรรทัด, ตัด whitespace และกรองบรรทัดว่าง
     const lines = input
       .split("\n")
       .map(line => line.trim())
       .filter(line => line);
     if (lines.length > 0) {
-      setSegments([...segments, ...lines]);
-      setInput("");
+      setSegments([...segments, ...lines]); // เพิ่มช่องใหม่เข้าไป
+      setInput(""); // ล้าง textarea
     }
   };
 
+  // ===== ฟังก์ชัน: เพิ่มช่องโต๊ะตามช่วงเลข (เช่น โต๊ะ 1-10) =====
   const handleAddTables = () => {
     const from = parseInt(tableRange.from);
     const to = parseInt(tableRange.to);
+    // ตรวจสอบความถูกต้อง: ต้องเป็นตัวเลข, from <= to, เริ่มจาก 1, ไม่เกิน 200 โต๊ะ
     if (!isNaN(from) && !isNaN(to) && from <= to && from > 0 && to - from < 200) {
       const newTables = [];
       for (let i = from; i <= to; i++) {
         newTables.push(`โต๊ะ ${i}`);
       }
-      setSegments([...segments, ...newTables]);
-      setTableRange({ from: "", to: "" });
+      setSegments([...segments, ...newTables]); // เพิ่มโต๊ะทั้งหมดเข้าไป
+      setTableRange({ from: "", to: "" }); // ล้าง input
     }
   };
 
+  // ===== ฟังก์ชัน: ลบช่องที่ระบุ =====
   const handleDelete = (idx) => {
     setSegments(segments.filter((_, i) => i !== idx));
-    if (editIndex === idx) setEditIndex(null);
+    if (editIndex === idx) setEditIndex(null); // ยกเลิกการแก้ไขถ้ากำลังแก้ไขช่องที่ลบ
   };
 
+  // ===== ฟังก์ชัน: ลบช่องทั้งหมด =====
   const handleDeleteAll = () => {
     if (window.confirm("ยืนยันการลบทั้งหมด?")) {
       setSegments([]);
@@ -89,85 +101,102 @@ function LuckyWheel() {
     }
   };
 
+  // ===== ฟังก์ชัน: เริ่มแก้ไขช่องที่ระบุ =====
   const handleEdit = (idx) => {
     setEditIndex(idx);
-    setEditValue(segments[idx]);
+    setEditValue(segments[idx]); // โหลดค่าเดิมมาแสดงใน input
   };
 
+  // ===== ฟังก์ชัน: บันทึกการแก้ไขช่อง =====
   const handleEditSave = (idx) => {
     if (editValue.trim()) {
       const newSeg = [...segments];
       newSeg[idx] = editValue.trim();
       setSegments(newSeg);
-      setEditIndex(null);
+      setEditIndex(null); // ออกจากโหมดแก้ไข
     }
   };
 
+  // ===== ฟังก์ชัน: หมุนวงล้อและสุ่มผู้ชนะ =====
   const spinWheel = () => {
+    // ตรวจสอบเงื่อนไข: ต้องมีอย่างน้อย 2 ช่องและไม่กำลังหมุนอยู่
     if (segments.length < 2 || spinning) return;
-    setPreviewing(false); // Stop preview state
+    
+    // รีเซ็ตสถานะต่างๆ
+    setPreviewing(false); // ปิด preview state
     setWinner(null);
     setSpinning(true);
     setShowPopup(false);
     setPopupEffect(false);
+    
+    // สุ่มผู้ชนะ
     const winnerIdx = getRandomInt(0, segments.length - 1);
-    const degPerSeg = 360 / segments.length;
-    // Match OBS: 30 spins for 25s duration
+    const degPerSeg = 360 / segments.length; // องศาต่อช่อง
+    // คำนวณมุมหมุนสุดท้าย: หมุน 30 รอบ + หยุดที่ผู้ชนะ (ใช้เวลา 25 วินาที)
     const finalDeg = 360 * 30 + (360 - winnerIdx * degPerSeg - degPerSeg / 2);
 
-    // Call Backend API to sync with OBS
-    fetch('/api/lucky-wheel/spin', {
+    // ส่งคำสั่งไปยัง Backend API เพื่อ sync กับ OBS
+    fetch(`${REALTIME_URL}/api/lucky-wheel/spin`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        segments,
-        winnerIndex: winnerIdx,
-        reward
+        segments,        // รายการช่องทั้งหมด
+        winnerIndex: winnerIdx,  // index ของผู้ชนะ
+        reward          // ของรางวัล
       })
     }).then(res => res.json())
       .then(data => console.log('OBS Spin triggered:', data))
       .catch(err => console.error('Error triggering OBS:', err));
 
+    // จัดการ animation การหมุนวงล้อบนหน้าเว็บ
     if (wheelRef.current) {
+      // รีเซ็ตมุมหมุนเป็น 0 องศา (ไม่มี transition)
       wheelRef.current.style.transition = "none";
       wheelRef.current.style.transform = `rotate(0deg)`;
       setTimeout(() => {
-        // Match OBS: 25s with suspenseful bezier
+        // เริ่มหมุน: ใช้เวลา 25 วินาที พร้อม easing แบบค่อยๆ หยุด
         wheelRef.current.style.transition = "transform 25s cubic-bezier(0.08, 0.8, 0.05, 1)";
         wheelRef.current.style.transform = `rotate(${finalDeg}deg)`;
       }, 50);
     }
 
+    // แสดงผลลัพธ์หลังจากวงล้อหมุนเสร็จ (25 วินาที + buffer)
     setTimeout(() => {
       setSpinning(false);
-      setWinner(winnerIdx);
-      setShowPopup(true);
-      setTimeout(() => setPopupEffect(true), 50);
-    }, 25100); // 25s + buffer
+      setWinner(winnerIdx); // กำหนดผู้ชนะ
+      setShowPopup(true); // แสดง popup
+      setTimeout(() => setPopupEffect(true), 50); // เพิ่มเอฟเฟกต์ animation
+    }, 25100); // 25 วินาที + 0.1 วินาที buffer
   };
 
+  // ===== ฟังก์ชัน: ปิด popup ผู้ชนะ =====
   const closePopup = () => {
-    setPopupEffect(false);
-    setTimeout(() => setShowPopup(false), 300);
+    setPopupEffect(false); // ปิดเอฟเฟกต์ animation
+    setTimeout(() => setShowPopup(false), 300); // รอ animation จบแล้วค่อยซ่อน popup
   };
 
+  // ===== ฟังก์ชัน: วาดวงล้อด้วย SVG =====
   const renderWheel = () => {
-    const segs = segments.length;
-    const arc = 2 * Math.PI / segs;
-    const radius = 160;
-    const viewBox = 360;
-    const center = viewBox / 2;
+    const segs = segments.length; // จำนวนช่อง
+    const arc = 2 * Math.PI / segs; // มุมของแต่ละช่อง (เป็น radian)
+    const radius = 160; // รัศมีของวงล้อ
+    const viewBox = 360; // ขนาด viewBox ของ SVG
+    const center = viewBox / 2; // จุดศูนย์กลาง
     return (
       <svg width={viewBox} height={viewBox} viewBox={`0 0 ${viewBox} ${viewBox}`}>
         <g transform={`translate(${center},${center})`}>
+          {/* วาดแต่ละช่องของวงล้อ */}
           {segments.map((seg, i) => {
+            // คำนวณมุมเริ่มต้นและสิ้นสุดของช่อง (หัก 90 องศาเพื่อเริ่มจากด้านบน)
             const startAngle = i * arc - Math.PI / 2;
             const endAngle = (i + 1) * arc - Math.PI / 2;
+            // คำนวณพิกัด x, y ของจุดเริ่มต้นและสิ้นสุด
             const x1 = radius * Math.cos(startAngle);
             const y1 = radius * Math.sin(startAngle);
             const x2 = radius * Math.cos(endAngle);
             const y2 = radius * Math.sin(endAngle);
-            const largeArc = arc > Math.PI ? 1 : 0;
+            const largeArc = arc > Math.PI ? 1 : 0; // flag สำหรับ arc ใหญ่
+            // สร้าง path data สำหรับวาดช่อง (รูปวงกลมแบบแบ่งส่วน)
             const pathData = `
               M 0 0
               L ${x1} ${y1}
@@ -176,23 +205,25 @@ function LuckyWheel() {
             `;
             return (
               <g key={i}>
+                {/* วาดช่องด้วยสีที่กำหนด */}
                 <path
                   d={pathData}
                   fill={defaultColors[i % defaultColors.length]}
                   stroke="#fff"
                   strokeWidth="2"
                 />
+                {/* แสดงข้อความกลางช่อง */}
                 <text
                   x={((radius + 20) / 2) * Math.cos(startAngle + arc / 2)}
                   y={((radius + 20) / 2) * Math.sin(startAngle + arc / 2)}
                   textAnchor="middle"
                   alignmentBaseline="middle"
-                  fontSize={segments.length > 20 ? 12 : 16}
+                  fontSize={segments.length > 20 ? 12 : 16} /* ลดขนาดตัวอักษรถ้ามีช่องเยอะ */
                   fill="#222"
                   transform={`rotate(${(startAngle + arc / 2) * 180 / Math.PI},${((radius + 20) / 2) * Math.cos(startAngle + arc / 2)},${((radius + 20) / 2) * Math.sin(startAngle + arc / 2)})`}
                   style={{ userSelect: "none", pointerEvents: "none" }}
                 >
-                  {seg.length > 16 ? seg.slice(0, 14) + "…" : seg}
+                  {seg.length > 16 ? seg.slice(0, 14) + "…" : seg} {/* ตัดข้อความยาวเกินไป */}
                 </text>
               </g>
             );
@@ -202,18 +233,23 @@ function LuckyWheel() {
     );
   };
 
+  // ===== Effect Hook: จัดการ keyboard shortcuts สำหรับ textarea =====
   useEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;
+    
     const handleKeyDown = (e) => {
+      // อนุญาตให้กดเว้นวรรคได้ตามปกติ
       if (e.key === " " && !e.shiftKey && !e.ctrlKey && !e.altKey) {
         return;
       }
+      // กด Ctrl+Enter เพื่อเพิ่มช่องทั้งหมดจาก textarea
       if (e.key === "Enter" && e.ctrlKey) {
         e.preventDefault();
         handleAddFromTextarea();
       }
     };
+    
     textarea.addEventListener("keydown", handleKeyDown);
     return () => textarea.removeEventListener("keydown", handleKeyDown);
   }, [input, segments]);

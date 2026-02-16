@@ -249,6 +249,54 @@ io.on("connection", (socket) => {
   });
 });
 
+// ===== LUCKY WHEEL API ENDPOINTS สำหรับ OBS =====
+// API สำหรับแสดงภาพตัวอย่างวงล้อบน OBS
+app.post('/api/lucky-wheel/preview', (req, res) => {
+  const { segments } = req.body;
+  
+  if (!segments || !Array.isArray(segments)) {
+    return res.status(400).json({ error: 'Missing or invalid segments array' });
+  }
+
+  console.log('[Realtime] Lucky Wheel Preview:', segments.length, 'segments');
+  
+  // Broadcast ไปยัง OBS ที่เชื่อมต่ออยู่
+  io.emit('lucky-wheel-preview', { segments });
+  
+  return res.json({ success: true, message: 'Preview event broadcasted to OBS' });
+});
+
+// API สำหรับหมุนวงล้อและแสดงผลบน OBS
+app.post('/api/lucky-wheel/spin', (req, res) => {
+  const { segments, winnerIndex, reward } = req.body;
+
+  if (!segments || !Array.isArray(segments) || winnerIndex === undefined) {
+    return res.status(400).json({ error: 'Missing segments or winnerIndex' });
+  }
+
+  console.log('[Realtime] Lucky Wheel Spin - Winner Index:', winnerIndex, 'Reward:', reward);
+
+  // Broadcast ไปยัง OBS ที่เชื่อมต่ออยู่
+  io.emit('lucky-wheel-spin', {
+    segments,
+    winnerIndex,
+    reward,
+    timestamp: Date.now()
+  });
+
+  return res.json({ success: true, message: 'Spin event broadcasted to OBS' });
+});
+
+// API สำหรับซ่อนวงล้อบน OBS
+app.post('/api/lucky-wheel/hide', (req, res) => {
+  console.log('[Realtime] Lucky Wheel Hide event');
+  
+  // Broadcast ไปยัง OBS ที่เชื่อมต่ออยู่
+  io.emit('lucky-wheel-hide');
+  
+  return res.json({ success: true, message: 'Hide event broadcasted to OBS' });
+});
+
 const REALTIME_PORT = process.env.PORT || 4005;
 server.listen(REALTIME_PORT, () => {
   const baseUrl = process.env.REALTIME_URL || 'https://cmes-admin-realtime.onrender.com';

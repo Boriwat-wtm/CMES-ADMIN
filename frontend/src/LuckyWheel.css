@@ -1,38 +1,47 @@
+/* ==========================
+   หน้าหลักของวงล้อโชคดี
+   ========================== */
 .lucky-wheel-page {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
   background-size: 400% 400%;
-  animation: gradientShift 15s ease infinite;
+  animation: gradientShift 15s ease infinite; /* เคลื่อนไหวพื้นหลังแบบไล่สี */
   min-height: 100vh;
-  font-family: 'Prompt', 'Kanit', sans-serif;
+  font-family: 'Prompt', 'Kanit', sans-serif; /* ฟอนต์ภาษาไทย */
   color: #333;
 }
 
+/* ==========================
+   ส่วนหัวของหน้า
+   ========================== */
 .lucky-wheel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 1.5rem 3rem;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.9); /* พื้นหลังแบบโปร่งแสง */
+  backdrop-filter: blur(10px); /* เอฟเฟกต์เบลอพื้นหลัง */
   border-bottom: 1px solid rgba(255, 255, 255, 0.5);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   margin-bottom: 2rem;
-  animation: slideDown 0.6s ease;
+  animation: slideDown 0.6s ease; /* เคลื่อนไหวเลื่อนลง */
 }
 
+/* หัวข้อหลักในส่วนหัว */
 .header-title {
   font-size: 2rem;
   font-weight: 700;
   margin: 0;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  background-clip: text; /* เพิ่มสำหรับ browser อื่นๆ */
+  -webkit-text-fill-color: transparent; /* ทำให้ข้อความเป็นสีไล่โทน */
   display: flex;
   align-items: center;
   gap: 10px;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
 }
 
+/* หัวข้อรองในส่วนหัว */
 .header-subtitle {
   margin: 4px 0 0 0;
   font-size: 0.95rem;
@@ -40,6 +49,7 @@
   font-weight: 500;
 }
 
+/* ปุ่มกลับหน้าหลัก */
 .back-home-btn {
   display: inline-flex;
   align-items: center;
@@ -50,17 +60,19 @@
   color: #555;
   text-decoration: none;
   font-weight: 600;
-  transition: all 0.3s ease;
+  transition: all 0.3s ease; /* เอฟเฟกต์การเปลี่ยนแปลง */
   box-shadow: 0 4px 10px rgba(0,0,0,0.05);
 }
 
+/* สไตล์เมื่อเมาส์ชี้ที่ปุ่มกลับหน้าหลัก */
 .back-home-btn:hover {
   background: #fff;
   color: #667eea;
   box-shadow: 0 6px 15px rgba(102, 126, 234, 0.2);
-  transform: translateY(-2px);
+  transform: translateY(-2px); /* ยกปุ่มขึ้นเล็กน้อย */
 }
 
+/* คอนเทนเนอร์หลักของวงล้อโชคดี */
 .lucky-wheel-container {
   max-width: 600px;
   margin: 30px auto 0 auto;
@@ -71,6 +83,7 @@
   text-align: center;
 }
 
+/* คอนเทนเนอร์แบบ Flexbox สำหรับจัดวางวงล้อและแผงควบคุม */
 .lucky-wheel-flex {
   display: flex;
   gap: 40px;
@@ -83,38 +96,46 @@
   justify-content: center;
 }
 
+/* แอนิเมชั่นการเคลื่อนไหวพื้นหลังแบบไล่สี */
 @keyframes gradientShift {
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
+/* ==========================
+   ส่วนซ้าย - พื้นที่แสดงวงล้อ
+   ========================== */
 .lucky-wheel-left {
   flex: 1 1 400px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  animation: slideUp 0.6s ease;
+  animation: slideUp 0.6s ease; /* แอนิเมชั่นเลื่อนขึ้น */
   padding: 20px;
-  /* Glass card for wheel area */
+  /* Glass card for wheel area - การ์ดแบบกระจกใสสำหรับวงล้อ */
   background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px); /* เอฟเฟกต์เบลอพื้นหลัง */
   border-radius: 30px;
   border: 1px solid rgba(255, 255, 255, 0.3);
   box-shadow: 0 20px 50px rgba(0,0,0,0.1);
 }
 
+/* แอนิเมชั่นเลื่อนขึ้นพร้อมค่อยๆ ปรากฏ */
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(30px);
+    transform: translateY(30px); /* เริ่มจากด้านล่าง */
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0); /* เลื่อนขึ้นมาที่ตำแหน่งปกติ */
   }
 }
 
+/* ==========================
+   ส่วนขวา - แผงควบคุมและจัดการรายการ
+   ========================== */
 .lucky-wheel-right {
   flex: 1 1 260px;
   min-width: 240px;
@@ -128,31 +149,37 @@
   align-items: stretch;
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.7);
-  animation: slideUp 0.6s ease 0.1s both;
+  animation: slideUp 0.6s ease 0.1s both; /* เลื่อนขึ้นหลังส่วนซ้ายเล็กน้อย */
 }
 
+/* หัวข้อในแผงควบคุมด้านขวา */
 .lucky-wheel-right h3 {
   margin-top: 0;
   margin-bottom: 12px;
   font-size: 1.2rem;
   color: #333;
   font-weight: 700;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.5px; /* เพิ่มระยะห่างระหว่างตัวอักษร */
 }
+/* ==========================
+   ส่วนควบคุมวงล้อ
+   ========================== */
 .wheel-controls {
   display: flex;
   gap: 8px;
   justify-content: center;
   align-items: center;
   margin-bottom: 18px;
-  flex-wrap: wrap;
-  animation: fadeIn 0.6s ease 0.2s both;
+  flex-wrap: wrap; /* ขึ้นบรรทัดใหม่เมื่อเต็ม */
+  animation: fadeIn 0.6s ease 0.2s both; /* ค่อยๆ ปรากฏ */
 }
 
+/* แอนิเมชั่นค่อยๆ ปรากฏ */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from { opacity: 0; } /* โปร่งใส */
+  to { opacity: 1; } /* ทึบแสง */
 }
+/* รายการแก้ไขเซกเมนต์ของวงล้อ */
 .wheel-edit-list {
   display: flex;
   flex-wrap: wrap;
@@ -160,31 +187,33 @@
   justify-content: flex-start;
   margin-bottom: 8px;
   max-height: 400px;
-  overflow-y: auto;
+  overflow-y: auto; /* เลื่อนแนวตั้งได้ */
   padding: 8px;
   background: #f8f9fa;
   border-radius: 12px;
   border: 1px solid #e0e0e0;
 }
 
+/* สไตล์แถบเลื่อนแบบกำหนดเอง */
 .wheel-edit-list::-webkit-scrollbar {
-  width: 6px;
+  width: 6px; /* ความกว้างของแถบเลื่อน */
 }
 
 .wheel-edit-list::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: #f1f1f1; /* สีพื้นหลังแถบเลื่อน */
   border-radius: 10px;
 }
 
 .wheel-edit-list::-webkit-scrollbar-thumb {
-  background: #667eea;
+  background: #667eea; /* สีของตัวเลื่อน */
   border-radius: 10px;
 }
 
 .wheel-edit-list::-webkit-scrollbar-thumb:hover {
-  background: #764ba2;
+  background: #764ba2; /* สีเมื่อเมาส์ชี้ */
 }
 
+/* การ์ดแสดงรายการเซกเมนต์ที่สามารถแก้ไขได้ */
 .wheel-segment-edit {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-radius: 8px;
@@ -194,60 +223,72 @@
   gap: 6px;
   font-size: 14px;
   color: #fff;
-  white-space: nowrap;
+  white-space: nowrap; /* ไม่ขึ้นบรรทัดใหม่ */
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
   transition: all 0.3s ease;
 }
 
+/* สไตล์เมื่อเมาส์ชี้ที่การ์ดเซกเมนต์ */
 .wheel-segment-edit:hover {
-  transform: translateY(-2px);
+  transform: translateY(-2px); /* ยกขึ้นเล็กน้อย */
   box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
 }
 
+/* ข้อความภายในการ์ดเซกเมนต์ */
 .wheel-segment-edit span {
   font-weight: 500;
 }
+/* ==========================
+   พื้นที่แสดงวงล้อ
+   ========================== */
 .wheel-area {
   position: relative;
   width: 380px;
   height: 380px;
   margin: 0 auto 20px auto;
-  animation: zoomIn 0.6s ease;
+  animation: zoomIn 0.6s ease; /* แอนิเมชั่นซูมเข้า */
 }
 
+/* แอนิเมชั่นซูมเข้าพร้อมค่อยๆ ปรากฏ */
 @keyframes zoomIn {
   from {
     opacity: 0;
-    transform: scale(0.95);
+    transform: scale(0.95); /* เริ่มจากขนาดเล็ก */
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: scale(1); /* ขยายเป็นขนาดปกติ */
   }
 }
 
+/* หัวลูกศรชี้ตำแหน่งของวงล้อ */
 .wheel-pointer {
   position: absolute;
   left: 50%;
   top: -2px;
-  transform: translateX(-50%);
+  transform: translateX(-50%); /* จัดให้อยู่กึ่งกลาง */
   width: 0;
   height: 0;
+  /* สร้างรูปสามเหลี่ยมด้วย border */
   border-left: 18px solid transparent;
   border-right: 18px solid transparent;
   border-top: 0 solid transparent;
-  border-bottom: 32px solid #fbbf24;
-  z-index: 2;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+  border-bottom: 32px solid #fbbf24; /* สีเหลืองทอง */
+  z-index: 2; /* อยู่ด้านบนวงล้อ */
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2)); /* เงา */
 }
+/* ตัววงล้อ SVG */
 .wheel-svg {
   position: relative;
   z-index: 1;
   width: 360px;
   height: 360px;
-  transition: transform 4s cubic-bezier(0.17, 0.67, 0.83, 0.67);
-  filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.2));
+  transition: transform 4s cubic-bezier(0.17, 0.67, 0.83, 0.67); /* การหมุนแบบค่อยๆ ช้าลง */
+  filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.2)); /* เงา */
 }
+/* ==========================
+   ปุ่มหมุนวงล้อ
+   ========================== */
 .spin-btn {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #fff;
@@ -255,47 +296,55 @@
   border-radius: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* การเปลี่ยนแปลงที่นุ่มนวล */
   margin-top: 16px;
   padding: 12px 40px;
   font-size: 18px;
   box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
   position: relative;
-  overflow: hidden;
+  overflow: hidden; /* ซ่อนส่วนที่เกิน */
 }
 
+/* เอฟเฟกต์กระเพื่อมเมื่อกดปุ่มหมุน */
 .spin-btn::before {
-  content: '';
+  content: ''; /* องค์ประกอบปลอม */
   position: absolute;
   top: 50%;
   left: 50%;
   width: 0;
   height: 0;
-  border-radius: 50%;
+  border-radius: 50%; /* ทำให้เป็นวงกลม */
   background: rgba(255, 255, 255, 0.3);
   transform: translate(-50%, -50%);
-  transition: width 0.6s, height 0.6s;
+  transition: width 0.6s, height 0.6s; /* ขยายขึ้นแบบค่อยๆ */
 }
 
+/* เอฟเฟกต์เมื่อกดปุ่ม - วงกลมขยาย */
 .spin-btn:active::before {
   width: 300px;
   height: 300px;
 }
 
+/* สไตล์เมื่อเมาส์ชี้ที่ปุ่ม (ยกขึ้น) */
 .spin-btn:hover:not(:disabled) {
   transform: translateY(-3px);
   box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
 }
 
+/* สไตล์เมื่อกดปุ่ม */
 .spin-btn:active:not(:disabled) {
   transform: translateY(-1px);
 }
 
+/* สไตล์เมื่อปุ่มถูกปิดใช้งาน */
 .spin-btn:disabled {
-  background: #cbd5e1;
-  cursor: not-allowed;
+  background: #cbd5e1; /* สีเทา */
+  cursor: not-allowed; /* เคอร์เซอร์ห้าม */
   box-shadow: none;
 }
+/* ==========================
+   ส่วนของรางวัล
+   ========================== */
 .reward-row {
   margin-top: 20px;
   display: flex;
@@ -306,6 +355,7 @@
   font-weight: 600;
 }
 
+/* ช่องกรอกข้อมูลรางวัล */
 .reward-input {
   flex: 1;
   border-radius: 10px;
@@ -317,38 +367,45 @@
   color: #333;
 }
 
+/* สไตล์เมื่อโฟกัสที่ช่องกรอกรางวัล */
 .reward-input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #667eea; /* เปลี่ยนสีขอบ */
   background: #fff;
-  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
-  transform: translateY(-2px);
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1); /* เงารอบๆ */
+  transform: translateY(-2px); /* ยกขึ้นเล็กน้อย */
 }
 
+/* ข้อความตัวอย่างในช่องกรอก */
 .reward-input::placeholder {
   color: #999;
 }
+/* ==========================
+   ป๊อปอัปแสดงผู้ชนะ
+   ========================== */
 .winner-popup {
   position: fixed;
   left: 0;
   top: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.5); /* พื้นหลังสีดำโปร่งแสง */
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
-  opacity: 0;
-  pointer-events: none;
+  z-index: 9999; /* อยู่ด้านบนสุด */
+  opacity: 0; /* ซ่อนไว้ตอนเริ่มต้น */
+  pointer-events: none; /* ไม่สามารถคลิกได้ตอนซ่อน */
   transition: opacity 0.3s ease;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px); /* เบลอพื้นหลัง */
 }
 
+/* แสดงป๊อปอัป */
 .winner-popup.show {
-  opacity: 1;
-  pointer-events: auto;
+  opacity: 1; /* ทึบแสง */
+  pointer-events: auto; /* สามารถคลิกได้ */
 }
+/* เนื้อหาภายในป๊อปอัป */
 .winner-popup-content {
   background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
   border-radius: 24px;
@@ -359,28 +416,31 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  animation: winner-pop 0.5s cubic-bezier(0.17, 0.67, 0.83, 0.67);
+  animation: winner-pop 0.5s cubic-bezier(0.17, 0.67, 0.83, 0.67); /* แอนิเมชั่นป๊อปอัพ */
   position: relative;
   border: 2px solid #667eea;
 }
+/* แอนิเมชั่นป๊อปอัพขึ้นมา */
 @keyframes winner-pop {
-  0% { transform: scale(0.7); opacity: 0; }
-  70% { transform: scale(1.08); opacity: 1; }
-  100% { transform: scale(1); }
+  0% { transform: scale(0.7); opacity: 0; } /* เริ่มจากเล็ก */
+  70% { transform: scale(1.08); opacity: 1; } /* ขยายเกินขนาด */
+  100% { transform: scale(1); } /* กลับมาขนาดปกติ */
 }
+/* หัวข้อแสดงผู้ชนะ */
 .winner-title {
   font-size: 1.3rem;
   color: #667eea;
   font-weight: 700;
   margin-bottom: 12px;
-  letter-spacing: 1px;
+  letter-spacing: 1px; /* เพิ่มระยะห่างระหว่างตัวอักษร */
 }
 
+/* ชื่อผู้ชนะ */
 .winner-name {
   font-size: 2.2rem;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  -webkit-text-fill-color: transparent; /* ทำให้ตัวอักษรเป็นสีไล่โทน */
   background-clip: text;
   font-weight: 800;
   margin-bottom: 12px;
@@ -388,15 +448,18 @@
   letter-spacing: 2px;
   text-shadow: none;
 }
+/* อีโมจิดอกไม้ไฟฉลอง */
 .winner-firework {
   font-size: 1.7rem;
   margin-bottom: 2px;
-  animation: fireworks 1.2s linear infinite alternate;
+  animation: fireworks 1.2s linear infinite alternate; /* เคลื่อนไหวไปมา */
 }
+/* แอนิเมชั่นดอกไม้ไฟ */
 @keyframes fireworks {
-  0% { transform: scale(1) rotate(-10deg);}
-  100% { transform: scale(1.2) rotate(10deg);}
+  0% { transform: scale(1) rotate(-10deg);} /* หมุนไปทางซ้าย */
+  100% { transform: scale(1.2) rotate(10deg);} /* ขยายและหมุนไปทางขวา */
 }
+/* ปุ่มปิดป๊อปอัป */
 .winner-close-btn {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #fff;
@@ -411,14 +474,17 @@
   box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
 }
 
+/* สไตล์เมื่อเมาส์ชี้ที่ปุ่มปิด */
 .winner-close-btn:hover {
-  transform: translateY(-2px);
+  transform: translateY(-2px); /* ยกขึ้น */
   box-shadow: 0 12px 28px rgba(102, 126, 234, 0.4);
 }
 
+/* สไตล์เมื่อกดปุ่มปิป */
 .winner-close-btn:active {
-  transform: translateY(0);
+  transform: translateY(0); /* กลับลงมา */
 }
+/* แสดงข้อมูลรางวัล */
 .winner-reward {
   margin-top: 4px;
   font-size: 1.05rem;
@@ -427,12 +493,14 @@
   flex-direction: column;
   align-items: center;
 }
+/* ค่ารางวัล */
 .winner-reward-value {
-  color: #f59e42;
+  color: #f59e42; /* สีส้มทอง */
   font-size: 1.2rem;
   font-weight: bold;
   margin-top: 2px;
 }
+/* ปุ่มลบทั้งหมด */
 .delete-all-btn {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   width: 200px;
