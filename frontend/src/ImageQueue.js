@@ -403,6 +403,10 @@ function ImageQueue() {
   const handleSkipCurrent = async () => {
     if (!currentPreview) return;
     const imageId = currentPreview._id || currentPreview.id;
+    
+    console.log("[Skip] Current Queue Length:", previewQueue.length);
+    console.log("[Skip] Queue Items:", previewQueue.map(q => q._id || q.id));
+    
     try {
       await fetch(`${API_BASE_URL}/api/complete/${imageId}`, { method: "POST" });
     } catch (err) {
@@ -412,12 +416,17 @@ function ImageQueue() {
     // ส่งสัญญาณไป OBS ให้ซ่อนการแสดงทันที
     socket.emit('skip-current');
 
+    // 🔧 FIX: เก็บ queueOrder ก่อนลบ localStorage
+    const savedQueueOrder = localStorage.getItem('queueOrder');
+
     // reset current preview state
     setIsActive(false);
     setIsPaused(false);
     setCurrentPreview(null);
     setTimeLeft(0);
     setPauseTimeLeft(0);
+    
+    // Clear localStorage (แต่จะคืนค่า queueOrder กลับ)
     localStorage.removeItem("currentPreview");
     localStorage.removeItem("startTimestamp");
     localStorage.removeItem("duration");
@@ -426,11 +435,20 @@ function ImageQueue() {
     localStorage.removeItem("isPaused");
     localStorage.removeItem("pauseTimeLeft");
 
+    // 🔧 FIX: คืนค่า queueOrder กลับไป
+    if (savedQueueOrder) {
+      localStorage.setItem('queueOrder', savedQueueOrder);
+      console.log("[Skip] ✅ Restored queueOrder:", savedQueueOrder);
+    }
+
+    // เล่นคิวถัดไป
     if (previewQueue.length > 0) {
+      console.log("[Skip] ✅ Playing next queue item");
       const nextImage = previewQueue[0];
       setPreviewQueue(prev => prev.slice(1));
       startPreview(nextImage);
     } else {
+      console.log("[Skip] ⚠️ Queue empty, refetching");
       fetchImages();
     }
   };
