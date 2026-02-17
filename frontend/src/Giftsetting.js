@@ -1,3 +1,7 @@
+/**
+ * คอมโพเนนต์สำหรับจัดการตั้งค่าของขวัญและสินค้า
+ * ใช้สำหรับกำหนดจำนวนโต๊ะ เพิ่ม/ลบสินค้า และอัปโหลดรูปภาพสินค้า
+ */
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { API_BASE_URL, REALTIME_URL } from "./config/apiConfig";
@@ -6,25 +10,41 @@ import "./Giftsetting.css";
 const API_BASE = API_BASE_URL;
 
 function Giftsetting() {
+	// state สำหรับเก็บรายการสินค้าทั้งหมด
 	const [items, setItems] = useState([]);
+	// state สำหรับจำนวนโต๊ะที่รองรับ
 	const [tableCount, setTableCount] = useState(10);
+	// state สำหรับสถานะการโหลดข้อมูล
 	const [loading, setLoading] = useState(true);
+	// state สำหรับสถานะการบันทึกข้อมูล
 	const [saving, setSaving] = useState(false);
+	// state สำหรับแสดงข้อความแจ้งเตือน
 	const [message, setMessage] = useState("");
+	// state สำหรับฟอร์มเพิ่มสินค้า
 	const [form, setForm] = useState({ name: "", price: "", description: "" });
+	// state สำหรับเก็บไฟล์รูปภาพที่เลือก
 	const [localImage, setLocalImage] = useState(null);
+	// state สำหรับ URL ตัวอย่างรูปภาพ
 	const [previewUrl, setPreviewUrl] = useState("");
+	// ref สำหรับ input file
 	const fileInputRef = useRef(null);
 
+	/**
+	 * ฟังก์ชันสำหรับแปลง URL รูปภาพให้เป็น absolute path
+	 * @param {string} url - URL ของรูปภาพ
+	 * @returns {string} - URL ที่สมบูรณ์
+	 */
 	const resolveImageSrc = (url) => {
 		if (!url) return "";
 		return url.startsWith("http") ? url : `${API_BASE}${url}`;
 	};
 
+	// โหลดข้อมูลการตั้งค่าเมื่อคอมโพเนนต์ถูก mount
 	useEffect(() => {
 		loadSettings();
 	}, []);
 
+	// ทำความสะอาด preview URL เมื่อคอมโพเนนต์ถูก unmount หรือ previewUrl เปลี่ยน
 	useEffect(() => {
 		return () => {
 			if (previewUrl) {
@@ -33,6 +53,9 @@ function Giftsetting() {
 		};
 	}, [previewUrl]);
 
+	/**
+	 * ฟังก์ชันสำหรับโหลดข้อมูลการตั้งค่าของขวัญจาก API
+	 */
 	const loadSettings = async () => {
 		setLoading(true);
 		try {
@@ -48,12 +71,22 @@ function Giftsetting() {
 		}
 	};
 
+	/**
+	 * ฟังก์ชันสำหรับจัดการการเปลี่ยนแปลงข้อมูลในฟอร์ม
+	 * @param {string} field - ชื่อฟิลด์ที่ต้องการอัปเดต
+	 * @param {any} value - ค่าใหม่ของฟิลด์
+	 */
 	const handleInputChange = (field, value) => {
 		setForm((prev) => ({ ...prev, [field]: value }));
 	};
 
+	/**
+	 * ฟังก์ชันสำหรับเพิ่มสินค้าใหม่
+	 * จะทำการอัปโหลดรูปภาพ (ถ้ามี) และบันทึกข้อมูลสินค้า
+	 */
 	const handleAddItem = async (e) => {
 		e.preventDefault();
+		// ตรวจสอบว่ากรอกชื่อและราคาครบถ้วน
 		if (!form.name || form.price === "") {
 			setMessage("กรุณากรอกชื่อและราคา (ใส่ 0 สำหรับแจกฟรี)");
 			return;
@@ -66,9 +99,11 @@ function Giftsetting() {
 		setMessage("");
 		try {
 			let imageUrlToSave = "";
+			// ถ้ามีการเลือกรูปภาพ ให้ทำการอัปโหลดก่อน
 			if (localImage) {
 				const uploadForm = new FormData();
 				uploadForm.append("image", localImage);
+				// เรียก API สำหรับอัปโหลดรูปภาพ
 				const uploadResponse = await fetch(`${API_BASE}/api/gifts/upload`, {
 					method: "POST",
 					body: uploadForm,
@@ -79,6 +114,7 @@ function Giftsetting() {
 				}
 				imageUrlToSave = uploadData.url || "";
 			}
+			// บันทึกข้อมูลสินค้าพร้อม URL รูปภาพ
 			const response = await fetch(`${API_BASE}/api/gifts/items`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -93,7 +129,9 @@ function Giftsetting() {
 			if (!response.ok || !data.success) {
 				throw new Error(data.message || "เพิ่มสินค้าล้มเหลว");
 			}
+			// อัปเดตรายการสินค้า
 			setItems(data.settings.items || []);
+			// รีเซ็ตฟอร์มและรูปภาพ
 			setForm({ name: "", price: "", description: "" });
 			setLocalImage(null);
 			if (previewUrl) {
@@ -112,6 +150,10 @@ function Giftsetting() {
 		}
 	};
 
+	/**
+	 * ฟังก์ชันสำหรับลบสินค้า
+	 * @param {string} id - ID ของสินค้าที่ต้องการลบ
+	 */
 	const handleDelete = async (id) => {
 		if (!window.confirm("ต้องการลบสินค้ารายการนี้หรือไม่?")) return;
 		try {
@@ -129,6 +171,9 @@ function Giftsetting() {
 		}
 	};
 
+	/**
+	 * ฟังก์ชันสำหรับอัปเดตจำนวนโต๊ะที่รองรับ
+	 */
 	const handleTableUpdate = async () => {
 		if (!tableCount || Number(tableCount) < 1) {
 			setMessage("จำนวนโต๊ะต้องมากกว่า 0");
@@ -153,8 +198,13 @@ function Giftsetting() {
 		}
 	};
 
+	/**
+	 * ฟังก์ชันสำหรับจัดการเมื่อมีการเลือกไฟล์รูปภาพ
+	 * @param {Event} event - event จาก input file
+	 */
 	const handleFileChange = (event) => {
 		const file = event.target.files?.[0];
+		// ถ้าไม่มีไฟล์ที่เลือก ให้ล้างข้อมูล
 		if (!file) {
 			setLocalImage(null);
 			if (previewUrl) {
@@ -166,13 +216,18 @@ function Giftsetting() {
 			}
 			return;
 		}
+		// ล้าง preview URL เก่าก่อน (ถ้ามี)
 		if (previewUrl) {
 			URL.revokeObjectURL(previewUrl);
 		}
+		// สร้าง URL สำหรับแสดงตัวอย่างรูปภาพ
 		setLocalImage(file);
 		setPreviewUrl(URL.createObjectURL(file));
 	};
 
+	/**
+	 * ฟังก์ชันสำหรับล้างรูปภาพที่เลือกและ preview
+	 */
 	const clearLocalImage = () => {
 		setLocalImage(null);
 		if (previewUrl) {

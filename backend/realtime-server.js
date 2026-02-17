@@ -1,3 +1,4 @@
+// นำเข้า dependencies ที่จำเป็น
 import express from "express";
 import http from "http";
 import { Server } from "socket.io";
@@ -7,40 +8,49 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import TimeHistory from "./models/TimeHistory.js";
 
+// โหลดตัวแปรสภาพแวดล้อมจากไฟล์ .env
 dotenv.config();
 
+// กำหนดเส้นทางไฟล์สำหรับเก็บการตั้งค่า
 const settingsPath = "./settings.json";
 
+// สร้าง Express application
 const app = express();
 
 // CORS Configuration - รองรับ Development และ Production
+// รายการ Origins ที่อนุญาตให้เชื่อมต่อ CORS
 const allowedOrigins = [
-  'http://localhost:3000',                    // Admin Frontend (Dev)
-  'http://localhost:3001',                    // User Frontend (Dev)
-  'http://localhost:5000',                    // Admin Backend (Dev) - สำหรับ OBS Overlay
-  'https://cmesadminfrontend.vercel.app',     // Admin Frontend (Production)
-  'https://cmesuserfrontend.vercel.app',      // User Frontend (Production)
-  'https://cmes-admin-server.onrender.com',   // Admin Backend (Production) - สำหรับ OBS Overlay
-  process.env.ADMIN_FRONTEND_URL,             // Admin Frontend (Custom)
-  process.env.USER_FRONTEND_URL,              // User Frontend (Custom)
-  process.env.ADMIN_BACKEND_URL,              // Admin Backend (Custom) - สำหรับ OBS Overlay
+  'http://localhost:3000',                    // หน้า Admin (พัฒนา)
+  'http://localhost:3001',                    // หน้า User (พัฒนา)
+  'http://localhost:5000',                    // เซิร์ฟเวอร์ Admin (พัฒนา) - สำหรับ OBS Overlay
+  'https://cmesadminfrontend.vercel.app',     // หน้า Admin (โปรดักชัน)
+  'https://cmesuserfrontend.vercel.app',      // หน้า User (โปรดักชัน)
+  'https://cmes-admin-server.onrender.com',   // เซิร์ฟเวอร์ Admin (โปรดักชัน) - สำหรับ OBS Overlay
+  process.env.ADMIN_FRONTEND_URL,             // หน้า Admin (กำหนดเอง)
+  process.env.USER_FRONTEND_URL,              // หน้า User (กำหนดเอง)
+  process.env.ADMIN_BACKEND_URL,              // เซิร์ฟเวอร์ Admin (กำหนดเอง) - สำหรับ OBS Overlay
 ].filter(Boolean);
 
+// ตั้งค่า CORS Middleware เพื่อตรวจสอบ Origin ที่เข้ามา
 app.use(cors({
   origin: function (origin, callback) {
+    // อนุญาตคำขอที่ไม่มี origin (เช่น Postman, server-to-server)
     if (!origin) return callback(null, true);
 
+    // ตรวจสอบว่า origin อยู่ในรายการที่อนุญาตหรือไม่
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      console.warn(`[Realtime] CORS blocked origin: ${origin}`);
+      console.warn(`[Realtime] CORS ปฏิเสธ origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true
 }));
+// Middleware สำหรับ parse JSON body
 app.use(express.json());
 
+// สร้าง HTTP Server และ Socket.IO instance
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -50,52 +60,53 @@ const io = new Server(server, {
   }
 });
 
-// Create separate connection for realtime server
+// เชื่อมต่อ MongoDB สำหรับ Realtime Server
 mongoose.connect(process.env.MONGODB_URI, {
   dbName: 'cmes-admin'
 }).then(() => {
-  console.log("[Realtime] Connected to MongoDB (DB: cmes-admin)");
+  console.log("[Realtime] เชื่อมต่อ MongoDB สำเร็จ (DB: cmes-admin)");
   loadInitialConfig();
 }).catch(err => {
-  console.error("[Realtime] MongoDB connection error:", err);
+  console.error("[Realtime] เกิดข้อผิดพลาดในการเชื่อมต่อ MongoDB:", err);
 });
 
+// ตัวแปร Config สำหรับเก็บการตั้งค่าระบบแบบ Realtime
 let config = {
-  systemOn: true,
-  enableImage: true,
-  enableText: true,
-  enableGift: true,
-  enableBirthday: true,
+  systemOn: true,              // สถานะระบบเปิด/ปิด
+  enableImage: true,           // เปิด/ปิดฟีเจอร์รูปภาพ
+  enableText: true,            // เปิด/ปิดฟีเจอร์ข้อความ
+  enableGift: true,            // เปิด/ปิดฟีเจอร์ของขวัญ
+  enableBirthday: true,        // เปิด/ปิดฟีเจอร์วันเกิด
   birthdaySpendingRequirement: 100, // จำนวนเงินขั้นต่ำที่ต้องใช้จ่ายเพื่อใช้ฟีเจอร์วันเกิดฟรี
-  price: 100,
-  time: 10,
-  settings: [], // This will be hydrated from DB
-  publicRankingType: 'alltime' // 🔥 PUBLIC DISPLAY RANKING TYPE
+  price: 100,                  // ราคาเริ่มต้น
+  time: 10,                    // เวลาเริ่มต้น (วินาที)
+  settings: [],                // รายการการตั้งค่าประวัติ (โหลดจาก Database)
+  publicRankingType: 'alltime' // ประเภท Ranking ที่แสดงสาธารณะ (daily, monthly, alltime)
 };
 
-// Load initial config from MongoDB (for settings history) and maintain runtime config
+// ฟังก์ชันโหลดการตั้งค่าเริ่มต้นจาก MongoDB และรักษาการตั้งค่า Runtime
 async function loadInitialConfig() {
   try {
     // โหลดประวัติจาก DB
     const history = await TimeHistory.find({}).sort({ createdAt: -1 });
-    console.log("[Realtime] Loaded history from DB:", JSON.stringify(history, null, 2));
+    console.log("[Realtime] โหลดประวัติจาก DB:", JSON.stringify(history, null, 2));
 
-    // Auto-cleanup: Fix duplicate "1 นาที" ghost item reported by user
-    // User wants only "1 นาที 1 วินาที", so we remove "1 นาที" for text mode
+    // ทำความสะอาดอัตโนมัติ: แก้ไขรายการผี "1 นาที" ที่ซ้ำกันตามที่ผู้ใช้แจ้ง
+    // ผู้ใช้ต้องการเฉพาะ "1 นาที 1 วินาที" เท่านั้น ดังนั้นเราจะลบ "1 นาที" สำหรับโหมดข้อความ
     const ghostItem = await TimeHistory.findOne({ mode: 'text', duration: '1 นาที' });
     if (ghostItem) {
-      console.log("[Realtime] Found ghost item '1 นาที', Removing...", ghostItem.id);
+      console.log("[Realtime] พบรายการผี '1 นาที', กำลังลบ...", ghostItem.id);
       await TimeHistory.findByIdAndDelete(ghostItem._id);
-      // Remove from history array in memory too
+      // ลบออกจาก array history ใน memory ด้วย
       const index = history.findIndex(h => h.id === ghostItem.id);
       if (index !== -1) history.splice(index, 1);
     }
 
-    // Auto-repair: Fix missing 'time' field for existing records
+    // ซ่อมแซมอัตโนมัติ: แก้ไขฟิลด์ 'time' ที่หายไปสำหรับข้อมูลที่มีอยู่
     for (const h of history) {
       if (!h.time && h.duration) {
         let seconds = 0;
-        // Try to parse "X นาที Y วินาที" or "X นาที"
+        // พยายาม parse รูปแบบ "X นาที Y วินาที" หรือ "X นาที"
         const minMatch = h.duration.match(/(\d+)\s*นาที/);
         const secMatch = h.duration.match(/(\d+)\s*วินาที/);
 
@@ -103,19 +114,20 @@ async function loadInitialConfig() {
         if (secMatch) seconds += parseInt(secMatch[1]);
 
         if (seconds > 0) {
-          console.log(`[Realtime] Repairing time for ${h.id}: ${h.duration} -> ${seconds}s`);
+          console.log(`[Realtime] กำลังซ่อมแซม time สำหรับ ${h.id}: ${h.duration} -> ${seconds}s`);
           h.time = seconds;
           await h.save();
         }
       }
     }
 
+    // แปลงข้อมูลประวัติเป็นรูปแบบที่ใช้ใน config
     config.settings = history.map(h => ({
       id: h.id,
       mode: h.mode,
       date: h.date,
       duration: h.duration,
-      time: h.time, // Include time in seconds
+      time: h.time, // รวมเวลาเป็นวินาที
       price: h.price
     }));
 
@@ -123,123 +135,125 @@ async function loadInitialConfig() {
     // เพื่อความปลอดภัย ใช้ไฟล์สำหรับ saved switches ไปก่อน แต่ TimeHistory ใช้ DB
     if (fs.existsSync(settingsPath)) {
       const savedFile = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
-      // Merge only non-settings fields
+      // รวมเฉพาะฟิลด์ที่ไม่ใช่ settings
       const { settings, ...rest } = savedFile;
       config = { ...config, ...rest };
     }
   } catch (error) {
-    console.error("[Realtime] Error loading initial config:", error);
+    console.error("[Realtime] เกิดข้อผิดพลาดในการโหลด config:", error);
   }
 }
 
-// Function to save Runtime Config (Switches) to JSON (User only complained about TimeHistory not in DB)
+// ฟังก์ชันบันทึกการตั้งค่า Runtime (Switches) ลงไฟล์ JSON (ผู้ใช้แจ้งปัญหาว่า TimeHistory ไม่ถูกบันทึกลง DB)
 function saveRuntimeConfig() {
   const { settings, ...runtimeConfig } = config;
-  // Save runtime config without settings array (to avoid huge file)
-  // Or keep as is but we know settings come from DB
-  // For backward compatibility let's keep it simple: We save everything to JSON but rely on DB for settings.
-  // Actually, user said "TimeHistory ไม่ถูกบันทึกลงใน DB มันถูกบันทึกลงใน setting.json" -> implies we should STOP saving it to JSON?
-  // I will save only runtime switches to json.
+  // บันทึก runtime config โดยไม่รวม settings array (เพื่อหลีกเลี่ยงไฟล์ขนาดใหญ่)
+  // หรือเก็บไว้ตามเดิม แต่เรารู้ว่า settings มาจาก DB
+  // เพื่อความเข้ากันได้ย้อนหลัง: เราบันทึกทุกอย่างลง JSON แต่พึ่งพา DB สำหรับ settings
+  // อันที่จริงผู้ใช้บอกว่า "TimeHistory ไม่ถูกบันทึกลงใน DB มันถูกบันทึกลงใน setting.json" -> หมายความว่าเราควรหยุดบันทึกลง JSON?
+  // ผมจะบันทึกเฉพาะ runtime switches ลง json
   fs.writeFileSync(settingsPath, JSON.stringify(runtimeConfig, null, 2));
 }
 
-// REST API (optional สำหรับ fallback)
+// REST API (สำรอง สำหรับ fallback)
 app.get("/api/status", (req, res) => res.json(config));
 
 // API สำหรับดึง settings history (เรียกจาก DB)
 app.get("/api/check-history", async (req, res) => {
   try {
     const history = await TimeHistory.find({}).sort({ createdAt: -1 });
-    // Map to format frontend expects
+    // แปลงเป็นรูปแบบที่ frontend คาดหวัง
     const formatted = history.map(h => ({
       id: h.id,
       mode: h.mode,
-      date: h.date, // Note: Schema stores string date as requested
+      date: h.date, // หมายเหตุ: Schema เก็บวันที่เป็น string ตามที่ร้องขอ
       duration: h.duration,
       time: h.time,
       price: h.price
     }));
     res.json(formatted);
   } catch (err) {
-    console.error("Error fetching history:", err);
+    console.error("เกิดข้อผิดพลาดในการดึงประวัติ:", err);
     res.status(500).json([]);
   }
 });
 
-// WebSocket
+// การจัดการ WebSocket Connection
 io.on("connection", (socket) => {
   // ส่งสถานะล่าสุดให้ client ที่เพิ่งเชื่อมต่อ
   socket.emit("status", config);
 
-  // Send current public ranking type to newly connected client
+  // ส่งประเภท ranking สาธารณะปัจจุบันให้กับ client ที่เพิ่งเชื่อมต่อ
   socket.emit("publicRankingTypeUpdated", { type: config.publicRankingType });
 
-  // รับสถานะใหม่จาก admin (Switches)
+  // รับสถานะใหม่จาก admin (Switches เปิด/ปิดฟีเจอร์ต่างๆ)
   socket.on("updateStatus", (newStatus) => {
     config = { ...config, ...newStatus };
     io.emit("status", config);
     saveRuntimeConfig();
   });
 
+  // ส่ง config ปัจจุบันเมื่อมีการร้องขอ
   socket.on("getConfig", () => {
     socket.emit("status", config);
   });
 
+  // อัพเดท config จาก admin และแจ้งเตือนทุก client
   socket.on("adminUpdateConfig", (newConfig) => {
     config = { ...config, ...newConfig };
     io.emit("configUpdate", config);
     saveRuntimeConfig();
   });
 
-  // 🔥 Handle public ranking type broadcast from Admin
+  // 🔥 จัดการ broadcast ประเภท ranking สาธารณะจาก Admin
   socket.on("setPublicRankingType", (data) => {
     const { type } = data;
     if (['daily', 'monthly', 'alltime'].includes(type)) {
       config.publicRankingType = type;
-      console.log(`[Realtime] Public ranking type updated to: ${type}`);
-      // Broadcast to ALL clients (Admin + Users)
+      console.log(`[Realtime] อัพเดตประเภท ranking สาธารณะเป็น: ${type}`);
+      // ส่ง broadcast ไปยังทุก client (Admin + Users)
       io.emit("publicRankingTypeUpdated", { type: config.publicRankingType });
       saveRuntimeConfig();
     } else {
-      console.warn(`[Realtime] Invalid ranking type received: ${type}`);
+      console.warn(`[Realtime] ได้รับประเภท ranking ที่ไม่ถูกต้อง: ${type}`);
     }
   });
 
-  // 🔥 Handle perks update broadcast from Admin
+  // 🔥 จัดการ broadcast การอัพเดตสิทธิพิเศษ (Perks) จาก Admin
   socket.on("adminUpdatePerks", (data) => {
     const { perks } = data;
     if (perks && Array.isArray(perks)) {
-      console.log(`[Realtime] Perks updated, broadcasting to all users. Total perks: ${perks.length}`);
-      // Broadcast to ALL clients (especially Users)
+      console.log(`[Realtime] อัพเดตสิทธิพิเศษ, กำลัง broadcast ไปยังผู้ใช้ทั้งหมด. จำนวนสิทธิพิเศษ: ${perks.length}`);
+      // ส่ง broadcast ไปยังทุก client (โดยเฉพาะ Users)
       io.emit("perksUpdated", { perks });
     } else {
-      console.warn(`[Realtime] Invalid perks data received:`, data);
+      console.warn(`[Realtime] ได้รับข้อมูลสิทธิพิเศษที่ไม่ถูกต้อง:`, data);
     }
   });
 
-  // Add History -> Save to DB
+  // เพิ่มประวัติการตั้งค่า -> บันทึกลง Database
   socket.on("addSetting", async (setting) => {
     try {
-      // Save to DB
+      // บันทึกลง Database
       await TimeHistory.create({
         id: setting.id,
         mode: setting.mode,
         date: setting.date,
         duration: setting.duration,
-        time: setting.time, // Save seconds
+        time: setting.time, // บันทึกเป็นวินาที
         price: setting.price
       });
 
-      // Update local memory config
+      // อัพเดท config ในหน่วยความจำ
       config.settings.unshift(setting);
 
-      io.emit("status", config); // broadcast
+      io.emit("status", config); // ส่ง broadcast ไปยังทุก client
     } catch (err) {
-      console.error("Error adding setting to DB:", err);
+      console.error("เกิดข้อผิดพลาดในการเพิ่มการตั้งค่าลง DB:", err);
     }
   });
 
-  // Remove History -> Remove from DB
+  // ลบประวัติการตั้งค่า -> ลบจาก Database
   socket.on("removeSetting", async (id) => {
     try {
       await TimeHistory.findOneAndDelete({ id });
@@ -247,7 +261,7 @@ io.on("connection", (socket) => {
       config.settings = config.settings.filter(item => String(item.id) !== String(id));
       io.emit("status", config);
     } catch (err) {
-      console.error("Error removing setting from DB:", err);
+      console.error("เกิดข้อผิดพลาดในการลบการตั้งค่าจาก DB:", err);
     }
   });
 });
@@ -257,27 +271,29 @@ io.on("connection", (socket) => {
 app.post('/api/lucky-wheel/preview', (req, res) => {
   const { segments } = req.body;
   
+  // ตรวจสอบว่ามีข้อมูล segments และเป็น array หรือไม่
   if (!segments || !Array.isArray(segments)) {
-    return res.status(400).json({ error: 'Missing or invalid segments array' });
+    return res.status(400).json({ error: 'ข้อมูล segments หายไปหรือไม่ถูกต้อง' });
   }
 
-  console.log('[Realtime] Lucky Wheel Preview:', segments.length, 'segments');
+  console.log('[Realtime] ตัวอย่างวงล้อ Lucky Wheel:', segments.length, 'ส่วน');
   
   // Broadcast ไปยัง OBS ที่เชื่อมต่ออยู่
   io.emit('lucky-wheel-preview', { segments });
   
-  return res.json({ success: true, message: 'Preview event broadcasted to OBS' });
+  return res.json({ success: true, message: 'ส่ง broadcast ตัวอย่างไปยัง OBS สำเร็จ' });
 });
 
 // API สำหรับหมุนวงล้อและแสดงผลบน OBS
 app.post('/api/lucky-wheel/spin', (req, res) => {
   const { segments, winnerIndex, reward } = req.body;
 
+  // ตรวจสอบว่ามีข้อมูล segments และ winnerIndex หรือไม่
   if (!segments || !Array.isArray(segments) || winnerIndex === undefined) {
-    return res.status(400).json({ error: 'Missing segments or winnerIndex' });
+    return res.status(400).json({ error: 'ข้อมูล segments หรือ winnerIndex หายไป' });
   }
 
-  console.log('[Realtime] Lucky Wheel Spin - Winner Index:', winnerIndex, 'Reward:', reward);
+  console.log('[Realtime] หมุนวงล้อ Lucky Wheel - ดัชนีผู้ชนะ:', winnerIndex, 'รางวัล:', reward);
 
   // Broadcast ไปยัง OBS ที่เชื่อมต่ออยู่
   io.emit('lucky-wheel-spin', {
@@ -287,22 +303,23 @@ app.post('/api/lucky-wheel/spin', (req, res) => {
     timestamp: Date.now()
   });
 
-  return res.json({ success: true, message: 'Spin event broadcasted to OBS' });
+  return res.json({ success: true, message: 'ส่ง broadcast การหมุนไปยัง OBS สำเร็จ' });
 });
 
 // API สำหรับซ่อนวงล้อบน OBS
 app.post('/api/lucky-wheel/hide', (req, res) => {
-  console.log('[Realtime] Lucky Wheel Hide event');
+  console.log('[Realtime] เหตุการณ์ซ่อนวงล้อ Lucky Wheel');
   
   // Broadcast ไปยัง OBS ที่เชื่อมต่ออยู่
   io.emit('lucky-wheel-hide');
   
-  return res.json({ success: true, message: 'Hide event broadcasted to OBS' });
+  return res.json({ success: true, message: 'ส่ง broadcast การซ่อนไปยัง OBS สำเร็จ' });
 });
 
+// กำหนดพอร์ตสำหรับ Realtime Server
 const REALTIME_PORT = process.env.PORT || 4005;
 server.listen(REALTIME_PORT, () => {
   const baseUrl = process.env.REALTIME_URL || 'https://cmes-admin-realtime.onrender.com';
-  console.log(`[Realtime] Server running on port ${REALTIME_PORT}`);
+  console.log(`[Realtime] เซิร์ฟเวอร์ทำงานที่พอร์ต ${REALTIME_PORT}`);
   console.log(`[Realtime] URL: ${baseUrl}`);
 });

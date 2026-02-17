@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <title>OBS Ranking Overlay</title>
   <style>
+    /* ===== สไตล์พื้นฐาน ===== */
     html, body {
       margin: 0;
       padding: 0;
@@ -13,6 +14,7 @@
       overflow: hidden;
       font-family: 'Segoe UI', sans-serif;
     }
+    /* ===== คอนเทนเนอร์หลักสำหรับแสดงอันดับ ===== */
     #ranking-container {
       position: fixed;
       top: 20px;
@@ -28,6 +30,7 @@
          1px  1px 0 #000,
          0 2px 4px rgba(0,0,0,0.9);
     }
+    /* ===== หัวข้อ Top Supporter ===== */
     h2 {
       margin: 0 0 12px 0;
       font-size: 18px;
@@ -41,6 +44,7 @@
         -2px  2px 0 #000,
          2px  2px 0 #000;
     }
+    /* ===== แต่ละรายการของ Ranking ===== */
     .rank-item {
       display: flex;
       align-items: center;
@@ -51,6 +55,7 @@
     .rank-item:last-child {
       border-bottom: none;
     }
+    /* ===== หมายเลขอันดับ ===== */
     .rank-num {
       width: 24px;
       font-weight: bold;
@@ -59,10 +64,12 @@
       order: 3; /* Move rank number to the rightmost */
       margin-left: 10px; /* Add margin left */
     }
-    .rank-num.top-1 { color: #fbbf24; font-size: 1.2em; }
-    .rank-num.top-2 { color: #94a3b8; font-size: 1.1em; }
-    .rank-num.top-3 { color: #b45309; font-size: 1.1em; }
+    /* สีสำหรับอันดับ 1-3 */
+    .rank-num.top-1 { color: #fbbf24; font-size: 1.2em; } /* ทอง */
+    .rank-num.top-2 { color: #94a3b8; font-size: 1.1em; } /* เงิน */
+    .rank-num.top-3 { color: #b45309; font-size: 1.1em; } /* ทองแดง */
     
+    /* ===== รูปโปรไฟล์ ===== */
     .rank-avatar {
       width: 32px;
       height: 32px;
@@ -73,18 +80,21 @@
       object-fit: cover;
       order: 2; /* Move avatar to the middle */
     }
+    /* ===== ข้อมูลผู้ใช้ (ชื่อ + คะแนน) ===== */
     .rank-info {
       flex: 1;
       overflow: hidden;
       text-align: right; /* Align text to the right */
       order: 1; /* Move info to the leftmost (visually rightmost in RTL thinking, but here we just reorder) */
     }
+    /* ชื่อผู้ใช้ */
     .rank-name {
       font-weight: 600;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    /* คะแนน */
     .rank-points {
       font-size: 0.85em;
       color: #4ade80;
@@ -92,31 +102,37 @@
   </style>
 </head>
 <body>
+  <!-- คอนเทนเนอร์หลักสำหรับแสดง Ranking -->
   <div id="ranking-container">
     <h2>Top Supporter</h2>
+    <!-- รายการ Ranking (จะถูกเติมด้วย JavaScript) -->
     <div id="ranking-list">
-      <!-- Items will be injected here -->
+      <!-- รายการจะถูกแทรกที่นี่ -->
       <div style="text-align:center; color:#666;">Loading...</div>
     </div>
   </div>
 
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script>
+    // ===== การตั้งค่า URL และเชื่อมต่อ Socket.IO =====
     const REALTIME_URL = 'https://cmes-admin-realtime.onrender.com';
     const API_BASE_URL = 'https://cmes-admin-server.onrender.com';
     const socket = io(REALTIME_URL, { transports: ['websocket', 'polling'] });
     const listEl = document.getElementById('ranking-list');
 
+    // ===== ฟังก์ชันแสดงผล Ranking =====
     function renderRanking(rankings) {
+      // ตรวจสอบว่ามีข้อมูลหรือไม่
       if (!rankings || rankings.length === 0) {
         listEl.innerHTML = '<div style="text-align:center; color:#666;">No data</div>';
         return;
       }
 
+      // สร้าง HTML สำหรับแต่ละรายการ
       listEl.innerHTML = rankings.map((r, index) => {
-        const rank = index + 1;
-        const rankClass = rank <= 3 ? `top-${rank}` : '';
-        const avatarUrl = r.avatar || '/data-icon/unknown-person-icon.png';
+        const rank = index + 1; // อันดับเริ่มจาก 1
+        const rankClass = rank <= 3 ? `top-${rank}` : ''; // เพิ่มคลาสพิเศษสำหรับ 3 อันดับแรก
+        const avatarUrl = r.avatar || '/data-icon/unknown-person-icon.png'; // ใช้รูป default ถ้าไม่มี
         
         return `
           <div class="rank-item">
@@ -131,16 +147,17 @@
       }).join('');
     }
 
+    // ===== ฟังก์ชันดึงข้อมูล Ranking จาก API =====
     async function fetchRanking() {
       try {
         const res = await fetch(`${API_BASE_URL}/api/rankings/top`);
         if (res.ok) {
           const json = await res.json();
-          // API returns { success: true, ranks: [...] }
+          // API คืนค่า { success: true, ranks: [...] }
           if (json.success && Array.isArray(json.ranks)) {
             renderRanking(json.ranks);
           } else if (Array.isArray(json)) {
-            // Fallback if API changes to return array directly
+            // กรณี API คืนค่าเป็น array โดยตรง
             renderRanking(json);
           }
         }
@@ -149,16 +166,16 @@
       }
     }
 
-    // Initial fetch
+    // ดึงข้อมูลครั้งแรกเมื่อเริ่มโหลดหน้า
     fetchRanking();
 
-    // Listen for updates
+    // ===== รับการอัปเดตแบบ Real-time ผ่าน Socket.IO =====
     socket.on('ranking-update', (data) => {
       console.log('Ranking update received:', data);
       renderRanking(data);
     });
     
-    // Also refresh periodically just in case
+    // รีเฟรชข้อมูลทุก 30 วินาที (เผื่อกรณีที่ socket ขาดหาย)
     setInterval(fetchRanking, 30000);
   </script>
 </body>

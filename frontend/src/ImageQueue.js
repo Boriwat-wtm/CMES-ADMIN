@@ -1,83 +1,95 @@
+// นำเข้า React hooks และ libraries ที่จำเป็น
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import "./ImageQueue.css";
-import igLogo from "./data-icon/ig-logo.png";
-import fbLogo from "./data-icon/facebook-logo.png";
-import lineLogo from "./data-icon/line-logo.png";
-import tiktokLogo from "./data-icon/tiktok-logo.png";
-import io from "socket.io-client";
-import { API_BASE_URL, REALTIME_URL, USER_API_URL } from "./config/apiConfig";
+import { Link } from "react-router-dom"; // สำหรับการนำทางกลับหน้า Home
+import "./ImageQueue.css"; // ไฟล์ CSS สำหรับตกแต่งหน้านี้
+// นำเข้า logo ของ social media ต่างๆ
+import igLogo from "./data-icon/ig-logo.png"; // Instagram
+import fbLogo from "./data-icon/facebook-logo.png"; // Facebook
+import lineLogo from "./data-icon/line-logo.png"; // Line
+import tiktokLogo from "./data-icon/tiktok-logo.png"; // TikTok
+import io from "socket.io-client"; // สำหรับ Real-time communication
+import { API_BASE_URL, REALTIME_URL, USER_API_URL } from "./config/apiConfig"; // URL ของ API
 
-// Connect to Admin Backend Socket
+// เชื่อมต่อกับ Admin Backend Socket สำหรับรับข้อมูล Real-time
 const socket = io(API_BASE_URL, { transports: ['websocket', 'polling'] });
 
+// Component หลักสำหรับจัดการคิวรูปภาพและการแสดงบน OBS
 function ImageQueue() {
-  const [images, setImages] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
-  const [historyItems, setHistoryItems] = useState([]);
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [giftSettings, setGiftSettings] = useState([]);
+  // ===== State Management: ข้อมูลรูปภาพและ UI =====
+  const [images, setImages] = useState([]); // รายการรูปภาพที่รอการอนุมัติ
+  const [loading, setLoading] = useState(true); // สถานะกำลังโหลดข้อมูล
+  const [selectedImage, setSelectedImage] = useState(null); // รูปภาพที่เลือกดูรายละเอียด
+  const [showModal, setShowModal] = useState(false); // แสดง Modal รายละเอียดหรือไม่
+  const [showHistory, setShowHistory] = useState(false); // แสดง Modal ประวัติหรือไม่
+  const [historyItems, setHistoryItems] = useState([]); // รายการประวัติการอนุมัติ/ปฏิเสธ
+  const [categoryFilter, setCategoryFilter] = useState("all"); // ตัวกรองประเภทเนื้อหา (all, image, text, birthday, gift)
+  const [giftSettings, setGiftSettings] = useState([]); // ตั้งค่าของขวัญจาก Backend
 
-  // Edit Size State
-  const [editWidth, setEditWidth] = useState("");
-  const [editHeight, setEditHeight] = useState("");
+  // ===== State: แก้ไขขนาดรูปภาพ =====
+  const [editWidth, setEditWidth] = useState(""); // ความกว้างที่ต้องการแสดงบน OBS
+  const [editHeight, setEditHeight] = useState(""); // ความสูงที่ต้องการแสดงบน OBS
 
-  // สำหรับ Preview และ Queue System
-  const [currentPreview, setCurrentPreview] = useState(null);
-  const [previewQueue, setPreviewQueue] = useState([]);
-  const [timeLeft, setTimeLeft] = useState(0);
-  const [isActive, setIsActive] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [pauseTimeLeft, setPauseTimeLeft] = useState(0);
+  // ===== State: ระบบ Preview และ Queue =====
+  const [currentPreview, setCurrentPreview] = useState(null); // รูปภาพที่กำลังแสดงบน OBS
+  const [previewQueue, setPreviewQueue] = useState([]); // คิวรูปภาพที่รออนุมัติแล้วรอแสดง
+  const [timeLeft, setTimeLeft] = useState(0); // เวลาที่เหลือในการแสดงรูปภาพปัจจุบัน (วินาที)
+  const [isActive, setIsActive] = useState(false); // กำลังแสดงรูปภาพอยู่หรือไม่
+  const [isPaused, setIsPaused] = useState(false); // อยู่ในช่วงหน่วงเวลาระหว่างรูปหรือไม่
+  const [pauseTimeLeft, setPauseTimeLeft] = useState(0); // เวลาหน่วงที่เหลือก่อนแสดงรูปถัดไป (วินาที)
 
+  // คำนวณระยะเวลาทั้งหมดของรูปภาพปัจจุบัน (ขั้นต่ำ 1 วินาที)
   const totalDuration = currentPreview ? Math.max(currentPreview.time || 0, 1) : 1;
+  // คำนวณเปอร์เซ็นต์ความคืบหน้าการแสดงรูป (0-1)
   const progressRatio = Math.max(0, Math.min(1, (totalDuration - timeLeft) / totalDuration));
 
-  // Helper function to safely handle image URLs
+  // ===== ฟังก์ชัน Helper: สร้าง URL ของรูปภาพอย่างปลอดภัย =====
   const getImageUrl = (filePath, baseUrl = API_BASE_URL) => {
-    if (!filePath) return null;
+    if (!filePath) return null; // ถ้าไม่มี path คืนค่า null
+    // ถ้าเป็น URL เต็มอยู่แล้ว ให้ใช้เลย
     if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
       return filePath;
     }
+    // ปรับ path ให้ขึ้นต้นด้วย / แล้วรวมกับ base URL
     const normalizedPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
     return `${baseUrl}${normalizedPath}`;
   };
 
+  // ===== Effect Hook: โหลดข้อมูลและตั้งค่า Socket Listeners =====
   useEffect(() => {
+    // โหลดรายการรูปภาพและตั้งค่าของขวัญเมื่อ Component โหลด
     fetchImages();
     fetchGiftSettings();
 
-    // Switch to Socket.IO for real-time updates
-    socket.on('admin-update-queue', fetchImages);
-    socket.on('new-upload', fetchImages);
+    // ฟัง Socket Events สำหรับ Real-time updates
+    socket.on('admin-update-queue', fetchImages); // เมื่อคิวมีการเปลี่ยนแปลง
+    socket.on('new-upload', fetchImages); // เมื่อมีรูปภาพใหม่อัพโหลด
 
-    // Socket Listeners for Countdown/Pause (System Auto-Pause only)
+    // ฟังเหตุการณ์ Pause จาก Server (ระหว่างการแสดงรูปภาพ)
     socket.on('pause-display', (data) => {
       if (data && data.remaining !== undefined) {
-        // Server says "Pause": Clear active item and show countdown
+        // Server สั่งสัญญาณ Pause: ล้างรูปภาพที่กำลังแสดงและแสดง Countdown
         setIsActive(false);
         setCurrentPreview(null);
         localStorage.removeItem("currentPreview");
         localStorage.removeItem("isActive");
 
+        // ตั้งค่า Pause mode และนับถอยหลังเวลาคงเหลือ
         setIsPaused(true);
         setPauseTimeLeft(data.remaining);
       }
     });
 
+    // ฟังเหตุการณ์ Resume จาก Server (เริ่มแสดงรูปใหม่)
     socket.on('resume-display', () => {
       setIsPaused(false);
       setPauseTimeLeft(0);
     });
 
-    // Socket Listener for Item Completed - Clear display when server confirms completion
+    // ฟังเหตุการณ์เมื่อรูปภาพแสดงครบ - ล้างการแสดงเมื่อ Server ยืนยัน
     socket.on('item-completed', (data) => {
       console.log("[Socket] Item completed:", data);
       
-      // Verify this is the current item (prevent race condition)
+      // ยืนยันว่าเป็นรูปภาพปัจจุบันจริง (ป้องกัน race condition)
       const savedPreview = localStorage.getItem("currentPreview");
       if (savedPreview) {
         try {
@@ -85,7 +97,7 @@ function ImageQueue() {
           const previewId = preview._id || preview.id;
           const completedId = data.id || data._id;
           
-          // Only clear if IDs match or if we're being extra safe
+          // ลบการแสดงเฉพาะเมื่อ ID ตรงกัน
           if (previewId !== completedId) {
             console.log("[Socket] ID mismatch - ignoring. Expected:", previewId, "Got:", completedId);
             return;
@@ -95,13 +107,13 @@ function ImageQueue() {
         }
       }
       
-      // Guard: Prevent duplicate event handling
+      // ป้องกันการจัดการ event ซ้ำ
       if (!currentPreview && !localStorage.getItem("currentPreview")) {
         console.log("[Socket] Already cleared - ignoring duplicate event");
         return;
       }
       
-      // Clear current preview
+      // ล้างการแสดงรูปภาพปัจจุบัน
       setCurrentPreview(null);
       setIsActive(false);
       setTimeLeft(0);
@@ -109,16 +121,17 @@ function ImageQueue() {
       setPauseTimeLeft(0);
       isCompletingRef.current = false;
       
-      // Clear localStorage
+      // ล้าง localStorage
       localStorage.removeItem("currentPreview");
       localStorage.removeItem("isActive");
       localStorage.removeItem("startTimestamp");
       localStorage.removeItem("duration");
       
-      // Refresh queue
+      // โหลดคิวใหม่
       fetchImages();
     });
 
+    // Cleanup function: เมื่อ Component unmount ให้ยกเลิกการฟัง Socket events
     return () => {
       socket.off('admin-update-queue');
       socket.off('new-upload');
@@ -129,14 +142,15 @@ function ImageQueue() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // เมื่อเริ่มแสดงรูปใหม่ (ใน processNextInQueue หรือ handleApprove)
+  // ===== ฟังก์ชัน: เริ่มการแสดงรูปภาพใหม่ =====
   const startPreview = async (image) => {
     const now = Date.now();
     const imageId = image._id || image.id;
 
-    // IMPORTANT: Set status to 'playing' locally to prevent re-sync issues
+    // สำคัญ: ตั้งค่า status เป็น 'playing' ใน local เพื่อป้องกันปัญหาการ sync
     const playingImage = { ...image, status: 'playing' };
 
+    // ตั้งค่า state และ localStorage สำหรับการแสดง
     setCurrentPreview(playingImage);
     setTimeLeft(image.time);
     setIsActive(true);
@@ -145,7 +159,7 @@ function ImageQueue() {
     localStorage.setItem("duration", image.time);
     localStorage.setItem("isActive", true);
 
-    // Update local images state to mark as playing (prevents sync from re-adding)
+    // อัปเดต images ใน local state เพื่อป้องกันการ sync เพิ่มคิวซ้ำ
     setImages(prev => prev.map(img => {
       if ((img._id === imageId) || (img.id === imageId)) {
         return { ...img, status: 'playing' };
@@ -153,7 +167,7 @@ function ImageQueue() {
       return img;
     }));
 
-    // อัพเดทสถานะเป็น 'playing' ใน DB
+    // อัปเดตสถานะเป็น 'playing' ใน Database
     try {
       await fetch(`${API_BASE_URL}/api/playing/${imageId}`, {
         method: "POST"
@@ -164,22 +178,22 @@ function ImageQueue() {
     }
   };
 
-  // Guard to prevent double-completion
-  const isCompletingRef = React.useRef(false);
+  // ===== Ref: ป้องกันการเสร็จสิ้นซ้ำ =====
+  const isCompletingRef = React.useRef(false); // Guard ป้องกันการเสร็จสิ้นรูปซ้ำ
 
-  // Track completed IDs to prevent re-adding to queue
+  // เก็บ ID ของรูปที่เสร็จสิ้นแล้ว เพื่อป้องกันการเพิ่มกลับคิว
   const completedIdsRef = React.useRef(new Set());
 
-  // Ref to track current previewQueue for use in callbacks
+  // Ref สำหรับเก็บ previewQueue ปัจจุบัน สำหรับใช้ใน callbacks
   const previewQueueRef = React.useRef(previewQueue);
 
-  // Keep ref in sync with state
+  // รักษาความสอดคล้องระหว่าง ref และ state
   useEffect(() => {
     previewQueueRef.current = previewQueue;
     console.log("[Ref Sync] previewQueueRef updated, length:", previewQueue.length);
   }, [previewQueue]);
 
-  // Function to start next item from queue
+  // ===== ฟังก์ชัน: เริ่มแสดงรูปถัดไปจากคิว =====
   const processNextFromQueue = () => {
     const currentQueue = previewQueueRef.current;
     console.log("[ProcessNext] Called. Queue length:", currentQueue.length);
@@ -188,10 +202,10 @@ function ImageQueue() {
       const nextImage = currentQueue[0];
       console.log("[ProcessNext] Starting:", nextImage._id || nextImage.id);
 
-      // Remove from queue first
+      // ลบรูปแรกออกจากคิว
       setPreviewQueue(prev => prev.slice(1));
 
-      // Then start playing
+      // จากนั้นเริ่มเล่นรูปภาพ
       startPreview(nextImage);
       setIsPaused(false);
       setPauseTimeLeft(0);
@@ -203,23 +217,23 @@ function ImageQueue() {
     }
   };
 
-  // Standalone function to handle item completion
+  // ===== ฟังก์ชัน: จัดการเมื่อรูปภาพแสดงครบ =====
   const completeCurrentItem = async (imageId) => {
     console.log("[Complete] Completing item:", imageId);
 
-    // Call backend to complete
+    // เรียก API เพื่อบอก Backend ว่ารูปภาพแสดงครบแล้ว
     try {
       const response = await fetch(`${API_BASE_URL}/api/complete/${imageId}`, {
         method: "POST"
       });
       const result = await response.json();
       console.log("[Complete] API Result:", result);
-      completedIdsRef.current.add(imageId);
+      completedIdsRef.current.add(imageId); // เพิ่ม ID เข้า Set เพื่อป้องกันการเพิ่มกลับคิว
     } catch (err) {
       console.error("[Complete] API Error:", err);
     }
 
-    // Clear current preview state
+    // ล้าง state ของการแสดงรูปภาพปัจจุบัน
     setIsActive(false);
     setCurrentPreview(null);
     localStorage.removeItem("currentPreview");
@@ -227,10 +241,10 @@ function ImageQueue() {
     localStorage.removeItem("duration");
     localStorage.removeItem("isActive");
 
-    // Reset lock
+    // ปลดล็อกเพื่อให้สามารถเสร็จสิ้นครั้งต่อไปได้
     isCompletingRef.current = false;
 
-    // Check if queue has items and start countdown
+    // ตรวจสอบว่ามีรูปภาพที่รออยู่ในคิวหรือไม่
     const queueLength = previewQueueRef.current.length;
     console.log("[Complete] Queue has", queueLength, "items waiting");
 
@@ -239,10 +253,7 @@ function ImageQueue() {
       setIsPaused(false);
       setPauseTimeLeft(0);
 
-      // Call processNextFromQueue immediately (or better, fetchImages to sync with server's decision)
-      // Since server now auto-plays, we should probably just fetchImages to get the new 'playing' state
-      // But for UI responsiveness, if we have a local queue, we can try to anticipate.
-      // However, to align with server auto-play, let's just fetchImages and let the sync logic in fetchImages handle the 'playing' detection.
+      // โหลดข้อมูลใหม่เพื่อ Sync กับ Server (Server จะจัดการเล่น Auto)
       setTimeout(fetchImages, 500);
     } else {
       console.log("[Complete] No queue, fetching images");
@@ -250,11 +261,13 @@ function ImageQueue() {
     }
   };
 
-  // Timer effect สำหรับ countdown - SYNC only, no async in interval
+  // ===== Effect Hook: Timer สำหรับ Countdown เวลาการแสดงรูปภาพ =====
   useEffect(() => {
     let interval = null;
     if (isActive && currentPreview) {
+      // ตั้ง Interval นับถอยหลังทุก 1 วินาที
       interval = setInterval(() => {
+        // ดึงข้อมูลจาก localStorage เพื่อคำนวณเวลาที่เหลือ
         const startTimestamp = Number(localStorage.getItem("startTimestamp"));
         const duration = Number(localStorage.getItem("duration"));
         const now = Date.now();
@@ -262,18 +275,17 @@ function ImageQueue() {
         const left = duration - elapsed;
         setTimeLeft(left > 0 ? left : 0);
 
+        // ถ้าหมดเวลาแล้ว รอ Server จัดการ (ไม่ให้ Client จัดการเอง)
         if (left <= 0 && !isCompletingRef.current) {
-          // Lock to prevent double-completion
+          // ล็อกเพื่อป้องกันการเสร็จสิ้นซ้ำ
           isCompletingRef.current = true;
           clearInterval(interval);
 
-          // Get imageId NOW before state changes
+          // เก็บ imageId ก่อนที่ state จะเปลี่ยน
           const imageId = currentPreview._id || currentPreview.id;
 
-          // calling completion function OUTSIDE interval (fire-and-forget pattern)
-          // This ensures it runs independently of React's useEffect lifecycle
+          // รอ Server จัดการ timeout (ไม่ให้ Client เรียกฟังก์ชัน complete)
           setTimeout(() => {
-            // completeCurrentItem(imageId); // DISABLED: Let Server handle completion timeout
             console.log("[Client] Timer up. Waiting for server to complete item...");
           }, 0);
         }
@@ -285,13 +297,14 @@ function ImageQueue() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, currentPreview]);
 
-  // Simple countdown effect - runs when isPaused changes
+  // ===== Effect Hook: Countdown สำหรับหน่วงเวลาระหว่างรูปภาพ =====
   useEffect(() => {
     let countdownTimer = null;
 
     if (isPaused && pauseTimeLeft > 0) {
       console.log("[Countdown] Starting from", pauseTimeLeft);
 
+      // ตั้ง Timer นับถอยหลังเวลาหน่วง
       countdownTimer = setInterval(() => {
         setPauseTimeLeft(prev => {
           const newVal = prev - 1;
@@ -299,12 +312,12 @@ function ImageQueue() {
 
           if (newVal <= 0) {
             clearInterval(countdownTimer);
-            // Clear isPaused state when countdown finishes
+            // ล้าง Pause state เมื่อ Countdown สิ้นสุด
             setTimeout(() => {
               console.log("[Countdown] Finished, clearing pause state");
               setIsPaused(false);
               setPauseTimeLeft(0);
-              // processNextFromQueue(); // DISABLED: Let Server Drive to avoid Race Condition
+              // ให้ Server เป็นผู้ควบคุมการเล่นรูปถัดไป เพื่อป้องกัน Race Condition
             }, 100);
             return 0;
           }
@@ -319,23 +332,23 @@ function ImageQueue() {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPaused]); // Only depend on isPaused, not pauseTimeLeft
+  }, [isPaused]); // รันเฉพาะเมื่อ isPaused เปลี่ยน
 
+  // ===== ฟังก์ชัน: ดึงข้อมูลคิวรูปภาพจาก Server =====
   const fetchImages = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/queue`);
       if (response.ok) {
         const data = await response.json();
-        setImages(data);
+        setImages(data); // อัปเดตรายการรูปภาพ
 
-        // Check if there's an item currently playing on server
+        // ตรวจสอบว่ามีรูปภาพที่กำลังเล่นอยู่บน Server หรือไม่
         const playingOnServer = data.find(img => img.status === 'playing');
 
-        // If we found a playing item AND we don't have a current preview locally
-        // OR the playing item ID matches our current but potentially out of sync
+        // ถ้าพบรูปภาพที่กำลังเล่น และ local ไม่มี preview หรือ ID ตรงกัน
         if (playingOnServer && (!currentPreview || (currentPreview._id || currentPreview.id) === (playingOnServer._id || playingOnServer.id))) {
 
-          // Calculate remaining time
+          // คำนวณเวลาที่เหลือ
           const duration = playingOnServer.time || 10;
           let remaining = duration;
 
@@ -372,6 +385,7 @@ function ImageQueue() {
     }
   };
 
+  // ===== ฟังก์ชัน: ดึงประวัติการอนุมัติ/ปฏิเสธ =====
   const fetchHistory = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/history`);
@@ -384,12 +398,13 @@ function ImageQueue() {
     }
   };
 
+  // ===== ฟังก์ชัน: ดึงตั้งค่าของขวัญจาก Backend =====
   const fetchGiftSettings = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/gifts/settings`);
       if (response.ok) {
         const data = await response.json();
-        // data structure is { tableCount, items: [...] }
+        // โครงสร้างข้อมูล: { tableCount, items: [...] }
         setGiftSettings(data.items || []);
         console.log("[GiftSettings] Loaded:", data.items);
       }
@@ -400,13 +415,15 @@ function ImageQueue() {
 
 
 
+  // ===== ฟังก์ชัน: ข้ามรูปภาพที่กำลังแสดง =====
   const handleSkipCurrent = async () => {
-    if (!currentPreview) return;
+    if (!currentPreview) return; // ถ้าไม่มีรูบที่กำลังแสดง ไม่ต้องทำอะไร
     const imageId = currentPreview._id || currentPreview.id;
     
     console.log("[Skip] Current Queue Length:", previewQueue.length);
     console.log("[Skip] Queue Items:", previewQueue.map(q => q._id || q.id));
     
+    // แจ้ง Backend ว่ารูปนี้เสร็จสิ้นแล้ว
     try {
       await fetch(`${API_BASE_URL}/api/complete/${imageId}`, { method: "POST" });
     } catch (err) {
@@ -419,14 +436,14 @@ function ImageQueue() {
     // 🔧 FIX: เก็บ queueOrder ก่อนลบ localStorage
     const savedQueueOrder = localStorage.getItem('queueOrder');
 
-    // reset current preview state
+    // รีเซ็ต state ของการแสดงรูปภาพปัจจุบัน
     setIsActive(false);
     setIsPaused(false);
     setCurrentPreview(null);
     setTimeLeft(0);
     setPauseTimeLeft(0);
     
-    // Clear localStorage (แต่จะคืนค่า queueOrder กลับ)
+    // ล้าง localStorage (แต่จะคืนค่า queueOrder กลับ)
     localStorage.removeItem("currentPreview");
     localStorage.removeItem("startTimestamp");
     localStorage.removeItem("duration");
@@ -453,6 +470,7 @@ function ImageQueue() {
     }
   };
 
+  // ===== ฟังก์ชัน: นำรูปภาพจากประวัติกลับมาเข้าคิว =====
   const handleRestoreToQueue = async (historyId) => {
     try {
       console.log("[Frontend] Restoring history ID:", historyId);
@@ -463,7 +481,7 @@ function ImageQueue() {
         const result = await response.json();
         console.log("[Frontend] Restore success:", result);
 
-        // Refresh ทั้งสองอัน
+        // โหลดข้อมูลทั้งประวัติและคิวใหม่
         await fetchHistory();
         await fetchImages();
 
@@ -479,50 +497,56 @@ function ImageQueue() {
     }
   };
 
+  // ===== ฟังก์ชัน: คลิกรูปภาพเพื่อดูรายละเอียด =====
   const handleImageClick = (image) => {
-    setSelectedImage(image);
-    setEditWidth(image.width || "");
-    setEditHeight(image.height || "");
-    setShowModal(true);
+    setSelectedImage(image); // เก็บข้อมูลรูปภาพที่เลือก // เก็บข้อมูลรูปภาพที่เลือก
+    setEditWidth(image.width || ""); // โหลดค่าความกว้าง
+    setEditHeight(image.height || ""); // โหลดค่าความสูง
+    setShowModal(true); // เปิด Modal
   };
 
-  // Handle drag and drop for queue reordering
-  const [draggedIndex, setDraggedIndex] = useState(null);
+  // ===== Drag and Drop: จัดการลำดับคิวด้วยการลาก =====
+  const [draggedIndex, setDraggedIndex] = useState(null); // Index ของรายการที่กำลังถูกลาก
 
+  // เมื่อเริ่มลากรายการ
   const handleDragStart = (e, index) => {
-    setDraggedIndex(index);
+    setDraggedIndex(index); // บันทึก index ของรายการที่ถูกเลือก
     e.dataTransfer.effectAllowed = 'move';
-    e.target.style.opacity = '0.5';
+    e.target.style.opacity = '0.5'; // ทำให้โปร่งใสเพื่อแสดงว่ากำลังถูกลาก
   };
 
+  // เมื่อลากเสร็จ
   const handleDragEnd = (e) => {
-    e.target.style.opacity = '1';
+    e.target.style.opacity = '1'; // คืนค่าความโปร่งใส
 
-    // Save final order to localStorage on drop/end
+    // บันทึกลำดับสุดท้ายลง localStorage
     const queueOrder = previewQueue.map(item => item._id || item.id);
     localStorage.setItem('queueOrder', JSON.stringify(queueOrder));
 
-    // Send order to server
+    // ส่งลำดับไปยัง Server
     socket.emit('admin-reorder-queue', queueOrder);
 
     setDraggedIndex(null);
   };
 
+  // เมื่อลากไปเหนือรายการอื่น
   const handleDragOver = (e, index) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
 
-    if (draggedIndex === null || draggedIndex === index) return;
+    if (draggedIndex === null || draggedIndex === index) return; // ถ้าเป็นตำแหน่งเดียวกัน ไม่ต้องสลับ
 
+    // จัดเรียงลำดับใหม่
     const newQueue = [...previewQueue];
     const draggedItem = newQueue[draggedIndex];
-    newQueue.splice(draggedIndex, 1);
-    newQueue.splice(index, 0, draggedItem);
+    newQueue.splice(draggedIndex, 1); // ลบจากตำแหน่งเดิม
+    newQueue.splice(index, 0, draggedItem); // แทรกที่ตำแหน่งใหม่
 
     setPreviewQueue(newQueue);
     setDraggedIndex(index);
   };
 
+  // เมื่อวางรายการ
   const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -649,6 +673,7 @@ function ImageQueue() {
     }
   };
 
+  // ===== ฟังก์ชัน: ปฏิเสธรูปภาพ =====
   const handleReject = async (id) => {
     try {
       console.log('[Reject] Rejecting image with ID:', id);
@@ -656,8 +681,8 @@ function ImageQueue() {
         method: "POST",
       });
       if (response.ok) {
-        fetchImages();
-        setShowModal(false);
+        fetchImages(); // โหลดคิวใหม่
+        setShowModal(false); // ปิด Modal
       } else {
         console.error('[Reject] Failed:', await response.text());
         alert('ไม่สามารถปฏิเสธได้');
@@ -668,6 +693,7 @@ function ImageQueue() {
     }
   };
 
+  // ===== ฟังก์ชัน Helper: จัดรูปแบบวันที่แบบไทย =====
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleString('th-TH', {
       day: '2-digit',
@@ -678,28 +704,35 @@ function ImageQueue() {
     });
   };
 
+  // ===== ฟังก์ชัน Helper: แปลงวินาทีเป็นรูปแบบ MM:SS =====
   const formatTime = (seconds) => {
-    const s = Math.floor(seconds);
-    const mins = Math.floor(s / 60);
-    const secs = s % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    const s = Math.floor(seconds); // ปัดเศษทศนิยม
+    const mins = Math.floor(s / 60); // คำนวณนาที
+    const secs = s % 60; // คำนวณวินาทีที่เหลือ
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`; // คืนค่าแบบ MM:SS
   };
 
-  // เพิ่ม useEffect สำหรับ restore state
+  // ===== Effect Hook: กู้คืน State เมื่อกลับมาจากการ Refresh หน้า =====
   useEffect(() => {
+    // ดึงข้อมูลจาก localStorage
     const savedPreview = localStorage.getItem("currentPreview");
     const savedIsActive = localStorage.getItem("isActive");
     const startTimestamp = Number(localStorage.getItem("startTimestamp"));
     const duration = Number(localStorage.getItem("duration"));
+    
+    // ถ้ามีข้อมูลบันทึกไว้ ให้กู้คืน state
     if (savedPreview && savedIsActive === "true" && startTimestamp && duration) {
       const now = Date.now();
       const elapsed = Math.floor((now - startTimestamp) / 1000);
       const left = duration - elapsed;
+      
       if (left > 0) {
+        // ยังคงเหลือเวลา - กู้คืน state
         setCurrentPreview(JSON.parse(savedPreview));
         setTimeLeft(left);
         setIsActive(true);
       } else {
+        // หมดเวลาแล้ว - ล้าง state
         setCurrentPreview(null);
         setIsActive(false);
         localStorage.removeItem("currentPreview");
@@ -710,16 +743,17 @@ function ImageQueue() {
     }
   }, []);
 
-  // ทุกครั้งที่ state เปลี่ยน ให้ sync ลง localStorage
+  // ===== Effect Hook: บันทึก State ลง localStorage ทุกครั้งที่มีการเปลี่ยนแปลง =====
   useEffect(() => {
     if (currentPreview && isActive) {
+      // ถ้ากำลังเล่นรูปภาพ บันทึกลง localStorage
       localStorage.setItem("currentPreview", JSON.stringify(currentPreview));
       localStorage.setItem("timeLeft", timeLeft);
       localStorage.setItem("isActive", isActive);
       localStorage.setItem("isPaused", isPaused);
       localStorage.setItem("pauseTimeLeft", pauseTimeLeft);
     } else {
-      // ถ้าไม่มี preview แล้ว ให้ลบออก
+      // ถ้าไม่มี preview แล้ว ลบข้อมูลออก
       localStorage.removeItem("currentPreview");
       localStorage.removeItem("timeLeft");
       localStorage.removeItem("isActive");
@@ -728,7 +762,9 @@ function ImageQueue() {
     }
   }, [currentPreview, timeLeft, isActive, isPaused, pauseTimeLeft]);
 
+  // ===== ฟังก์ชัน Render: แสดง Logo Social Media พร้อมชื่อ =====
   function renderSocialOnImage(socialType, socialName) {
+    // Map ระหว่างประเภท social กับ logo ที่นำเข้า
     const logoMap = {
       ig: igLogo,
       fb: fbLogo,
@@ -737,7 +773,7 @@ function ImageQueue() {
     };
 
     const logoSrc = logoMap[socialType];
-    if (!logoSrc) return null;
+    if (!logoSrc) return null; // ถ้าไม่มี logo คืนค่า null
 
     return (
       <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
@@ -755,11 +791,11 @@ function ImageQueue() {
     );
   }
 
-  // สำหรับ Queue Section - แสดงแค่ข้อมูลพื้นฐาน
+  // ===== ฟังก์ชัน Render: แสดงการ์ดของขวัญแบบย่อ (สำหรับ Queue Section) =====
   function renderGiftOrder(item) {
-    const gift = item.giftOrder || {};
-    const senderInfo = item.sender || 'ผู้ส่ง';
-    const targetTable = gift.tableNumber || '-';
+    const gift = item.giftOrder || {}; // ข้อมูลคำสั่งของขวัญ
+    const senderInfo = item.sender || 'ผู้ส่ง'; // ชื่อผู้ส่ง
+    const targetTable = gift.tableNumber || '-'; // หมายเลขโต๊ะปลายทาง
 
     return (
       <div className="gift-order-card-simple">
@@ -788,12 +824,12 @@ function ImageQueue() {
     );
   }
 
-  // สำหรับ Modal และ Preview - แสดงแบบเต็ม
+  // ===== ฟังก์ชัน Render: แสดงการ์ดของขวัญแบบเต็ม (สำหรับ Modal และ Preview) =====
   function renderGiftOrderFull(item, isCompact = false) {
-    const gift = item.giftOrder || {};
-    const senderInfo = item.sender || 'ผู้ส่ง';
-    const targetTable = gift.tableNumber || '-';
-    const avatarUrl = item.avatar || null;
+    const gift = item.giftOrder || {}; // ข้อมูลคำสั่งของขวัญ
+    const senderInfo = item.sender || 'ผู้ส่ง'; // ชื่อผู้ส่ง
+    const targetTable = gift.tableNumber || '-'; // หมายเลขโต๊ะปลายทาง
+    const avatarUrl = item.avatar || null; // รูปโปรไฟล์ผู้ส่ง
 
     // Debug: ตรวจสอบข้อมูลสินค้า
     console.log('[Gift Card] Rendering gift:', gift);
@@ -907,6 +943,7 @@ function ImageQueue() {
     );
   }
 
+  // ===== แสดง Loading Spinner ระหว่างโหลดข้อมูล =====
   if (loading) {
     return (
       <div className="queue-container">
@@ -918,9 +955,10 @@ function ImageQueue() {
     );
   }
 
+  // ===== Main Component Return: แสดง UI หลักของ Image Queue =====
   return (
     <div className="queue-container">
-      {/* Modern Dashboard Styles */}
+      {/* CSS Styles สำหรับ Modern Dashboard */}
       <style>{`
         :root {
           --glass-bg: rgba(255, 255, 255, 0.95);

@@ -31,7 +31,11 @@ const io = new SocketIOServer(server, {
   cors: { origin: "*" }
 });
 
-// เชื่อมต่อ MongoDB
+// ===== การเชื่อมต่อฐานข้อมูล MongoDB =====
+/**
+ * ฟังก์ชันสำหรับเชื่อมต่อกับ MongoDB
+ * ใช้ database ชื่อ 'cmes-admin'
+ */
 async function connectDB() {
   try {
     const conn = await mongoose.connect(process.env.MONGODB_URI, {
@@ -45,7 +49,11 @@ async function connectDB() {
 }
 connectDB();
 
-// ===== CLOUDINARY CONFIGURATION =====
+// ===== การตั้งค่า CLOUDINARY สำหรับจัดเก็บรูปภาพ =====
+/**
+ * กำหนดค่า Cloudinary สำหรับการอัปโหลดและจัดเก็บรูปภาพ
+ * รองรับทั้งค่าจาก environment variables และค่าเริ่มต้น
+ */
 cloudinary.config({ 
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dfcqbb9pt', 
   api_key: process.env.CLOUDINARY_API_KEY || '396185692714272', 
@@ -57,7 +65,11 @@ console.log("[Admin] ✓ Cloudinary configured:", {
   api_key: cloudinary.config().api_key ? '***' + cloudinary.config().api_key.slice(-4) : 'NOT SET'
 });
 
-// CORS Configuration - รองรับ Development และ Production
+// ===== การตั้งค่า CORS (Cross-Origin Resource Sharing) =====
+/**
+ * กำหนด origins ที่ได้รับอนุญาตในการเข้าถึง API
+ * รองรับทั้ง Development และ Production environments
+ */
 const allowedOrigins = [
   'http://localhost:3000',                    // Admin Frontend (Dev)
   'http://localhost:3001',                    // User Frontend (Dev)
@@ -69,7 +81,7 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
-    // อนุญาต requests ที่ไม่มี origin (เช่น Render internal calls)
+    // อนุญาตให้ requests ที่ไม่มี origin เข้าถึงได้ (เช่น การเรียกจาก server เดียวกันหรือ Render internal calls)
     if (!origin) return callback(null, true);
 
     if (allowedOrigins.indexOf(origin) !== -1) {
@@ -84,28 +96,34 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// JSON Body Parser Middleware (สำคัญ!)
+// ===== Middleware สำหรับ Parse ข้อมูล =====
+// Middleware สำหรับแปลง JSON body (สำคัญสำหรับ POST/PUT requests)
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static overlay assets
+// Serve ไฟล์ static สำหรับ OBS overlay
 app.use(express.static(path.join(__dirname, "public")));
 
-// สร้างโฟลเดอร์ถ้ายังไม่มี
+// ===== การสร้างโฟลเดอร์สำหรับเก็บไฟล์ =====
+// สร้างโฟลเดอร์สำหรับจัดเก็บไฟล์ต่างๆ ถ้ายังไม่มี
 const giftUploadDir = path.join(__dirname, 'uploads/gifts');
 const userUploadDir = path.join(__dirname, 'uploads/user-uploads');
 
 if (!fs.existsSync(giftUploadDir)) fs.mkdirSync(giftUploadDir, { recursive: true });
 if (!fs.existsSync(userUploadDir)) fs.mkdirSync(userUploadDir, { recursive: true });
 
-// Serve static files
+// ===== Serve Static Files สำหรับรูปภาพที่อัปโหลด =====
 app.use("/uploads/gifts", express.static(giftUploadDir));
 app.use("/uploads/user-uploads", express.static(userUploadDir));
 app.use("/uploads/qr-codes", express.static(path.join(__dirname, 'uploads/qr-codes')));
-// Legacy support
+// รองรับ path แบบเก่าเพื่อความเข้ากันได้ (Legacy support)
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// --- Cloudinary Storage Configuration ---
+// ===== การตั้งค่า Cloudinary Storage สำหรับ Multer =====
+/**
+ * กำหนดการจัดเก็บไฟล์ผ่าน Cloudinary
+ * แยกเป็น 2 ประเภท: Gift Images และ User Uploads
+ */
 
 // 1. Gift Storage (Cloudinary - ถาวร)
 const giftStorage = new CloudinaryStorage({
@@ -118,7 +136,7 @@ const giftStorage = new CloudinaryStorage({
   }
 });
 
-// 2. User Upload Storage (Cloudinary)
+// 2. User Upload Storage สำหรับไฟล์ที่ผู้ใช้อัปโหลด (รูปภาพ, QR Code)
 const userStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: (req, file) => {
@@ -144,22 +162,31 @@ const uploadUser = multer({ storage: userStorage }).fields([
   { name: 'qrCode', maxCount: 1 }
 ]);
 
-// Note: Cron cleanup removed - Cloudinary manages storage automatically
+// หมายเหตุ: ไม่จำเป็นต้องมี Cron cleanup เพราะ Cloudinary จัดการ storage อัตโนมัติ
 
-// ----- Ranking Storage (using Database) -----
+// ===== ระบบ Ranking สำหรับคะแนนผู้สนับสนุน =====
+/**
+ * ฟังก์ชันสำหรับเพิ่มคะแนน Ranking ให้กับผู้ใช้
+ * รองรับการแยกคะแนนตามรายวัน (daily), รายเดือน (monthly), และสะสม (all-time)
+ * @param {string} userId - รหัสผู้ใช้
+ * @param {string} name - ชื่อผู้ใช้
+ * @param {number} amount - จำนวนเงินที่ใช้จ่าย (คะแนน)
+ * @param {string} email - อีเมลผู้ใช้
+ * @param {string} avatar - URL รูป avatar
+ */
 async function addRankingPoint(userId, name, amount, email = null, avatar = null) {
   try {
     console.log(`[Ranking] addRankingPoint called: userId=${userId}, name=${name}, amount=${amount}, email=${email}`);
 
     const points = Number(amount);
     if (isNaN(points) || points <= 0) {
-      console.log("[Ranking] Skipping: invalid points");
+      console.log("[Ranking] ข้าม: คะแนนไม่ถูกต้อง");
       return;
     }
 
     // ต้องมี userId จึงจะบันทึก ranking
     if (!userId || userId === "guest" || userId === "unknown") {
-      console.log("[Ranking] Skipping guest/unknown user");
+      console.log("[Ranking] ข้าม: ผู้ใช้แบบ guest/unknown");
       return;
     }
 
@@ -167,12 +194,13 @@ async function addRankingPoint(userId, name, amount, email = null, avatar = null
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
 
+    // ค้นหา ranking ของผู้ใช้
     let ranking = await Ranking.findOne({ userId });
     if (ranking) {
-      // Update all-time points
+      // อัปเดตคะแนนทั้งหมด (all-time points)
       ranking.points = (ranking.points || 0) + points;
 
-      // Update daily points (reset if date changed)
+      // อัปเดตคะแนนรายวัน (รีเซ็ตถ้าวันที่เปลี่ยน)
       if (ranking.dailyDate !== today) {
         ranking.dailyPoints = points;
         ranking.dailyDate = today;
@@ -180,7 +208,7 @@ async function addRankingPoint(userId, name, amount, email = null, avatar = null
         ranking.dailyPoints = (ranking.dailyPoints || 0) + points;
       }
 
-      // Update monthly points (reset if month changed)
+      // อัปเดตคะแนนรายเดือน (รีเซ็ตถ้าเดือนเปลี่ยน)
       if (ranking.monthlyPeriod !== currentMonth) {
         ranking.monthlyPoints = points;
         ranking.monthlyPeriod = currentMonth;
@@ -193,8 +221,9 @@ async function addRankingPoint(userId, name, amount, email = null, avatar = null
       if (avatar) ranking.avatar = avatar;
       ranking.updatedAt = new Date();
       await ranking.save();
-      console.log(`[Ranking] Updated ${userName} (${userId}): +${points} points, total: ${ranking.points}, daily: ${ranking.dailyPoints}, monthly: ${ranking.monthlyPoints}`);
+      console.log(`[Ranking] อัปเดต ${userName} (${userId}): +${points} คะแนน, ทั้งหมด: ${ranking.points}, รายวัน: ${ranking.dailyPoints}, รายเดือน: ${ranking.monthlyPoints}`);
     } else {
+      // สร้าง ranking ใหม่ถ้ายังไม่มี
       ranking = await Ranking.create({
         userId,
         name: userName,
@@ -207,25 +236,17 @@ async function addRankingPoint(userId, name, amount, email = null, avatar = null
         monthlyPeriod: currentMonth,
         updatedAt: new Date()
       });
-      console.log(`[Ranking] Created ${userName} (${userId}): ${points} points`);
+      console.log(`[Ranking] สร้างใหม่ ${userName} (${userId}): ${points} คะแนน`);
     }
 
-    // Broadcast ranking update
+    // ส่งข้อมูลการอัปเดต ranking ไปยัง clients ทั้งหมด
     const topRankings = await Ranking.find({}).sort({ points: -1 }).limit(10);
-    // Re-calculate ranks just in case (though pre-save handles it, bulk fetch is safer for display)
+    // คำนวณอันดับอีกครั้ง (pre-save hook จัดการแล้ว แต่การ fetch แบบ bulk ปลอดภัยกว่า)
     const formattedRankings = topRankings.map((r, index) => ({
       ...r.toObject(),
       rank: index + 1
     }));
-    // Use global io instance if available, otherwise we need to pass it or export it
-    // Assuming 'io' is available in this scope (it is defined at top level but this function is outside?)
-    // Wait, 'io' is defined in server.js scope.
-    // But addRankingPoint is defined at the bottom. Let's check scope.
-    // 'io' is defined at line 28. 'addRankingPoint' is at line 126.
-    // However, 'io' is const. It should be available if addRankingPoint is in the same file.
-    // But wait, I need to make sure 'io' is accessible.
-    // Let's check if I can access 'io'.
-    // Actually, I'll just emit if io is defined.
+    // ใช้ global io instance ถ้ามี (เพื่อ broadcast ไปยัง clients ทั้งหมด)
     if (typeof io !== 'undefined') {
       io.emit("ranking-update", formattedRankings);
     }
@@ -234,25 +255,27 @@ async function addRankingPoint(userId, name, amount, email = null, avatar = null
   }
 }
 
-// 🔥 ImageQueue now uses MongoDB (see ImageQueue model)
+// ===== การจัดการ ImageQueue (ใช้ MongoDB แทน memory - ดู ImageQueue model)
 let giftSettings = {
   tableCount: 10,
   items: []
 };
 
-// Load gift settings
+// ===== โหลดการตั้งค่าของขวัญจากไฟล์ =====
+// โหลดการตั้งค่าของขวัญ
 const giftSettingsPath = path.join(__dirname, "gift-settings.json");
 if (fs.existsSync(giftSettingsPath)) {
   try {
     const loaded = JSON.parse(fs.readFileSync(giftSettingsPath, "utf8"));
     giftSettings = { ...giftSettings, ...loaded };
   } catch (error) {
-    console.warn("Failed to read gift-settings.json, using defaults", error);
+    console.warn("ไม่สามารถอ่าน gift-settings.json ใช้ค่าเริ่มต้น", error);
   }
 } else {
   fs.writeFileSync(giftSettingsPath, JSON.stringify(giftSettings, null, 2));
 }
 
+// ===== ฟังก์ชันบันทึกการตั้งค่าของขวัญ =====
 function saveGiftSettings() {
   fs.writeFileSync(giftSettingsPath, JSON.stringify(giftSettings, null, 2));
 }
@@ -261,7 +284,10 @@ function saveGiftSettings() {
 // เปลี่ยนจาก JSON array เป็น checkHistoryIndex สำหรับความสำดวก
 let checkHistoryIndex = {};
 
-// ฟังก์ชันโหลดข้อมูลผู้ใช้จาก users.json
+/**
+ * ฟังก์ชันสำหรับโหลดข้อมูลผู้ใช้ Admin จากไฟล์ users.json
+ * ถ้าไม่มีไฟล์ จะสร้างผู้ใช้เริ่มต้น
+ */
 async function loadUsers() {
   try {
     const data = await fs.promises.readFile("users.json", "utf8");
@@ -279,7 +305,11 @@ async function loadUsers() {
   }
 }
 
-// ฟังก์ชันค้นหาผู้ใช้
+/**
+ * ฟังก์ชันค้นหาผู้ใช้จากฐานข้อมูล
+ * @param {string} username - ชื่อผู้ใช้
+ * @returns {Object|null} - ข้อมูลผู้ใช้หรือ null
+ */
 async function findUser(username) {
   try {
     const user = await AdminUser.findOne({ username });
@@ -290,7 +320,10 @@ async function findUser(username) {
   }
 }
 
-// ===== GIFT SETTINGS API =====
+// ===== API สำหรับจัดการการตั้งค่าของขวัญ (GIFT SETTINGS API) =====
+/**
+ * API สำหรับดึงการตั้งค่าของขวัญ (จำนวนโต๊ะ และรายการสินค้า)
+ */
 app.get("/api/gifts/settings", async (req, res) => {
   try {
     const gifts = await GiftSetting.find({});
@@ -311,7 +344,9 @@ app.get("/api/gifts/settings", async (req, res) => {
   }
 });
 
-// Helper to sync JSON with DB
+/**
+ * ฟังก์ชัน Helper สำหรับ sync ข้อมูล gift settings จาก DB ไปยัง JSON file
+ */
 async function syncGiftSettingsFromDB() {
   const gifts = await GiftSetting.find({});
   giftSettings.items = gifts.map(g => ({
@@ -325,6 +360,9 @@ async function syncGiftSettingsFromDB() {
   return giftSettings;
 }
 
+/**
+ * API สำหรับเพิ่มสินค้าใหม่เข้าระบบ
+ */
 app.post("/api/gifts/items", async (req, res) => {
   try {
     const { name, price, description, imageUrl } = req.body;
@@ -332,11 +370,13 @@ app.post("/api/gifts/items", async (req, res) => {
       return res.status(400).json({ success: false, message: "กรุณาระบุชื่อสินค้าและราคา" });
     }
 
+    // ตรวจสอบความถูกต้องของราคา
     const numPrice = Number(price);
     if (isNaN(numPrice) || numPrice < 0) {
       return res.status(400).json({ success: false, message: "ราคาต้องเป็นตัวเลขและไม่ติดลบ" });
     }
 
+    // สร้าง Gift Setting ใหม่ในฐานข้อมูล
     const newGift = new GiftSetting({
       giftId: Date.now().toString(),
       giftName: name.trim(),
@@ -355,7 +395,7 @@ app.post("/api/gifts/items", async (req, res) => {
       imageUrl: savedGift.image
     };
 
-    // Sync with DB to ensure consistency
+    // Sync กับ DB เพื่อความสอดคล้องข้อมูล
     await syncGiftSettingsFromDB();
 
     res.json({ success: true, item, settings: giftSettings });
@@ -365,6 +405,9 @@ app.post("/api/gifts/items", async (req, res) => {
   }
 });
 
+/**
+ * API สำหรับแก้ไขข้อมูลสินค้า
+ */
 app.put("/api/gifts/items/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -400,7 +443,7 @@ app.put("/api/gifts/items/:id", async (req, res) => {
       imageUrl: updatedGift.image
     };
 
-    // Sync with DB to ensure consistency
+    // Sync กับ DB เพื่อความสอดคล้องข้อมูล
     await syncGiftSettingsFromDB();
 
     res.json({ success: true, item, settings: giftSettings });
@@ -410,7 +453,10 @@ app.put("/api/gifts/items/:id", async (req, res) => {
   }
 });
 
-// Helper function to delete image
+/**
+ * ฟังก์ชัน Helper สำหรับลบไฟล์รูปภาพ
+ * @param {string} imagePath - Path ของไฟล์รูปภาพ
+ */
 const deleteImageFile = (imagePath) => {
   if (!imagePath) return;
   try {
@@ -432,6 +478,9 @@ const deleteImageFile = (imagePath) => {
   }
 };
 
+/**
+ * API สำหรับลบสินค้า
+ */
 app.delete("/api/gifts/items/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -442,12 +491,12 @@ app.delete("/api/gifts/items/:id", async (req, res) => {
       return res.status(404).json({ success: false, message: "ไม่พบรายการ" });
     }
 
-    // Delete image file if exists
+    // ลบไฟล์รูปภาพถ้ามี
     if (deletedGift.image) {
       deleteImageFile(deletedGift.image);
     }
 
-    // Sync with DB to ensure consistency
+    // Sync กับ DB เพื่อความสอดคล้องข้อมูล
     await syncGiftSettingsFromDB();
 
     res.json({ success: true, settings: giftSettings });
@@ -457,6 +506,9 @@ app.delete("/api/gifts/items/:id", async (req, res) => {
   }
 });
 
+/**
+ * API สำหรับอัปเดตจำนวนโต๊ะที่รองรับ
+ */
 app.patch("/api/gifts/table-count", (req, res) => {
   const { tableCount } = req.body;
   const parsed = Number(tableCount);
@@ -468,13 +520,15 @@ app.patch("/api/gifts/table-count", (req, res) => {
   res.json({ success: true, tableCount: parsed });
 });
 
-// API สำหรับอัปโหลดรูปภาพ Gift (ใช้ giftStorage)
+/**
+ * API สำหรับอัปโหลดรูปภาพ Gift (ใช้ giftStorage สำหรับ upload ไป Cloudinary)
+ */
 app.post("/api/gifts/upload", uploadGift.single("image"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: "No file uploaded" });
     }
-    // Cloudinary returns URL in req.file.path
+    // Cloudinary คืน URL ใน req.file.path
     const fileUrl = req.file.path;
     console.log("[Admin] ✓ Gift image uploaded to Cloudinary:", fileUrl);
     res.json({ success: true, url: fileUrl });
@@ -484,9 +538,11 @@ app.post("/api/gifts/upload", uploadGift.single("image"), async (req, res) => {
   }
 });
 
-// ===== Ranking APIs =====
-
-// ดึง ranking ทั้งหมดหรือตามจำนวนที่กำหนด (รองรับทั้ง daily, monthly, alltime)
+// ===== API สำหรับจัดการ Ranking (อันดับผู้สนับสนุน) =====
+/**
+ * API ดึง ranking ทั้งหมดหรือตามจำนวนที่กำหนด
+ * รองรับทั้ง daily, monthly, alltime
+ */
 app.get("/api/rankings", async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
@@ -506,12 +562,13 @@ app.get("/api/rankings", async (req, res) => {
       sortField = { monthlyPoints: -1 };
     }
 
+    // ค้นหาและเรียงข้อมูลตามประเภท
     const rankings = await Ranking.find(query)
       .sort(sortField)
       .limit(limit)
       .lean();
 
-    // Add position field
+    // เพิ่มฟิลด์ position ให้กับแต่ละรายการ
     const ranksWithPosition = rankings.map((r, idx) => ({
       ...r,
       position: idx + 1
@@ -530,7 +587,9 @@ app.get("/api/rankings", async (req, res) => {
   }
 });
 
-// ดึง top 3 สำหรับ backward compatibility
+/**
+ * API ดึง top 3 rankings สำหรับ backward compatibility
+ */
 app.get("/api/rankings/top", async (req, res) => {
   try {
     const type = req.query.type || "alltime";
@@ -565,7 +624,10 @@ app.get("/api/rankings/top", async (req, res) => {
   }
 });
 
-// อัปเดต avatar ของ user ใน ranking (ถูกเรียกจาก User Backend เมื่อมีการเปลี่ยน avatar)
+/**
+ * API อัปเดต avatar ของ user ใน ranking
+ * ถูกเรียกจาก User Backend เมื่อมีการเปลี่ยน avatar
+ */
 app.put("/api/rankings/update-avatar", async (req, res) => {
   try {
     const { userId, email, avatar, username } = req.body;
@@ -601,7 +663,7 @@ app.put("/api/rankings/update-avatar", async (req, res) => {
       });
     } else {
       // ถ้ายังไม่มี ranking record ก็ไม่ต้องสร้าง (จะสร้างตอนซื้อครั้งแรก)
-      console.log(`[Ranking] No ranking record found for user, will create on first purchase`);
+      console.log(`[Ranking] ไม่พบ ranking record สำหรับ user จะสร้างตอนซื้อครั้งแรก`);
       return res.json({
         success: true,
         message: "No ranking record yet, will update on first purchase"
@@ -616,13 +678,14 @@ app.put("/api/rankings/update-avatar", async (req, res) => {
   }
 });
 
-// ===== Birthday Spending Requirement APIs =====
-
-// ดึงค่า birthday spending requirement
+// ===== API สำหรับจัดการค่าขั้นต่ำการใช้จ่ายสำหรับวันเกิด (Birthday Spending Requirement) =====
+/**
+ * API ดึงค่า birthday spending requirement
+ */
 app.get("/api/config/birthday-requirement", (req, res) => {
   try {
     const settingsPath = path.join(__dirname, "settings.json");
-    let birthdayRequirement = 100; // default
+    let birthdayRequirement = 100; // ค่าเริ่มต้น
 
     if (fs.existsSync(settingsPath)) {
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
@@ -639,7 +702,9 @@ app.get("/api/config/birthday-requirement", (req, res) => {
   }
 });
 
-// อัปเดตค่า birthday spending requirement
+/**
+ * API อัปเดตค่า birthday spending requirement
+ */
 app.post("/api/config/birthday-requirement", (req, res) => {
   try {
     const { birthdaySpendingRequirement } = req.body;
@@ -674,9 +739,10 @@ app.post("/api/config/birthday-requirement", (req, res) => {
   }
 });
 
-// ===== Perks Management APIs =====
-
-// ดึงรายการสิทธิพิเศษ
+// ===== API สำหรับจัดการสิทธิพิเศษ (Perks Management) =====
+/**
+ * API ดึงรายการสิทธิพิเศษทั้งหมด
+ */
 app.get("/api/config/perks", (req, res) => {
   try {
     const settingsPath = path.join(__dirname, "settings.json");
@@ -685,7 +751,7 @@ app.get("/api/config/perks", (req, res) => {
       "🌟 ป้าย Diamond/Gold/Silver ที่ช่วยแยกความโดดเด่น",
       "💎 สิทธิเข้าถึงโปรโมชั่นพิเศษหรือกิจกรรมทดลองใหม่",
       "💬 ช่องทางติดต่อทีมเซทอัพสำหรับแคลงค่า"
-    ]; // default perks
+    ]; // สิทธิพิเศษเริ่มต้น
 
     if (fs.existsSync(settingsPath)) {
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
@@ -704,7 +770,9 @@ app.get("/api/config/perks", (req, res) => {
   }
 });
 
-// อัปเดตรายการสิทธิพิเศษ
+/**
+ * API อัปเดตรายการสิทธิพิเศษ
+ */
 app.post("/api/config/perks", (req, res) => {
   try {
     const { perks } = req.body;
@@ -716,7 +784,7 @@ app.post("/api/config/perks", (req, res) => {
       });
     }
 
-    // Validate each perk is a non-empty string
+    // ตรวจสอบว่าแต่ละ perk เป็น string ที่ไม่ว่างเปล่า
     const validPerks = perks.filter(perk => typeof perk === 'string' && perk.trim().length > 0);
 
     if (validPerks.length === 0) {
@@ -748,7 +816,9 @@ app.post("/api/config/perks", (req, res) => {
   }
 });
 
-// ตรวจสอบว่า user มีสิทธิ์ใช้ฟีเจอร์วันเกิดหรือไม่
+/**
+ * API ตรวจสอบว่า user มีสิทธิ์ใช้ฟีเจอร์วันเกิดหรือไม่ (ครบยอดใช้จ่ายตามเงื่อนไข)
+ */
 app.get("/api/birthday-eligibility/:email", async (req, res) => {
   try {
     const email = decodeURIComponent(req.params.email);
@@ -767,7 +837,7 @@ app.get("/api/birthday-eligibility/:email", async (req, res) => {
     const userRanking = await Ranking.findOne({ email });
     const totalSpent = userRanking ? (userRanking.points || 0) : 0;
 
-    // ดึงค่า requirement
+    // ดึงค่า requirement จาก settings
     const settingsPath = path.join(__dirname, "settings.json");
     let birthdayRequirement = 100;
 
@@ -791,7 +861,10 @@ app.get("/api/birthday-eligibility/:email", async (req, res) => {
   }
 });
 
-
+/**
+ * API สำหรับรับคำสั่งซื้อของขวัญจาก User Backend
+ * บันทึกลง ImageQueue และจัดการ ranking ถ้า user login
+ */
 app.post("/api/gifts/order", async (req, res) => {
   try {
     console.log("[Admin] Received gift order:", JSON.stringify(req.body, null, 2));
@@ -960,8 +1033,9 @@ app.post("/api/upload", uploadUser, async (req, res) => {
       console.log("[Admin] User meets birthday spending requirement, proceeding...");
     }
 
-    console.log("[Admin] Creating upload item with type:", type);
+    console.log("[Admin] สร้าง upload item ด้วยประเภท:", type);
 
+    // สร้างข้อมูลสำหรับบันทึกลง ImageQueue
     const itemData = {
       type: type || "image",
       text: text || "",
@@ -999,18 +1073,21 @@ app.post("/api/upload", uploadUser, async (req, res) => {
   }
 });
 
-// API สำหรับดูคิวรูปภาพ - เรียงตามวันที่เวลา (เก่าไปใหม่)
+/**
+ * API สำหรับดูคิวรูปภาพทั้งหมด - เรียงตามวันที่เวลา (เก่าไปใหม่)
+ * ดึงเฉพาะรายการที่ยังไม่เสร็จ (pending, approved, playing)
+ */
 app.get("/api/queue", async (req, res) => {
   try {
-    console.log("=== Queue request received");
+    console.log("=== มีการขอ Queue request");
 
     // ดึงรายการที่ยังไม่เสร็จ (pending + approved + playing) - ไม่รวม payment_pending
     const queueItems = await ImageQueue.find({ status: { $in: ['pending', 'approved', 'playing'] } })
       .sort({ receivedAt: 1 })
       .lean();
 
-    console.log("Current queue length:", queueItems.length);
-    console.log("Returning sorted images from MongoDB");
+    console.log("ความยาวคิวปัจจุบัน:", queueItems.length);
+    console.log("คืนรายการที่เรียงลำดับจาก MongoDB");
     res.json(queueItems);
   } catch (error) {
     console.error('Error fetching queue:', error);
@@ -1018,24 +1095,27 @@ app.get("/api/queue", async (req, res) => {
   }
 });
 
-// API สำหรับยืนยันการชำระเงินและเข้าคิว
+/**
+ * API สำหรับยืนยันการชำระเงินและเข้าคิว
+ * เปลี่ยนสถานะจาก payment_pending เป็น pending
+ */
 app.post("/api/confirm-payment/:uploadId", async (req, res) => {
   try {
     const { uploadId } = req.params;
     const { userId, email, avatar } = req.body;
 
-    console.log(`[Admin] Confirming payment for upload: ${uploadId}`);
+    console.log(`[Admin] ยืนยันการชำระเงินสำหรับ upload: ${uploadId}`);
 
     // ค้นหา queue item
     const queueItem = await ImageQueue.findById(uploadId);
 
     if (!queueItem) {
-      console.log("[Admin] Upload not found");
+      console.log("[Admin] ไม่พบข้อมูลการ upload");
       return res.status(404).json({ success: false, error: "ไม่พบข้อมูลการอัปโหลด" });
     }
 
     if (queueItem.status !== "payment_pending") {
-      console.log("[Admin] Upload already processed or invalid status:", queueItem.status);
+      console.log("[Admin] ข้อมูลถูกประมวลผลแล้วหรือสถานะไม่ถูกต้อง:", queueItem.status);
       return res.status(400).json({ success: false, error: "สถานะการอัปโหลดไม่ถูกต้อง" });
     }
 
@@ -1049,7 +1129,7 @@ app.post("/api/confirm-payment/:uploadId", async (req, res) => {
       addRankingPoint(userId, queueItem.sender, queueItem.price, email, avatar);
     }
 
-    console.log("[Admin] Payment confirmed, item moved to queue");
+    console.log("[Admin] ยืนยันการชำระเงินแล้ว, ย้าย item เข้าคิว");
     res.json({ success: true, queueItem });
   } catch (error) {
     console.error("[Admin] Error confirming payment:", error);
@@ -1057,22 +1137,25 @@ app.post("/api/confirm-payment/:uploadId", async (req, res) => {
   }
 });
 
-// API สำหรับอัพเดทสถานะรูปที่กำลังแสดง + broadcast ไป OBS overlay
+/**
+ * API สำหรับอัพเดทสถานะรูปที่กำลังแสดง + broadcast ไป OBS overlay
+ * Force complete รายการที่กำลังแสดงอยู่ก่่อนเพื่อป้องกัน stuck items
+ */
 app.post("/api/playing/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    console.log("=== Marking as playing:", id);
+    console.log("=== เปลี่ยนสถานะเป็นกำลังเล่น:", id);
 
-    // Find any currently playing items and complete them first (Force complete)
+    // ค้นหารายการที่กำลังเล่นอยู่แล้วและบันทึกเสร็จก่อน (Force complete)
     const currentlyPlaying = await ImageQueue.find({ status: 'playing', _id: { $ne: id } });
     for (const playingItem of currentlyPlaying) {
-      console.log(`[Auto-Complete] Force completing stuck item: ${playingItem._id}`);
+      console.log(`[Auto-Complete] บันทึกเสร็จสิ้นอัตโนมัติสำหรับ item ที่ค้าง: ${playingItem._id}`);
 
-      // Use shared function
+      // ใช้ shared function
       await completeItem(playingItem);
     }
 
-    // Update status to 'playing'
+    // อัปเดตสถานะเป็น 'playing'
     const updated = await ImageQueue.findByIdAndUpdate(
       id,
       {
@@ -1098,7 +1181,7 @@ app.post("/api/playing/:id", async (req, res) => {
     // ส่ง event ไป overlay ให้ OBS ทราบว่ามีรูปใหม่กำลังเล่น
     // ถ้าเป็น Gift ให้ใช้ event พิเศษและส่งข้อมูลเพิ่มเติม
     if (updated.type === "gift" && updated.giftOrder) {
-      console.log('[Playing] Sending now-playing-gift event');
+      console.log('[Playing] ส่ง now-playing-gift event');
       io.emit("now-playing-gift", {
         id: updated._id?.toString(),
         sender: updated.sender || "Guest",
@@ -1111,7 +1194,7 @@ app.post("/api/playing/:id", async (req, res) => {
         type: "gift"
       });
     } else {
-      console.log('[Playing] Sending now-playing-image event (not gift)');
+      console.log('[Playing] ส่ง now-playing-image event (ไม่ใช่ gift)');
       io.emit("now-playing-image", {
         id: updated._id?.toString(),
         sender: updated.sender,

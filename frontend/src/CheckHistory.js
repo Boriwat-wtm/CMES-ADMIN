@@ -1,24 +1,36 @@
+/**
+ * คอมโพเนนต์สำหรับแสดงประวัติการตรวจสอบทั้งหมด
+ * รวมถึงข้อความ รูปภาพ ของขวัญ และวันเกิด
+ */
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { API_BASE_URL, REALTIME_URL } from "./config/apiConfig";
 import "./CheckHistory.css";
 
 function CheckHistory() {
+  // state สำหรับเก็บประวัติทั้งหมด
   const [history, setHistory] = useState([]);
+  // state สำหรับเก็บรายการที่เลือกดูรายละเอียด
   const [selected, setSelected] = useState(null);
+  // state สำหรับควบคุมการแสดง/ซ่อน modal รายละเอียด
   const [showModal, setShowModal] = useState(false);
+  // state สำหรับเปิด/ปิดโหมดแก้ไข (แสดงปุ่มลบ)
   const [editMode, setEditMode] = useState(false);
 
+  // โหลดประวัติเมื่อคอมโพเนนต์ถูก mount
   useEffect(() => {
     fetchHistory();
   }, []);
 
+  /**
+   * ฟังก์ชันสำหรับดึงข้อมูลประวัติการตรวจสอบจาก API
+   */
   const fetchHistory = () => {
     fetch(`${API_BASE_URL}/api/check-history`)
       .then((res) => res.json())
       .then((data) => {
         console.log("[CheckHistory] Fetched data:", data);
-        // Debug: Check if images have filePath
+        // Debug: ตรวจสอบว่ารูปภาพมี filePath หรือไม่
         const imagesWithPath = data.filter(item => item.type === 'image');
         console.log("[CheckHistory] Images with filePath:", imagesWithPath.map(i => ({
           id: i.id,
@@ -32,6 +44,10 @@ function CheckHistory() {
       });
   };
 
+  /**
+   * ฟังก์ชันสำหรับลบรายการประวัติทีละรายการ
+   * @param {number} id - ID ของรายการที่ต้องการลบ
+   */
   const handleDelete = async (id) => {
     if (!window.confirm("ยืนยันการลบรายการนี้?")) return;
     await fetch(`${API_BASE_URL}/api/delete-history`, {
@@ -39,34 +55,49 @@ function CheckHistory() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
+    // โหลดข้อมูลใหม่หหลังจากลบ
     fetchHistory();
   };
 
+  /**
+   * ฟังก์ชันสำหรับลบประวัติทั้งหมด
+   */
   const handleDeleteAll = async () => {
     if (!window.confirm("ยืนยันการลบประวัติทั้งหมด?")) return;
     await fetch(`${API_BASE_URL}/api/delete-all-history`, {
       method: "POST",
     });
+    // โหลดข้อมูลใหม่หลังจากลบ
     fetchHistory();
   };
 
+  // แยกประวัติตามประเภท
   const textHistory = history.filter((item) => item.type === "text");
   const imageHistory = history.filter((item) => item.type === "image");
   const giftHistory = history.filter((item) => item.type === "gift");
   const birthdayHistory = history.filter((item) => item.type === "birthday");
 
-  // Helper to ensure filePath has leading slash
+  /**
+   * ฟังก์ชันสำหรับแปลง filePath ให้เป็น URL เต็มรูปแบบ
+   * @param {string} filePath - path ของไฟล์รูปภาพ
+   * @returns {string|null} - URL เต็มรูปแบบหรือ null
+   */
   const getImageUrl = (filePath) => {
     if (!filePath) return null;
-    // If filePath is already a full URL (Cloudinary, etc.), use it directly
+    // ถ้า filePath เป็น URL เต็มรูปแบบอยู่แล้ว (Cloudinary, etc.) ให้ใช้ตรง ๆ
     if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
       return filePath;
     }
-    // Otherwise, prepend base URL
+    // ถ้าไม่ใช่ ให้เติม base URL เข้าไป
     const normalizedPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
     return `${API_BASE_URL}${normalizedPath}`;
   };
 
+  /**
+   * ฟังก์ชันสำหรับแปลงวันที่เป็นรูปแบบภาษาไทย
+   * @param {string} dateString - วันที่ในรูปแบบ ISO string
+   * @returns {string} - วันที่ในรูปแบบที่จัดรูปแบบแล้ว
+   */
   const formatDate = (dateString) => {
     if (!dateString) return "-";
     return new Date(dateString).toLocaleString("th-TH", {
@@ -79,6 +110,13 @@ function CheckHistory() {
     });
   };
 
+  /**
+   * ฟังก์ชันสำหรับ render การ์ดแสดงประวัติตามประเภท
+   * @param {string} title - ชื่อประเภทประวัติ
+   * @param {string} color - สีของหัวข้อ
+   * @param {array} items - รายการประวัติ
+   * @param {string} emptyMessage - ข้อความเมื่อไม่มีข้อมูล
+   */
   const renderHistoryCard = (title, color, items, emptyMessage) => (
     <div className="ch-card">
       <div className="ch-card-header">
@@ -113,6 +151,7 @@ function CheckHistory() {
                   <b>รายละเอียด:</b> {item.text}
                 </div>
               )}
+              {/* แสดงรายการของขวัญ (ถ้ามี) */}
               {item.giftItems && item.giftItems.length > 0 && (
                 <div style={{ color: "#1e293b", background: "#f8fafc", padding: "8px", borderRadius: "6px", fontSize: "0.9rem" }}>
                   <div style={{ fontWeight: "bold", marginBottom: "4px", color: "#f59e0b" }}>รายการของขวัญ:</div>
@@ -128,6 +167,7 @@ function CheckHistory() {
                   <b>ราคา:</b> {item.price === 0 ? 'ฟรี' : `${item.price} บาท`}
                 </div>
               )}
+              {/* แสดงสถานะ */}
               <div style={{ color: "#1e293b" }}>
                 <b>สถานะ:</b> {
                   item.status === "approved" ? "อนุมัติ" :
@@ -135,6 +175,7 @@ function CheckHistory() {
                       "ปฏิเสธ"
                 }
               </div>
+              {/* แสดงรูปภาพ (ถ้ามี) */}
               {item.filePath && (
                 <div>
                   <img
@@ -157,6 +198,7 @@ function CheckHistory() {
                   </div>
                 </div>
               )}
+              {/* ปุ่มดูรายละเอียดเพิ่มเติม */}
               <button
                 className="ch-btn-detail"
                 onClick={() => {
@@ -167,6 +209,7 @@ function CheckHistory() {
                 ตรวจสอบรายละเอียด
               </button>
             </div>
+            {/* แสดงปุ่มลบเมื่ออยู่ในโหมดแก้ไข */}
             {editMode && (
               <button
                 className="ch-btn-delete"
@@ -181,6 +224,7 @@ function CheckHistory() {
     </div>
   );
 
+  // ส่วนแสดงผล UI หลัก
   return (
     <div className="ch-main-bg">
       <header className="ch-header">
@@ -224,6 +268,7 @@ function CheckHistory() {
           {renderHistoryCard("วันเกิด", "#ef4444", birthdayHistory, "ไม่มีประวัติวันเกิด")}
         </div>
       </main>
+      {/* Modal สำหรับแสดงรายละเอียดเต็มรูปแบบ */}
       {showModal && selected && (
         <div className="ch-modal-bg">
           <div className="ch-modal-content">
@@ -239,14 +284,14 @@ function CheckHistory() {
             <div style={{ marginBottom: 8 }}>
               <b>ID:</b> {selected.id}
             </div>
-            {/* --- Common Fields --- */}
+            {/* ฟิลด์ข้อมูลทั่วไป */}
             {selected.type && (
               <div style={{ marginBottom: 8 }}>
                 <b>ประเภท:</b> {selected.type}
               </div>
             )}
 
-            {/* --- Content Fields --- */}
+            {/* ฟิลด์เนื้อหา */}
             {selected.text && (
               <div style={{ marginBottom: 8 }}>
                 <b>ข้อความ:</b> {selected.text}
@@ -258,7 +303,7 @@ function CheckHistory() {
               </div>
             )}
 
-            {/* --- Media --- */}
+            {/* สื่อ (รูปภาพ) */}
             {selected.filePath && (
               <div style={{ marginBottom: 8 }}>
                 <b>รูปภาพ:</b>
@@ -283,7 +328,7 @@ function CheckHistory() {
               </div>
             )}
 
-            {/* --- Status & User --- */}
+            {/* สถานะและข้อมูลผู้ใช้ */}
             <div style={{ marginBottom: 8 }}>
               <b>สถานะ:</b> {
                 selected.status === "approved" ? "อนุมัติ" :
@@ -298,14 +343,14 @@ function CheckHistory() {
               </div>
             )}
 
-            {/* --- Social Info --- */}
+            {/* ข้อมูล Social Media */}
             {selected.social && selected.social.type && (
               <div style={{ marginBottom: 8 }}>
                 <b>Social:</b> {selected.social.type} ({selected.social.name})
               </div>
             )}
 
-            {/* --- Gift Specific --- */}
+            {/* ข้อมูลเฉพาะของขวัญ */}
             {selected.tableNumber > 0 && (
               <div style={{ marginBottom: 8 }}>
                 <b>โต๊ะ:</b> {selected.tableNumber}
@@ -323,14 +368,14 @@ function CheckHistory() {
               </div>
             )}
 
-            {/* --- Price --- */}
+            {/* ราคา */}
             {selected.price !== undefined && (
               <div style={{ marginBottom: 8 }}>
                 <b>ราคา:</b> {selected.price === 0 ? 'ฟรี' : `${selected.price} บาท`}
               </div>
             )}
 
-            {/* --- Timestamps --- */}
+            {/* ข้อมูลเวลาต่าง ๆ */}
             <div style={{ marginTop: 12, borderTop: "1px solid #e2e8f0", paddingTop: 8 }}>
               {selected.createdAt && (
                 <div style={{ marginBottom: 4, fontSize: "0.9em" }}>

@@ -451,7 +451,7 @@
 </head>
 
 <body>
-  <!-- Image/Text Overlay -->
+  <!-- ส่วนแสดงรูปภาพ/ข้อความ -->
   <div id="container">
     <!-- รูปภาพด้านซ้าย -->
     <div id="image-section">
@@ -460,35 +460,35 @@
 
     <!-- ข้อความและ QR Code ด้านขวา -->
     <div id="info-section">
-      <!-- Social Name -->
+      <!-- ชื่อโซเชียล -->
       <div id="social-container">
         <img id="social-logo" alt="" />
         <span id="social-name"></span>
       </div>
 
-      <!-- Text -->
+      <!-- ข้อความ -->
       <div id="text"></div>
 
-      <!-- QR Code -->
+      <!-- คิวอาร์โค้ด -->
       <div id="qr-container">
         <img id="qr-image" alt="QR Code" />
       </div>
-      <!-- Countdown Timer -->
+      <!-- ตัวนับถอยหลัง -->
       <div id="countdown-timer">0:00</div>
     </div>
   </div>
 
-  <!-- Cyberpunk Gift Card Overlay -->
+  <!-- ส่วนแสดงการ์ดของขวัญ Cyberpunk -->
   <div id="gift-container">
     <div class="cyberpunk-gift-card">
-      <!-- Header -->
+      <!-- ส่วนหัว -->
       <div class="gift-header">
         <span class="gift-sparkle">✨</span>
         <h2 class="gift-header-title">NEW GIFT INCOMING!</h2>
         <span class="gift-sparkle">✨</span>
       </div>
 
-      <!-- Sender -->
+      <!-- ผู้ส่ง -->
       <div class="gift-sender">
         <div class="gift-avatar-ring">
           <div class="gift-avatar" id="gift-avatar">
@@ -498,24 +498,24 @@
         <div class="gift-sender-name" id="gift-sender-name">⭐ คุณ Guest ⭐</div>
       </div>
 
-      <!-- Arrow -->
+      <!-- ลูกศร -->
       <div class="gift-arrow">⬇️ จัดส่งให้ ⬇️</div>
 
-      <!-- Table -->
+      <!-- โต๊ะ -->
       <div class="gift-table">
         <div class="gift-table-badge" id="gift-table-number">โต๊ะ 1</div>
       </div>
 
-      <!-- Divider -->
+      <!-- เส้นแบ่ง -->
       <div class="gift-divider"></div>
 
-      <!-- Items -->
+      <!-- รายการสินค้า -->
       <div class="gift-items" id="gift-items"></div>
 
-      <!-- Divider -->
+      <!-- เส้นแบ่ง -->
       <div class="gift-divider"></div>
 
-      <!-- Note -->
+      <!-- หมายเหตุ -->
       <div class="gift-note" id="gift-note-section" style="display: none;">
         <p class="gift-note-text" id="gift-note-text"></p>
       </div>
@@ -553,15 +553,15 @@
     const imageSection = document.getElementById('image-section');
     const infoSection = document.getElementById('info-section');
 
-    // Social
+    // โซเชียล
     const socialContainer = document.getElementById('social-container');
     const socialLogo = document.getElementById('social-logo');
     const socialName = document.getElementById('social-name');
 
-    // Text
+    // ข้อความ
     const textEl = document.getElementById('text');
 
-    // QR Code
+    // คิวอาร์โค้ด
     const qrContainer = document.getElementById('qr-container');
     const qrImage = document.getElementById('qr-image');
 
@@ -580,12 +580,12 @@
     function show(payload = {}) {
       console.log('[Combined Overlay] Received payload:', payload);
 
-      // Clear previous
+      // ลบข้อมูลก่อนหน้า
       clearInterval(countdownInterval);
       clearTimeout(hideTimer);
       clearTimeout(giftHideTimer);
 
-      // Reset Countdown/Pause State
+      // รีเซ็ตสถานะการนับถอยหลัง/หยุด
       const timerEl = document.getElementById('countdown-timer');
       if (timerEl) {
         timerEl.classList.remove('show');
@@ -749,7 +749,7 @@
       console.log('[OBS] Pause display received:', data);
       isPaused = true;
       
-      // Update Countdown
+      // อัปเดตการนับถอยหลัง
       const timerEl = document.getElementById('countdown-timer');
       
       // ถ้าเป็นโหมดนับถอยหลังรอคิว (Auto Delay) ให้ซ่อนการแสดงผลทั้งหมด
@@ -787,7 +787,7 @@
     });
 
 
-    // Gift Order Display
+    // แสดงออเดอร์ของขวัญ
     const giftContainer = document.getElementById('gift-container');
     const giftAvatar = document.getElementById('gift-avatar');
     const giftAvatarInitial = document.getElementById('gift-avatar-initial');
@@ -817,20 +817,20 @@
         duration = 30
       } = payload;
 
-      // Debug log
+      // บันทึกข้อมูล Debug
       console.log('[Gift] Sender:', sender);
       console.log('[Gift] Items:', items);
       console.log('[Gift] Items length:', items.length);
       console.log('[Gift] Gift Settings:', giftSettingsItems);
 
-      // Set sender info
+      // ตั้งค่าข้อมูลผู้ส่ง
       giftSenderName.textContent = `⭐ คุณ ${sender} ⭐`;
       
-      // Set avatar
+      // ตั้งค่ารูปโปรไฟล์
       if (avatar) {
-        // Avatar comes from User Backend (port 4000)
-        // If it's a full URL, use it directly. If it's a relative path, prepend user backend URL.
-        // It might also be a Google avatar which is a full URL.
+        // รูปโปรไฟล์มาจาก User Backend (port 4000)
+        // ถ้าเป็น URL เต็ม ใช้โดยตรง ถ้าเป็น path สัมพัทธ์ ใส่ URL backend ด้านหน้า
+        // อาจเป็นรูปจาก Google ซึ่งเป็น URL เต็ม
         const avatarUrl = (avatar.startsWith && avatar.startsWith('http')) ? avatar : `https://cmes-user.onrender.com${avatar}`;
         console.log('[OBS] Loading avatar:', avatarUrl);
 
@@ -845,17 +845,17 @@
           giftAvatar.innerHTML = `<span class="gift-avatar-initial">${sender.charAt(0).toUpperCase()}</span>`;
         };
 
-        // Clear existing content and append new image
+        // ล้างเนื้อหาเดิมและเพิ่มรูปใหม่
         giftAvatar.innerHTML = '';
         giftAvatar.appendChild(avatarImg);
       } else {
         giftAvatar.innerHTML = `<span class="gift-avatar-initial">${sender.charAt(0).toUpperCase()}</span>`;
       }
 
-      // Set table
+      // ตั้งค่าหมายเลขโต๊ะ
       giftTableNumber.textContent = `โต๊ะ ${tableNumber}`;
 
-      // Set items
+      // ตั้งค่ารายการสินค้า
       if (!items || items.length === 0) {
         console.warn('[Gift] No items found in payload!');
         giftItems.innerHTML = `
@@ -893,7 +893,7 @@
         `}).join('');
       }
 
-      // Set note
+      // ตั้งค่าหมายเหตุ
       if (note) {
         giftNoteText.textContent = `"${note}"`;
         giftNoteSection.style.display = 'block';
@@ -901,14 +901,14 @@
         giftNoteSection.style.display = 'none';
       }
 
-      // Show gift container
+      // แสดงส่วนของขวัญ
       giftContainer.classList.add('show');
 
       // ใช้เวลาจาก payload (30 วินาที)
       const displayTime = time || duration || 30;
       console.log('[Gift] Display time:', displayTime, 'seconds');
 
-      // Hide after duration
+      // ซ่อนหลังจากครบระยะเวลา
       clearTimeout(giftHideTimer);
       giftHideTimer = setTimeout(() => {
         giftContainer.classList.remove('show');
@@ -918,7 +918,7 @@
       }, displayTime * 1000);
     }
   </script>
-  <!-- Lucky Wheel CSS -->
+  <!-- CSS วงล้อโชคดี -->
   <style>
     #wheel-overlay {
       position: fixed;
@@ -1030,23 +1030,23 @@
     }
   </style>
 
-  <!-- HTML Structure -->
+  <!-- โครงสร้าง HTML -->
   <div id="wheel-overlay">
     <div class="wheel-main-container">
-      <!-- Arrow -->
+      <!-- ลูกศร -->
       <svg class="wheel-arrow" viewBox="0 0 36 36">
         <polygon points="18,24 28,0 18,6 8,0" fill="#fbbf24" stroke="#eab308" stroke-width="2"/>
       </svg>
-      <!-- Wheel SVG Container -->
+      <!-- ส่วนแสดงวงล้อ SVG -->
       <div id="obs-wheel-svg-container" class="obs-wheel-svg"></div>
       
-      <!-- Countdown -->
+      <!-- นับถอยหลัง -->
       <div id="wheel-countdown-container" style="display:none;">
         <div id="wheel-countdown-text" class="countdown-number">10</div>
       </div>
     </div>
 
-    <!-- Winner Modal -->
+    <!-- หน้าต่างผู้ชนะ -->
     <div id="wheel-winner-modal">
       <div style="font-size: 4rem;">🎉✨</div>
       <div class="winner-title">ผู้โชคดีคือ</div>
@@ -1056,7 +1056,7 @@
   </div>
 
   <script>
-    // --- Lucky Wheel Logic ---
+    // --- ตรรกะวงล้อโชคดี ---
     const wheelOverlay = document.getElementById('wheel-overlay');
     const wheelSvgContainer = document.getElementById('obs-wheel-svg-container');
     const wheelCountdownContainer = document.getElementById('wheel-countdown-container');
@@ -1086,7 +1086,7 @@
         const largeArc = arc > Math.PI ? 1 : 0;
         const pathData = `M 0 0 L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`;
         
-        // Text rotation
+        // หมุนข้อความ
         const angle = startAngle + arc / 2;
         const textRadius = radius * 0.65;
         const tx = textRadius * Math.cos(angle);
@@ -1110,11 +1110,11 @@
       </svg>`;
     }
 
-    // --- Lucky Wheel Logic moved to obs-lucky-wheel.html ---
-    // Please add https://cmes-admin-realtime.onrender.com/obs-lucky-wheel.html as a new Browser Source in OBS
+    // --- ตรรกะวงล้อโชคดีย้ายไปที่ obs-lucky-wheel.html ---
+    // กรุณาเพิ่ม https://cmes-admin-realtime.onrender.com/obs-lucky-wheel.html เป็น Browser Source ใหม่ใน OBS
     /*
     socket.on('lucky-wheel-spin', (data) => {
-       // ... moved ...
+       // ... ย้ายแล้ว ...
     });
     */
     // -------------------------------------------------------

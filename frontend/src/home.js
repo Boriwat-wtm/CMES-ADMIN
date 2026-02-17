@@ -3,12 +3,16 @@ import { io } from "socket.io-client";
 import { API_BASE_URL, REALTIME_URL } from "./config/apiConfig";
 import "./home.css";
 
-// Realtime Server URL
+// เชื่อมต่อกับ Realtime Server สำหรับการอัพเดทแบบ Real-time
 const socket = io(REALTIME_URL);
 
+// จำนวนอันดับสูงสุดที่จะแสดงในหน้าหลัก (Top 10)
 const RANK_LIMIT = 10;
 
+// ฟังก์ชันจัดรูปแบบตัวเลขเป็นสกุลเงินไทย (เช่น 1,000)
 const formatCurrency = (value) => Number(value || 0).toLocaleString("th-TH");
+
+// ฟังก์ชันจัดรูปแบบวันที่และเวลาเป็นภาษาไทย
 const formatUpdatedAt = (value) => {
   if (!value) return "-";
   const date = new Date(value);
@@ -20,59 +24,63 @@ const formatUpdatedAt = (value) => {
 };
 
 function Home() {
-  const [systemOn, setSystemOn] = useState(true);
-  const [enableImage, setEnableImage] = useState(true);
-  const [enableText, setEnableText] = useState(true);
-  const [enableGift, setEnableGift] = useState(true);
-  const [enableBirthday, setEnableBirthday] = useState(true);
-  const [birthdaySpendingRequirement, setBirthdaySpendingRequirement] = useState(100);
-  const [mode, setMode] = useState("image");
-  const [minute, setMinute] = useState("");
-  const [second, setSecond] = useState("");
-  const [price, setPrice] = useState("");
+  // ===== State สำหรับการควบคุมระบบ =====
+  const [systemOn, setSystemOn] = useState(true); // สถานะเปิด/ปิดระบบทั้งหมด
+  const [enableImage, setEnableImage] = useState(true); // เปิด/ปิดฟังก์ชันส่งรูปภาพ
+  const [enableText, setEnableText] = useState(true); // เปิด/ปิดฟังก์ชันข้อความ
+  const [enableGift, setEnableGift] = useState(true); // เปิด/ปิดฟังก์ชันส่งของขวัญ
+  const [enableBirthday, setEnableBirthday] = useState(true); // เปิด/ปิดฟังก์ชันอวยพรวันเกิด
+  const [birthdaySpendingRequirement, setBirthdaySpendingRequirement] = useState(100); // ยอดใช้จ่ายขั้นต่ำสำหรับวันเกิด
+  
+  // ===== State สำหรับตั้งค่าแพ็คเกจ =====
+  const [mode, setMode] = useState("image"); // โหมดแพ็คเกจ (image, text, birthday)
+  const [minute, setMinute] = useState(""); // จำนวนนาที
+  const [second, setSecond] = useState(""); // จำนวนวินาที
+  const [price, setPrice] = useState(""); // ราคาแพ็คเกจ
 
-  const [topRanks, setTopRanks] = useState([]);
-  const [totalRankers, setTotalRankers] = useState(0);
-  const [rankLoading, setRankLoading] = useState(true);
-  const [refreshingRanks, setRefreshingRanks] = useState(false);
-  const [rankError, setRankError] = useState("");
-  const [rankingType, setRankingType] = useState("alltime"); // daily, monthly, alltime (LOCAL ADMIN VIEW)
-  const [publicRankingType, setPublicRankingType] = useState("alltime"); // PUBLIC BROADCAST STATE
+  // ===== State สำหรับระบบจัดอันดับ (Rankings) =====
+  const [topRanks, setTopRanks] = useState([]); // ข้อมูลอันดับ Top 10
+  const [totalRankers, setTotalRankers] = useState(0); // จำนวนผู้ใช้ทั้งหมดที่มีอันดับ
+  const [rankLoading, setRankLoading] = useState(true); // สถานะกำลังโหลดข้อมูลอันดับ
+  const [refreshingRanks, setRefreshingRanks] = useState(false); // สถานะกำลังรีเฟรชข้อมูล
+  const [rankError, setRankError] = useState(""); // ข้อความแสดงข้อผิดพลาด
+  const [rankingType, setRankingType] = useState("alltime"); // ประเภทอันดับสำหรับ Admin ดู (daily, monthly, alltime)
+  const [publicRankingType, setPublicRankingType] = useState("alltime"); // ประเภทอันดับที่กำลังแสดงบนหน้าจอผู้ใช้ (PUBLIC BROADCAST)
 
-  const [showAllRanks, setShowAllRanks] = useState(false);
-  const [allRanks, setAllRanks] = useState([]);
-  const [allRanksLoaded, setAllRanksLoaded] = useState(false);
-  const [fetchingAllRanks, setFetchingAllRanks] = useState(false);
-  const [allRankError, setAllRankError] = useState("");
+  // ===== State สำหรับ Modal แสดงอันดับทั้งหมด =====
+  const [showAllRanks, setShowAllRanks] = useState(false); // เปิด/ปิด Modal
+  const [allRanks, setAllRanks] = useState([]); // ข้อมูลอันดับทั้งหมด (สูงสุด 500 คน)
+  const [allRanksLoaded, setAllRanksLoaded] = useState(false); // สถานะโหลดข้อมูลเสร็จแล้ว
+  const [fetchingAllRanks, setFetchingAllRanks] = useState(false); // สถานะกำลังโหลด
+  const [allRankError, setAllRankError] = useState(""); // ข้อความแสดงข้อผิดพลาด
 
-  // 🔥 ดึง adminId จาก localStorage
-  const adminId = localStorage.getItem("adminId") || "default-admin";
-  const adminUsername = localStorage.getItem("adminUsername") || "Admin";
+  // ===== ข้อมูล Admin จาก localStorage =====
+  const adminId = localStorage.getItem("adminId") || "default-admin"; // รหัสร้านของ Admin
+  const adminUsername = localStorage.getItem("adminUsername") || "Admin"; // ชื่อผู้ใช้ Admin
 
-  // Copy button states
-  const [copiedImage, setCopiedImage] = useState(false);
-  const [copiedRanking, setCopiedRanking] = useState(false);
-  const [copiedWheel, setCopiedWheel] = useState(false);
+  // ===== State สำหรับปุ่ม Copy OBS Links =====
+  const [copiedImage, setCopiedImage] = useState(false); // สถานะคัดลอกลิงก์ Image Overlay
+  const [copiedRanking, setCopiedRanking] = useState(false); // สถานะคัดลอกลิงก์ Ranking Overlay
+  const [copiedWheel, setCopiedWheel] = useState(false); // สถานะคัดลอกลิงก์ Lucky Wheel
 
-  // QR Code Modal states
-  const [showQrModal, setShowQrModal] = useState(false);
-  const [qrCodeUrl, setQrCodeUrl] = useState("");
+  // ===== State สำหรับ QR Code Modal =====
+  const [showQrModal, setShowQrModal] = useState(false); // เปิด/ปิด Modal QR Code
+  const [qrCodeUrl, setQrCodeUrl] = useState(""); // URL ของ QR Code
 
-  // Perks Modal states
-  const [showPerksModal, setShowPerksModal] = useState(false);
-  const [perks, setPerks] = useState([
+  // ===== State สำหรับ Perks Modal (สิทธิพิเศษ) =====
+  const [showPerksModal, setShowPerksModal] = useState(false); // เปิด/ปิด Modal สิทธิพิเศษ
+  const [perks, setPerks] = useState([ // รายการสิทธิพิเศษเริ่มต้น
     "🎁 แล้งข้อแลวโปรไฟล์ฟรีกับหน้าอันดับผู้สนับสนุน",
     "🌟 ป้าย Diamond/Gold/Silver ที่ช่วยแยกความโดดเด่น",
     "💎 สิทธิเข้าถึงโปรโมชั่นพิเศษหรือกิจกรรมทดลองใหม่",
     "💬 ช่องทางติดต่อทีมเซทอัพสำหรับแคลงค่า"
   ]);
-  const [editingPerkIndex, setEditingPerkIndex] = useState(null);
-  const [perkInputValue, setPerkInputValue] = useState("");
-  const [savingPerks, setSavingPerks] = useState(false);
+  const [editingPerkIndex, setEditingPerkIndex] = useState(null); // Index ของสิทธิพิเศษที่กำลังแก้ไข
+  const [perkInputValue, setPerkInputValue] = useState(""); // ค่าที่กรอกในช่อง input
+  const [savingPerks, setSavingPerks] = useState(false); // สถานะกำลังบันทึกสิทธิพิเศษ
 
-  /*
-   * Load system config from socket.io
-   */
+  // ===== useEffect: โหลดการตั้งค่าระบบจาก Socket.IO =====
+  // รับการตั้งค่าระบบแบบ Real-time และอัพเดท state
   useEffect(() => {
     socket.on("status", (config) => {
       setSystemOn(config.systemOn);
@@ -85,9 +93,8 @@ function Home() {
     return () => socket.off("status");
   }, []);
 
-  /*
-   * Listen for public ranking type updates
-   */
+  // ===== useEffect: รับฟังการเปลี่ยนแปลงประเภทอันดับที่แสดงต่อสาธารณะ =====
+  // เมื่อ Admin เปลี่ยนประเภทอันดับที่แสดงบนหน้าจอผู้ใช้
   useEffect(() => {
     socket.on("publicRankingTypeUpdated", (data) => {
       console.log("[Admin] Public ranking type updated:", data.type);
@@ -97,9 +104,8 @@ function Home() {
     return () => socket.off("publicRankingTypeUpdated");
   }, []);
 
-  /*
-   * Load ranking top 10
-   */
+  // ===== ฟังก์ชัน: โหลดข้อมูลอันดับ Top 10 =====
+  // silent = true จะไม่แสดง loading indicator (ใช้เวลารีเฟรช)
   const loadTopRanks = useCallback(async (silent = false) => {
     if (silent) setRefreshingRanks(true);
     else setRankLoading(true);
@@ -123,21 +129,22 @@ function Home() {
     }
   }, [rankingType]);
 
+  // ===== useEffect: โหลดข้อมูลเริ่มต้น =====
+  // โหลดอันดับและยอดใช้จ่ายวันเกิดเมื่อเริ่มต้น
   useEffect(() => {
     loadTopRanks();
     loadBirthdayRequirement();
   }, [loadTopRanks]);
 
-  // Reload rankings when type changes
+  // ===== useEffect: โหลดอันดับใหม่เมื่อเปลี่ยนประเภท =====
+  // Reset cache ของ Modal และโหลดข้อมูลใหม่
   useEffect(() => {
     setAllRanksLoaded(false); // Reset modal cache when type changes
     setAllRanks([]);
     loadTopRanks();
   }, [rankingType, loadTopRanks]);
 
-  /*
-   * Load birthday spending requirement
-   */
+  // ===== ฟังก์ชัน: โหลดยอดใช้จ่ายขั้นต่ำสำหรับวันเกิด =====
   const loadBirthdayRequirement = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/config/birthday-requirement`);
@@ -152,7 +159,8 @@ function Home() {
     }
   };
 
-  /* Toggle System */
+  // ===== ฟังก์ชัน: เปิด/ปิดระบบทั้งหมด =====
+  // เมื่อปิดระบบ จะปิดฟังก์ชันทั้งหมด / เมื่อเปิดจะเปิดฟังก์ชันทั้งหมด
   const handleToggleSystem = () => {
     const newStatus = !systemOn;
     setSystemOn(newStatus);
@@ -184,7 +192,7 @@ function Home() {
     }
   };
 
-  /* Feature toggles */
+  // ===== ฟังก์ชัน: เปิด/ปิดฟังก์ชันส่งรูปภาพ =====
   const handleToggleImage = () => {
     const newStatus = !enableImage;
     setEnableImage(newStatus);
@@ -197,6 +205,7 @@ function Home() {
     });
   };
 
+  // ===== ฟังก์ชัน: เปิด/ปิดฟังก์ชันข้อความ =====
   const handleToggleText = () => {
     const newStatus = !enableText;
     setEnableText(newStatus);
@@ -209,6 +218,7 @@ function Home() {
     });
   };
 
+  // ===== ฟังก์ชัน: เปิด/ปิดฟังก์ชันส่งของขวัญ =====
   const handleToggleGift = () => {
     const newStatus = !enableGift;
     setEnableGift(newStatus);
@@ -221,6 +231,7 @@ function Home() {
     });
   };
 
+  // ===== ฟังก์ชัน: เปิด/ปิดฟังก์ชันอวยพรวันเกิด =====
   const handleToggleBirthday = () => {
     const newStatus = !enableBirthday;
     setEnableBirthday(newStatus);
@@ -233,9 +244,7 @@ function Home() {
     });
   };
 
-  /*
-   * Save birthday spending requirement
-   */
+  // ===== ฟังก์ชัน: บันทึกยอดใช้จ่ายขั้นต่ำสำหรับวันเกิด =====
   const handleSaveBirthdayRequirement = async () => {
     const requirement = Number(birthdaySpendingRequirement);
     if (isNaN(requirement) || requirement < 0) {
@@ -261,9 +270,7 @@ function Home() {
     }
   };
 
-  /*
-   * Load perks (สิทธิพิเศษ)
-   */
+  // ===== useEffect: โหลดรายการสิทธิพิเศษเริ่มต้น =====
   useEffect(() => {
     const loadPerks = async () => {
       try {
@@ -281,24 +288,25 @@ function Home() {
     loadPerks();
   }, []);
 
-  /*
-   * Perks Modal Functions
-   */
+  // ===== ฟังก์ชัน: เปิด Modal จัดการสิทธิพิเศษ =====
   const handleOpenPerksModal = () => {
     setShowPerksModal(true);
   };
 
+  // ===== ฟังก์ชัน: ปิด Modal จัดการสิทธิพิเศษ =====
   const handleClosePerksModal = () => {
     setShowPerksModal(false);
     setEditingPerkIndex(null);
     setPerkInputValue("");
   };
 
+  // ===== ฟังก์ชัน: แก้ไขสิทธิพิเศษ =====
   const handleEditPerk = (index) => {
     setEditingPerkIndex(index);
     setPerkInputValue(perks[index]);
   };
 
+  // ===== ฟังก์ชัน: บันทึกการแก้ไขสิทธิพิเศษ =====
   const handleSavePerk = () => {
     if (!perkInputValue.trim()) {
       alert("กรุณากรอกข้อความสิทธิพิเศษ");
@@ -312,11 +320,13 @@ function Home() {
     setPerkInputValue("");
   };
 
+  // ===== ฟังก์ชัน: ยกเลิกการแก้ไขสิทธิพิเศษ =====
   const handleCancelEditPerk = () => {
     setEditingPerkIndex(null);
     setPerkInputValue("");
   };
 
+  // ===== ฟังก์ชัน: เพิ่มสิทธิพิเศษใหม่ =====
   const handleAddPerk = () => {
     if (!perkInputValue.trim()) {
       alert("กรุณากรอกข้อความสิทธิพิเศษ");
@@ -327,6 +337,7 @@ function Home() {
     setPerkInputValue("");
   };
 
+  // ===== ฟังก์ชัน: ลบสิทธิพิเศษ =====
   const handleDeletePerk = (index) => {
     if (window.confirm("ต้องการลบสิทธิพิเศษนี้หรือไม่?")) {
       const newPerks = perks.filter((_, i) => i !== index);
@@ -334,6 +345,7 @@ function Home() {
     }
   };
 
+  // ===== ฟังก์ชัน: บันทึกสิทธิพิเศษทั้งหมดและ Broadcast ไปยังผู้ใช้ =====
   const handleSaveAllPerks = async () => {
     if (perks.length === 0) {
       alert("ต้องมีสิทธิพิเศษอย่างน้อย 1 รายการ");
@@ -366,9 +378,7 @@ function Home() {
     }
   };
 
-  /*
-   * Save package settings
-   */
+  // ===== ฟังก์ชัน: บันทึกการตั้งค่าแพ็คเกจ =====
   const handleSave = () => {
     if (!minute && !second) {
       alert("กรุณากรอกเวลาอย่างน้อย 1 ช่อง");
@@ -399,17 +409,14 @@ function Home() {
     alert("บันทึกแพ็คเกจสำเร็จ");
   };
 
-  /*
-   * Broadcast public ranking type change
-   */
+  // ===== ฟังก์ชัน: กำหนดประเภทอันดับที่จะแสดงบนหน้าจอผู้ใช้ =====
+  // Broadcast ไปยังทุกผู้ใช้แบบ Real-time
   const handleSetPublicRankingType = (type) => {
     console.log("[Admin] Broadcasting public ranking type:", type);
     socket.emit("setPublicRankingType", { type });
   };
 
-  /*
-   * Generate QR Code for User App
-   */
+  // ===== ฟังก์ชัน: สร้าง QR Code สำหรับลูกค้าสแกนเข้าระบบ =====
   const generateQRCode = () => {
     const userAppUrl = `https://cmesuserfrontend.vercel.app/?shopId=${adminId}`;
     const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(userAppUrl)}&format=png&ecc=H`;
@@ -417,9 +424,7 @@ function Home() {
     setShowQrModal(true);
   };
 
-  /*
-   * Ranking modal
-   */
+  // ===== ฟังก์ชัน: เปิด Modal แสดงอันดับทั้งหมด =====
   const handleOpenAllRanks = async () => {
     setShowAllRanks(true);
     if (allRanksLoaded || fetchingAllRanks) return;
@@ -443,14 +448,18 @@ function Home() {
     }
   };
 
+  // ===== ฟังก์ชัน: ปิด Modal อันดับทั้งหมด =====
   const handleCloseAllRanks = () => setShowAllRanks(false);
+  
+  // ใช้ข้อมูลอันดับทั้งหมดถ้ามี ถ้าไม่มีใช้ Top 10
   const modalRanks = allRanks.length ? allRanks : topRanks;
 
-  /* ------------------------------------------------------
-   * RENDER
-   * ------------------------------------------------------ */
+  // ========================================
+  // ===== RENDER JSX =====
+  // ========================================
   return (
     <div className="admin-home-minimal">
+      {/* ===== Header - แสดงชื่อระบบและเมนูนำทาง ===== */}
       <header className="admin-header-minimal">
         <div className="brand-minimal">
           <span className="brand-title">CMES ADMIN</span>
@@ -467,7 +476,7 @@ function Home() {
 
       <main className="admin-main-minimal">
 
-        {/* System toggle */}
+        {/* ===== ส่วนควบคุมสถานะระบบ (เปิด/ปิด) ===== */}
         <div className="system-status-row">
           <span className="system-label">สถานะระบบ:</span>
           <div
@@ -481,16 +490,17 @@ function Home() {
           </span>
         </div>
 
+        {/* แสดงข้อความเตือนเมื่อระบบถูกปิด */}
         {!systemOn && (
           <div className="system-off-msg-minimal">
             ระบบถูกปิด ฝั่งผู้ใช้จะไม่สามารถใช้งานได้
           </div>
         )}
 
-        {/* ⭐⭐ กล่อง 3 กล่อง (เรียงแนวนอน) ⭐⭐ */}
+        {/* ===== คอนเทนเนอร์หลัก 3 กล่อง (ฟังก์ชัน | แพ็คเกจ | VIP) ===== */}
         <div className="three-box-container">
 
-          {/* กล่องซ้าย - ฟังก์ชันต่าง ๆ */}
+          {/* ===== กล่องที่ 1: ฟังก์ชันต่าง ๆ ===== */}
           <section className="feature-card">
             <h3>ฟังก์ชันต่างๆ</h3>
 
@@ -724,7 +734,7 @@ function Home() {
             </div>
           </section>
 
-          {/* กล่องกลาง - ตั้งค่าแพ็กเกจ */}
+          {/* ===== กล่องที่ 2: ตั้งค่าแพ็กเกจ ===== */}
           <section className="package-settings-card">
             <h2>ตั้งค่าแพ็คเกจ</h2>
 
@@ -834,9 +844,9 @@ function Home() {
             </div>
           </section>
 
-          {/* กล่องขวา - VIP Supporters */}
+          {/* ===== กล่องที่ 3: VIP Supporters & Public Display Control ===== */}
           <aside className="vip-card">
-            {/* 🔴 PUBLIC DISPLAY CONTROL SECTION */}
+            {/* ส่วนควบคุมการแสดงผลบนหน้าจอผู้ใช้ (Public Broadcast) */}
             <div className="public-broadcast-control">
               <div className="broadcast-header">
                 <span className="broadcast-title">📺 Public Display Control</span>
@@ -871,14 +881,14 @@ function Home() {
               </div>
             </div>
 
-            {/* Divider */}
+            {/* เส้นแบ่งระหว่างส่วน Public Control และ Admin View */}
             <div style={{
               height: "1px",
               background: "linear-gradient(90deg, transparent, #e2e8f0, transparent)",
               margin: "20px 0"
             }}></div>
 
-            {/* ADMIN LOCAL VIEW SECTION */}
+            {/* ส่วนแสดงอันดับสำหรับ Admin ดู (Local View) */}
             <div className="rank-panel-heading">
               <div>
                 <p className="rank-panel-title">VIP Supporters (Admin View)</p>
@@ -895,7 +905,7 @@ function Home() {
               </button>
             </div>
 
-            {/* Ranking Type Selector (LOCAL ADMIN VIEW) */}
+            {/* ตัวเลือกประเภทอันดับสำหรับ Admin (รายวัน/รายเดือน/ตลอดกาล) */}
             <div className="ranking-type-selector">
               <button
                 className={`ranking-type-btn ${rankingType === "daily" ? "active" : ""}`}
@@ -1008,7 +1018,7 @@ function Home() {
         </div>
       </main>
 
-      {/* Modal */}
+      {/* ===== Modal: แสดงอันดับทั้งหมด ===== */}
       {showAllRanks && (
         <div className="rank-modal-overlay" onClick={handleCloseAllRanks}>
           <div className="rank-modal" onClick={(e) => e.stopPropagation()}>
@@ -1064,7 +1074,7 @@ function Home() {
         </div>
       )}
 
-      {/* QR Code Modal */}
+      {/* ===== Modal: แสดง QR Code สำหรับลูกค้า ===== */}
       {showQrModal && (
         <div className="rank-modal-overlay" onClick={() => setShowQrModal(false)}>
           <div className="rank-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "500px" }}>
@@ -1204,7 +1214,7 @@ function Home() {
         </div>
       )}
 
-      {/* Perks Management Modal */}
+      {/* ===== Modal: จัดการสิทธิพิเศษสำหรับสมาชิก VIP ===== */}
       {showPerksModal && (
         <div className="rank-modal-overlay" onClick={handleClosePerksModal}>
           <div 
