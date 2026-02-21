@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { io } from "socket.io-client";
 import { API_BASE_URL, REALTIME_URL } from "./config/apiConfig";
 import "./home.css";
@@ -31,7 +31,7 @@ function Home() {
   const [enableGift, setEnableGift] = useState(true); // เปิด/ปิดฟังก์ชันส่งของขวัญ
   const [enableBirthday, setEnableBirthday] = useState(true); // เปิด/ปิดฟังก์ชันอวยพรวันเกิด
   const [birthdaySpendingRequirement, setBirthdaySpendingRequirement] = useState(100); // ยอดใช้จ่ายขั้นต่ำสำหรับวันเกิด
-  
+
   // ===== State สำหรับตั้งค่าแพ็คเกจ =====
   const [mode, setMode] = useState("image"); // โหมดแพ็คเกจ (image, text, birthday)
   const [minute, setMinute] = useState(""); // จำนวนนาที
@@ -78,6 +78,70 @@ function Home() {
   const [editingPerkIndex, setEditingPerkIndex] = useState(null); // Index ของสิทธิพิเศษที่กำลังแก้ไข
   const [perkInputValue, setPerkInputValue] = useState(""); // ค่าที่กรอกในช่อง input
   const [savingPerks, setSavingPerks] = useState(false); // สถานะกำลังบันทึกสิทธิพิเศษ
+
+  // ===== State สำหรับ Card Reorder + Hide/Show =====
+  const DEFAULT_CARD_ORDER = ['feature', 'package', 'vip'];
+
+  const [cardOrder, setCardOrder] = useState(() => {
+    try {
+      const saved = localStorage.getItem('adminCardOrder');
+      return saved ? JSON.parse(saved) : DEFAULT_CARD_ORDER;
+    } catch { return DEFAULT_CARD_ORDER; }
+  });
+  const [cardVisibility, setCardVisibility] = useState(() => {
+    try {
+      const saved = localStorage.getItem('adminCardVisibility');
+      return saved ? JSON.parse(saved) : { feature: true, package: true, vip: true };
+    } catch { return { feature: true, package: true, vip: true }; }
+  });
+  const [draggedCard, setDraggedCard] = useState(null);
+  const [dragOverCard, setDragOverCard] = useState(null);
+  const dragNodeRef = useRef(null);
+
+  // Persist card order + visibility to localStorage
+  useEffect(() => {
+    localStorage.setItem('adminCardOrder', JSON.stringify(cardOrder));
+  }, [cardOrder]);
+  useEffect(() => {
+    localStorage.setItem('adminCardVisibility', JSON.stringify(cardVisibility));
+  }, [cardVisibility]);
+
+  // Drag handlers
+  const handleDragStart = (e, cardId) => {
+    setDraggedCard(cardId);
+    dragNodeRef.current = e.target;
+    e.dataTransfer.effectAllowed = 'move';
+    // Make ghost slightly transparent
+    setTimeout(() => { if (dragNodeRef.current) dragNodeRef.current.style.opacity = '0.4'; }, 0);
+  };
+  const handleDragEnd = () => {
+    if (dragNodeRef.current) dragNodeRef.current.style.opacity = '1';
+    setDraggedCard(null);
+    setDragOverCard(null);
+    dragNodeRef.current = null;
+  };
+  const handleDragOver = (e, cardId) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (cardId !== draggedCard) setDragOverCard(cardId);
+  };
+  const handleDrop = (e, targetCardId) => {
+    e.preventDefault();
+    if (!draggedCard || draggedCard === targetCardId) return;
+    setCardOrder(prev => {
+      const newOrder = [...prev];
+      const fromIdx = newOrder.indexOf(draggedCard);
+      const toIdx = newOrder.indexOf(targetCardId);
+      newOrder.splice(fromIdx, 1);
+      newOrder.splice(toIdx, 0, draggedCard);
+      return newOrder;
+    });
+    setDraggedCard(null);
+    setDragOverCard(null);
+  };
+  const toggleCardVisibility = (cardId) => {
+    setCardVisibility(prev => ({ ...prev, [cardId]: !prev[cardId] }));
+  };
 
   // ===== useEffect: โหลดการตั้งค่าระบบจาก Socket.IO =====
   // รับการตั้งค่าระบบแบบ Real-time และอัพเดท state
@@ -450,7 +514,7 @@ function Home() {
 
   // ===== ฟังก์ชัน: ปิด Modal อันดับทั้งหมด =====
   const handleCloseAllRanks = () => setShowAllRanks(false);
-  
+
   // ใช้ข้อมูลอันดับทั้งหมดถ้ามี ถ้าไม่มีใช้ Top 10
   const modalRanks = allRanks.length ? allRanks : topRanks;
 
@@ -497,524 +561,593 @@ function Home() {
           </div>
         )}
 
-        {/* ===== คอนเทนเนอร์หลัก 3 กล่อง (ฟังก์ชัน | แพ็คเกจ | VIP) ===== */}
+        {/* ===== คอนเทนเนอร์หลัก 3 กล่อง (ลำดับตาม cardOrder) ===== */}
         <div className="three-box-container">
 
-          {/* ===== กล่องที่ 1: ฟังก์ชันต่าง ๆ ===== */}
-          <section className="feature-card">
-            <h3>ฟังก์ชันต่างๆ</h3>
+          {cardOrder.map(cardId => {
+            const isCollapsed = !cardVisibility[cardId];
+            const isDragOver = dragOverCard === cardId && draggedCard !== cardId;
+            const cardWrapperClass = `card-drag-wrapper ${isDragOver ? 'drag-over' : ''} ${draggedCard === cardId ? 'dragging' : ''} ${isCollapsed ? 'collapsed' : ''}`;
 
-            <div className="function-toggle-column">
-              <div className="toggle-card">
-                <span>ฟังก์ชันส่งรูปภาพ</span>
-                <button
-                  className={`toggle-btn-minimal${enableImage ? " on" : " off"}`}
-                  onClick={handleToggleImage}
-                  disabled={!systemOn}
-                >
-                  {enableImage ? "เปิด" : "ปิด"}
-                </button>
-              </div>
-
-              <div className="toggle-card">
-                <span>ฟังก์ชันข้อความ</span>
-                <button
-                  className={`toggle-btn-minimal${enableText ? " on" : " off"}`}
-                  onClick={handleToggleText}
-                  disabled={!systemOn}
-                >
-                  {enableText ? "เปิด" : "ปิด"}
-                </button>
-              </div>
-
-              <div className="toggle-card">
-                <span>ฟังก์ชันส่งของขวัญ</span>
-                <button
-                  className={`toggle-btn-minimal${enableGift ? " on" : " off"}`}
-                  onClick={handleToggleGift}
-                  disabled={!systemOn}
-                >
-                  {enableGift ? "เปิด" : "ปิด"}
-                </button>
-              </div>
-
-              <div className="toggle-card">
-                <span>ฟังก์ชันอวยพรวันเกิด</span>
-                <button
-                  className={`toggle-btn-minimal${enableBirthday ? " on" : " off"}`}
-                  onClick={handleToggleBirthday}
-                  disabled={!systemOn}
-                >
-                  {enableBirthday ? "เปิด" : "ปิด"}
-                </button>
-              </div>
-
-              <div className="toggle-card" style={{ flexDirection: "column", alignItems: "flex-start", gap: "8px" }}>
-                <span>ยอดใช้จ่ายขั้นต่ำสำหรับวันเกิด (บาท)</span>
-                <div style={{ display: "flex", gap: "8px", width: "100%" }}>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="ยอดเงิน"
-                    value={birthdaySpendingRequirement}
-                    onChange={(e) => setBirthdaySpendingRequirement(e.target.value)}
-                    disabled={!systemOn}
-                    style={{
-                      flex: 1,
-                      padding: "8px 12px",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "8px",
-                      fontSize: "14px"
-                    }}
-                  />
-                  <button
-                    onClick={handleSaveBirthdayRequirement}
-                    disabled={!systemOn}
-                    style={{
-                      padding: "8px 16px",
-                      background: systemOn ? "linear-gradient(135deg, #667eea, #764ba2)" : "#cbd5e1",
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: "8px",
-                      cursor: systemOn ? "pointer" : "not-allowed",
-                      fontSize: "14px",
-                      fontWeight: "600"
-                    }}
-                  >
-                    บันทึก
-                  </button>
-                </div>
-                <small style={{ color: "#64748b", fontSize: "12px" }}>
-                  ผู้ใช้ต้องใช้จ่ายครบจำนวนนี้ก่อนจึงจะใช้ฟีเจอร์วันเกิดฟรีได้
-                </small>
-              </div>
-
-              {/* OBS Links Section */}
-              <div className="toggle-card" style={{ flexDirection: "column", alignItems: "flex-start", gap: "12px", marginTop: "16px", background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)", border: "2px solid #0ea5e9" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "space-between", width: "100%" }}>
-                  <span style={{ fontSize: "16px", fontWeight: "700", color: "#0369a1" }}>🎥 OBS Overlay Links</span>
-                  <span style={{ fontSize: "11px", color: "#64748b", background: "#fff", padding: "4px 8px", borderRadius: "6px", border: "1px solid #cbd5e1" }}>
-                    {adminUsername}
-                  </span>
-                </div>
-
-                {/* Image Overlay Link */}
-                <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
-                  <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Image & Text Overlay:</label>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <input
-                      type="text"
-                      readOnly
-                      value={`${API_BASE_URL}/obs-image-overlay.html?shopId=${adminId}`}
-                      style={{
-                        flex: 1,
-                        padding: "8px 12px",
-                        border: "1px solid #cbd5e1",
-                        borderRadius: "8px",
-                        fontSize: "13px",
-                        background: "#fff",
-                        color: "#334155"
-                      }}
-                    />
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(`${API_BASE_URL}/obs-image-overlay.html?shopId=${adminId}`);
-                        setCopiedImage(true);
-                        setTimeout(() => setCopiedImage(false), 2000);
-                      }}
-                      style={{
-                        padding: "8px 16px",
-                        background: copiedImage ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: "8px",
-                        cursor: "pointer",
-                        fontSize: "13px",
-                        fontWeight: "600",
-                        whiteSpace: "nowrap",
-                        transition: "all 0.3s ease",
-                        transform: copiedImage ? "scale(0.95)" : "scale(1)"
-                      }}
-                    >
-                      {copiedImage ? "✓ Copied!" : "📋 Copy"}
+            if (cardId === 'feature') return (
+              <div
+                key="feature"
+                className={cardWrapperClass}
+                draggable
+                onDragStart={(e) => handleDragStart(e, 'feature')}
+                onDragEnd={handleDragEnd}
+                onDragOver={(e) => handleDragOver(e, 'feature')}
+                onDrop={(e) => handleDrop(e, 'feature')}
+              >
+                {/* ===== กล่อง: ฟังก์ชันต่าง ๆ ===== */}
+                <section className={`feature-card ${isCollapsed ? 'card-collapsed' : ''}`}>
+                  <div className="card-drag-handle" title="กดค้างแล้วลากเพื่อย้ายตำแหน่ง">
+                    <span className="drag-icon">⠿</span>
+                    <h3>ฟังก์ชันต่างๆ</h3>
+                    <button className="card-eye-btn" onClick={(e) => { e.stopPropagation(); toggleCardVisibility('feature'); }} title={isCollapsed ? 'แสดง' : 'ซ่อน'}>
+                      {isCollapsed ? '👁‍🗨' : '👁'}
                     </button>
                   </div>
-                </div>
+                  {isCollapsed ? null : (<>
 
-                {/* Ranking Overlay Link */}
-                <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
-                  <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Ranking Overlay:</label>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <input
-                      type="text"
-                      readOnly
-                      value={`${API_BASE_URL}/obs-ranking-overlay.html?shopId=${adminId}`}
-                      style={{
-                        flex: 1,
-                        padding: "8px 12px",
-                        border: "1px solid #cbd5e1",
-                        borderRadius: "8px",
-                        fontSize: "13px",
-                        background: "#fff",
-                        color: "#334155"
-                      }}
-                    />
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(`${API_BASE_URL}/obs-ranking-overlay.html?shopId=${adminId}`);
-                        setCopiedRanking(true);
-                        setTimeout(() => setCopiedRanking(false), 2000);
-                      }}
-                      style={{
-                        padding: "8px 16px",
-                        background: copiedRanking ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: "8px",
-                        cursor: "pointer",
-                        fontSize: "13px",
-                        fontWeight: "600",
-                        whiteSpace: "nowrap",
-                        transition: "all 0.3s ease",
-                        transform: copiedRanking ? "scale(0.95)" : "scale(1)"
-                      }}
-                    >
-                      {copiedRanking ? "✓ Copied!" : "📋 Copy"}
-                    </button>
-                  </div>
-                </div>
+                    <div className="function-toggle-column">
+                      <div className="toggle-card">
+                        <span>ฟังก์ชันส่งรูปภาพ</span>
+                        <button
+                          className={`toggle-btn-minimal${enableImage ? " on" : " off"}`}
+                          onClick={handleToggleImage}
+                          disabled={!systemOn}
+                        >
+                          {enableImage ? "เปิด" : "ปิด"}
+                        </button>
+                      </div>
 
-                {/* Lucky Wheel Overlay Link */}
-                <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
-                  <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Lucky Wheel Overlay:</label>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <input
-                      type="text"
-                      readOnly
-                      value={`${API_BASE_URL}/obs-lucky-wheel.html?shopId=${adminId}`}
-                      style={{
-                        flex: 1,
-                        padding: "8px 12px",
-                        border: "1px solid #cbd5e1",
-                        borderRadius: "8px",
-                        fontSize: "13px",
-                        background: "#fff",
-                        color: "#334155"
-                      }}
-                    />
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(`${API_BASE_URL}/obs-lucky-wheel.html?shopId=${adminId}`);
-                        setCopiedWheel(true);
-                        setTimeout(() => setCopiedWheel(false), 2000);
-                      }}
-                      style={{
-                        padding: "8px 16px",
-                        background: copiedWheel ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: "8px",
-                        cursor: "pointer",
-                        fontSize: "13px",
-                        fontWeight: "600",
-                        whiteSpace: "nowrap",
-                        transition: "all 0.3s ease",
-                        transform: copiedWheel ? "scale(0.95)" : "scale(1)"
-                      }}
-                    >
-                      {copiedWheel ? "✓ Copied!" : "📋 Copy"}
-                    </button>
-                  </div>
-                </div>
+                      <div className="toggle-card">
+                        <span>ฟังก์ชันข้อความ</span>
+                        <button
+                          className={`toggle-btn-minimal${enableText ? " on" : " off"}`}
+                          onClick={handleToggleText}
+                          disabled={!systemOn}
+                        >
+                          {enableText ? "เปิด" : "ปิด"}
+                        </button>
+                      </div>
 
-                <small style={{ color: "#64748b", fontSize: "11px", marginTop: "4px" }}>
-                  💡 คัดลอกลิงก์เหล่านี้ไปเพิ่มใน OBS Studio เป็น Browser Source (ลิงก์เฉพาะร้านของคุณ)
-                </small>
-              </div>
-            </div>
-          </section>
+                      <div className="toggle-card">
+                        <span>ฟังก์ชันส่งของขวัญ</span>
+                        <button
+                          className={`toggle-btn-minimal${enableGift ? " on" : " off"}`}
+                          onClick={handleToggleGift}
+                          disabled={!systemOn}
+                        >
+                          {enableGift ? "เปิด" : "ปิด"}
+                        </button>
+                      </div>
 
-          {/* ===== กล่องที่ 2: ตั้งค่าแพ็กเกจ ===== */}
-          <section className="package-settings-card">
-            <h2>ตั้งค่าแพ็คเกจ</h2>
+                      <div className="toggle-card">
+                        <span>ฟังก์ชันอวยพรวันเกิด</span>
+                        <button
+                          className={`toggle-btn-minimal${enableBirthday ? " on" : " off"}`}
+                          onClick={handleToggleBirthday}
+                          disabled={!systemOn}
+                        >
+                          {enableBirthday ? "เปิด" : "ปิด"}
+                        </button>
+                      </div>
 
-            <div className="mode-select-row">
-              <button
-                className={`mode-btn-minimal${mode === "image" ? " active" : ""}`}
-                onClick={() => setMode("image")}
-                disabled={!systemOn}
-              >
-                รูปภาพ
-              </button>
-              <button
-                className={`mode-btn-minimal${mode === "text" ? " active" : ""}`}
-                onClick={() => setMode("text")}
-                disabled={!systemOn}
-              >
-                ข้อความ
-              </button>
-              <button
-                className={`mode-btn-minimal${mode === "birthday" ? " active" : ""}`}
-                onClick={() => setMode("birthday")}
-                disabled={!systemOn}
-              >
-                วันเกิด
-              </button>
-            </div>
+                      <div className="toggle-card" style={{ flexDirection: "column", alignItems: "flex-start", gap: "8px" }}>
+                        <span>ยอดใช้จ่ายขั้นต่ำสำหรับวันเกิด (บาท)</span>
+                        <div style={{ display: "flex", gap: "8px", width: "100%" }}>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="ยอดเงิน"
+                            value={birthdaySpendingRequirement}
+                            onChange={(e) => setBirthdaySpendingRequirement(e.target.value)}
+                            disabled={!systemOn}
+                            style={{
+                              flex: 1,
+                              padding: "8px 12px",
+                              border: "1px solid #e2e8f0",
+                              borderRadius: "8px",
+                              fontSize: "14px"
+                            }}
+                          />
+                          <button
+                            onClick={handleSaveBirthdayRequirement}
+                            disabled={!systemOn}
+                            style={{
+                              padding: "8px 16px",
+                              background: systemOn ? "linear-gradient(135deg, #667eea, #764ba2)" : "#cbd5e1",
+                              color: "#fff",
+                              border: "none",
+                              borderRadius: "8px",
+                              cursor: systemOn ? "pointer" : "not-allowed",
+                              fontSize: "14px",
+                              fontWeight: "600"
+                            }}
+                          >
+                            บันทึก
+                          </button>
+                        </div>
+                        <small style={{ color: "#64748b", fontSize: "12px" }}>
+                          ผู้ใช้ต้องใช้จ่ายครบจำนวนนี้ก่อนจึงจะใช้ฟีเจอร์วันเกิดฟรีได้
+                        </small>
+                      </div>
 
-            <div className="input-row-minimal">
-              <input
-                type="number"
-                min="1"
-                max="59"
-                placeholder="นาที"
-                value={minute}
-                onChange={(e) => setMinute(e.target.value)}
-                disabled={!systemOn}
-                className="input-minimal"
-              />
-              <input
-                type="number"
-                min="1"
-                max="59"
-                placeholder="วินาที"
-                value={second}
-                onChange={(e) => setSecond(e.target.value)}
-                disabled={!systemOn}
-                className="input-minimal"
-              />
-              <input
-                type="number"
-                min="1"
-                placeholder="ราคา (บาท)"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                disabled={!systemOn}
-                className="input-minimal"
-              />
-            </div>
+                      {/* OBS Links Section */}
+                      <div className="toggle-card" style={{ flexDirection: "column", alignItems: "flex-start", gap: "12px", marginTop: "16px", background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)", border: "2px solid #0ea5e9" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "space-between", width: "100%" }}>
+                          <span style={{ fontSize: "16px", fontWeight: "700", color: "#0369a1" }}>🎥 OBS Overlay Links</span>
+                          <span style={{ fontSize: "11px", color: "#64748b", background: "#fff", padding: "4px 8px", borderRadius: "6px", border: "1px solid #cbd5e1" }}>
+                            {adminUsername}
+                          </span>
+                        </div>
 
-            <button
-              className="save-btn-minimal"
-              onClick={handleSave}
-              disabled={!systemOn}
-            >
-              บันทึกแพ็คเกจ
-            </button>
+                        {/* Image Overlay Link */}
+                        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
+                          <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Image & Text Overlay:</label>
+                          <div style={{ display: "flex", gap: "8px" }}>
+                            <input
+                              type="text"
+                              readOnly
+                              value={`${API_BASE_URL}/obs-image-overlay.html?shopId=${adminId}`}
+                              style={{
+                                flex: 1,
+                                padding: "8px 12px",
+                                border: "1px solid #cbd5e1",
+                                borderRadius: "8px",
+                                fontSize: "13px",
+                                background: "#fff",
+                                color: "#334155"
+                              }}
+                            />
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(`${API_BASE_URL}/obs-image-overlay.html?shopId=${adminId}`);
+                                setCopiedImage(true);
+                                setTimeout(() => setCopiedImage(false), 2000);
+                              }}
+                              style={{
+                                padding: "8px 16px",
+                                background: copiedImage ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: "8px",
+                                cursor: "pointer",
+                                fontSize: "13px",
+                                fontWeight: "600",
+                                whiteSpace: "nowrap",
+                                transition: "all 0.3s ease",
+                                transform: copiedImage ? "scale(0.95)" : "scale(1)"
+                              }}
+                            >
+                              {copiedImage ? "✓ Copied!" : "📋 Copy"}
+                            </button>
+                          </div>
+                        </div>
 
-            {/* QR Code Section */}
-            <div style={{ 
-              marginTop: "24px",
-              padding: "20px",
-              background: "linear-gradient(135deg, #fef3c7, #fde68a)", 
-              border: "2px solid #f59e0b",
-              borderRadius: "12px",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "12px"
-            }}>
-              <span style={{ fontSize: "16px", fontWeight: "700", color: "#92400e", textAlign: "center" }}>
-                📱 QR Code สำหรับลูกค้า
-              </span>
-              
-              <button
-                onClick={generateQRCode}
-                style={{
-                  padding: "12px 24px",
-                  background: "linear-gradient(135deg, #f59e0b, #d97706)",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  fontWeight: "600",
-                  width: "100%",
-                  transition: "transform 0.2s ease"
-                }}
-                onMouseEnter={(e) => e.target.style.transform = "scale(1.02)"}
-                onMouseLeave={(e) => e.target.style.transform = "scale(1)"}
-              >
-                🎯 สร้าง QR Code
-              </button>
+                        {/* Ranking Overlay Link */}
+                        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
+                          <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Ranking Overlay:</label>
+                          <div style={{ display: "flex", gap: "8px" }}>
+                            <input
+                              type="text"
+                              readOnly
+                              value={`${API_BASE_URL}/obs-ranking-overlay.html?shopId=${adminId}`}
+                              style={{
+                                flex: 1,
+                                padding: "8px 12px",
+                                border: "1px solid #cbd5e1",
+                                borderRadius: "8px",
+                                fontSize: "13px",
+                                background: "#fff",
+                                color: "#334155"
+                              }}
+                            />
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(`${API_BASE_URL}/obs-ranking-overlay.html?shopId=${adminId}`);
+                                setCopiedRanking(true);
+                                setTimeout(() => setCopiedRanking(false), 2000);
+                              }}
+                              style={{
+                                padding: "8px 16px",
+                                background: copiedRanking ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: "8px",
+                                cursor: "pointer",
+                                fontSize: "13px",
+                                fontWeight: "600",
+                                whiteSpace: "nowrap",
+                                transition: "all 0.3s ease",
+                                transform: copiedRanking ? "scale(0.95)" : "scale(1)"
+                              }}
+                            >
+                              {copiedRanking ? "✓ Copied!" : "📋 Copy"}
+                            </button>
+                          </div>
+                        </div>
 
-              <small style={{ color: "#92400e", fontSize: "11px", textAlign: "center" }}>
-                💡 ลูกค้าสแกน QR Code เพื่อเข้าสู่ระบบของร้านคุณ
-              </small>
-            </div>
-          </section>
+                        {/* Lucky Wheel Overlay Link */}
+                        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
+                          <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Lucky Wheel Overlay:</label>
+                          <div style={{ display: "flex", gap: "8px" }}>
+                            <input
+                              type="text"
+                              readOnly
+                              value={`${API_BASE_URL}/obs-lucky-wheel.html?shopId=${adminId}`}
+                              style={{
+                                flex: 1,
+                                padding: "8px 12px",
+                                border: "1px solid #cbd5e1",
+                                borderRadius: "8px",
+                                fontSize: "13px",
+                                background: "#fff",
+                                color: "#334155"
+                              }}
+                            />
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(`${API_BASE_URL}/obs-lucky-wheel.html?shopId=${adminId}`);
+                                setCopiedWheel(true);
+                                setTimeout(() => setCopiedWheel(false), 2000);
+                              }}
+                              style={{
+                                padding: "8px 16px",
+                                background: copiedWheel ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: "8px",
+                                cursor: "pointer",
+                                fontSize: "13px",
+                                fontWeight: "600",
+                                whiteSpace: "nowrap",
+                                transition: "all 0.3s ease",
+                                transform: copiedWheel ? "scale(0.95)" : "scale(1)"
+                              }}
+                            >
+                              {copiedWheel ? "✓ Copied!" : "📋 Copy"}
+                            </button>
+                          </div>
+                        </div>
 
-          {/* ===== กล่องที่ 3: VIP Supporters & Public Display Control ===== */}
-          <aside className="vip-card">
-            {/* ส่วนควบคุมการแสดงผลบนหน้าจอผู้ใช้ (Public Broadcast) */}
-            <div className="public-broadcast-control">
-              <div className="broadcast-header">
-                <span className="broadcast-title">📺 Public Display Control</span>
-                <span className="broadcast-subtitle">ควบคุมการแสดงผลบนหน้าจอผู้ใช้</span>
-              </div>
-
-              <div className="broadcast-buttons">
-                <button
-                  className={`broadcast-btn ${publicRankingType === "daily" ? "active" : ""}`}
-                  onClick={() => handleSetPublicRankingType("daily")}
-                  disabled={!systemOn}
-                >
-                  {publicRankingType === "daily" && <span className="live-indicator">🔴 LIVE</span>}
-                  <span>รายวัน</span>
-                </button>
-                <button
-                  className={`broadcast-btn ${publicRankingType === "monthly" ? "active" : ""}`}
-                  onClick={() => handleSetPublicRankingType("monthly")}
-                  disabled={!systemOn}
-                >
-                  {publicRankingType === "monthly" && <span className="live-indicator">🔴 LIVE</span>}
-                  <span>รายเดือน</span>
-                </button>
-                <button
-                  className={`broadcast-btn ${publicRankingType === "alltime" ? "active" : ""}`}
-                  onClick={() => handleSetPublicRankingType("alltime")}
-                  disabled={!systemOn}
-                >
-                  {publicRankingType === "alltime" && <span className="live-indicator">🔴 LIVE</span>}
-                  <span>ตลอดกาล</span>
-                </button>
-              </div>
-            </div>
-
-            {/* เส้นแบ่งระหว่างส่วน Public Control และ Admin View */}
-            <div style={{
-              height: "1px",
-              background: "linear-gradient(90deg, transparent, #e2e8f0, transparent)",
-              margin: "20px 0"
-            }}></div>
-
-            {/* ส่วนแสดงอันดับสำหรับ Admin ดู (Local View) */}
-            <div className="rank-panel-heading">
-              <div>
-                <p className="rank-panel-title">VIP Supporters (Admin View)</p>
-                <small>อันดับ 1-10 • รวม {totalRankers} คน</small>
-              </div>
-
-              <button
-                type="button"
-                className="rank-refresh-btn"
-                onClick={() => loadTopRanks(topRanks.length > 0)}
-                disabled={refreshingRanks}
-              >
-                {refreshingRanks ? "รีเฟรช..." : "รีเฟรช"}
-              </button>
-            </div>
-
-            {/* ตัวเลือกประเภทอันดับสำหรับ Admin (รายวัน/รายเดือน/ตลอดกาล) */}
-            <div className="ranking-type-selector">
-              <button
-                className={`ranking-type-btn ${rankingType === "daily" ? "active" : ""}`}
-                onClick={() => setRankingType("daily")}
-              >
-                รายวัน
-              </button>
-              <button
-                className={`ranking-type-btn ${rankingType === "monthly" ? "active" : ""}`}
-                onClick={() => setRankingType("monthly")}
-              >
-                รายเดือน
-              </button>
-              <button
-                className={`ranking-type-btn ${rankingType === "alltime" ? "active" : ""}`}
-                onClick={() => setRankingType("alltime")}
-              >
-                ตลอดกาล
-              </button>
-            </div>
-
-            <ul className="rank-list">
-              {rankLoading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <li className="rank-list-item skeleton" key={i}>
-                    <div className="rank-index">--</div>
-                    <div className="rank-user-info">
-                      <div className="placeholder-bar"></div>
-                      <div className="placeholder-bar small"></div>
+                        <small style={{ color: "#64748b", fontSize: "11px", marginTop: "4px" }}>
+                          💡 คัดลอกลิงก์เหล่านี้ไปเพิ่มใน OBS Studio เป็น Browser Source (ลิงก์เฉพาะร้านของคุณ)
+                        </small>
+                      </div>
                     </div>
-                    <div className="rank-points">--</div>
-                  </li>
-                ))
-              ) : topRanks.length === 0 ? (
-                <li className="rank-empty">ยังไม่มีข้อมูลอันดับ</li>
-              ) : (
-                topRanks.map((entry, index) => {
-                  const pos = entry.position || index + 1;
-                  // Get points based on ranking type
-                  let points = entry.points || 0;
-                  if (rankingType === "daily") points = entry.dailyPoints || 0;
-                  else if (rankingType === "monthly") points = entry.monthlyPoints || 0;
+                  </>)}
+                </section>
+              </div>
+            );
 
-                  return (
-                    <li
-                      className={`rank-list-item tier-${pos <= 3 ? pos : "default"
-                        }`}
-                      key={`${entry.name}-${pos}`}
+            if (cardId === 'package') return (
+              <div
+                key="package"
+                className={cardWrapperClass}
+                draggable
+                onDragStart={(e) => handleDragStart(e, 'package')}
+                onDragEnd={handleDragEnd}
+                onDragOver={(e) => handleDragOver(e, 'package')}
+                onDrop={(e) => handleDrop(e, 'package')}
+              >
+                {/* ===== กล่อง: ตั้งค่าแพ็กเกจ ===== */}
+                <section className={`package-settings-card ${isCollapsed ? 'card-collapsed' : ''}`}>
+                  <div className="card-drag-handle" title="กดค้างแล้วลากเพื่อย้ายตำแหน่ง">
+                    <span className="drag-icon">⠿</span>
+                    <h2>ตั้งค่าแพ็คเกจ</h2>
+                    <button className="card-eye-btn" onClick={(e) => { e.stopPropagation(); toggleCardVisibility('package'); }} title={isCollapsed ? 'แสดง' : 'ซ่อน'}>
+                      {isCollapsed ? '👁‍🗨' : '👁'}
+                    </button>
+                  </div>
+                  {isCollapsed ? null : (<>
+
+                    <div className="mode-select-row">
+                      <button
+                        className={`mode-btn-minimal${mode === "image" ? " active" : ""}`}
+                        onClick={() => setMode("image")}
+                        disabled={!systemOn}
+                      >
+                        รูปภาพ
+                      </button>
+                      <button
+                        className={`mode-btn-minimal${mode === "text" ? " active" : ""}`}
+                        onClick={() => setMode("text")}
+                        disabled={!systemOn}
+                      >
+                        ข้อความ
+                      </button>
+                      <button
+                        className={`mode-btn-minimal${mode === "birthday" ? " active" : ""}`}
+                        onClick={() => setMode("birthday")}
+                        disabled={!systemOn}
+                      >
+                        วันเกิด
+                      </button>
+                    </div>
+
+                    <div className="input-row-minimal">
+                      <input
+                        type="number"
+                        min="1"
+                        max="59"
+                        placeholder="นาที"
+                        value={minute}
+                        onChange={(e) => setMinute(e.target.value)}
+                        disabled={!systemOn}
+                        className="input-minimal"
+                      />
+                      <input
+                        type="number"
+                        min="1"
+                        max="59"
+                        placeholder="วินาที"
+                        value={second}
+                        onChange={(e) => setSecond(e.target.value)}
+                        disabled={!systemOn}
+                        className="input-minimal"
+                      />
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="ราคา (บาท)"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                        disabled={!systemOn}
+                        className="input-minimal"
+                      />
+                    </div>
+
+                    <button
+                      className="save-btn-minimal"
+                      onClick={handleSave}
+                      disabled={!systemOn}
                     >
-                      <div className="rank-index">#{pos}</div>
-                      <div className="rank-user-info">
-                        <strong>{entry.name}</strong>
-                        <span>อัปเดต {formatUpdatedAt(entry.updatedAt)}</span>
+                      บันทึกแพ็คเกจ
+                    </button>
+
+                    {/* QR Code Section */}
+                    <div style={{
+                      marginTop: "24px",
+                      padding: "20px",
+                      background: "linear-gradient(135deg, #fef3c7, #fde68a)",
+                      border: "2px solid #f59e0b",
+                      borderRadius: "12px",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "12px"
+                    }}>
+                      <span style={{ fontSize: "16px", fontWeight: "700", color: "#92400e", textAlign: "center" }}>
+                        📱 QR Code สำหรับลูกค้า
+                      </span>
+
+                      <button
+                        onClick={generateQRCode}
+                        style={{
+                          padding: "12px 24px",
+                          background: "linear-gradient(135deg, #f59e0b, #d97706)",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: "8px",
+                          cursor: "pointer",
+                          fontSize: "14px",
+                          fontWeight: "600",
+                          width: "100%",
+                          transition: "transform 0.2s ease"
+                        }}
+                        onMouseEnter={(e) => e.target.style.transform = "scale(1.02)"}
+                        onMouseLeave={(e) => e.target.style.transform = "scale(1)"}
+                      >
+                        🎯 สร้าง QR Code
+                      </button>
+
+                      <small style={{ color: "#92400e", fontSize: "11px", textAlign: "center" }}>
+                        💡 ลูกค้าสแกน QR Code เพื่อเข้าสู่ระบบของร้านคุณ
+                      </small>
+                    </div>
+                  </>)}
+                </section>
+              </div>
+            );
+
+            if (cardId === 'vip') return (
+              <div
+                key="vip"
+                className={cardWrapperClass}
+                draggable
+                onDragStart={(e) => handleDragStart(e, 'vip')}
+                onDragEnd={handleDragEnd}
+                onDragOver={(e) => handleDragOver(e, 'vip')}
+                onDrop={(e) => handleDrop(e, 'vip')}
+              >
+                {/* ===== กล่อง: VIP Supporters & Public Display Control ===== */}
+                <aside className={`vip-card ${isCollapsed ? 'card-collapsed' : ''}`}>
+                  <div className="card-drag-handle" title="กดค้างแล้วลากเพื่อย้ายตำแหน่ง">
+                    <span className="drag-icon">⠿</span>
+                    <span style={{ fontSize: '18px', fontWeight: 700 }}>VIP & Display Control</span>
+                    <button className="card-eye-btn" onClick={(e) => { e.stopPropagation(); toggleCardVisibility('vip'); }} title={isCollapsed ? 'แสดง' : 'ซ่อน'}>
+                      {isCollapsed ? '👁‍🗨' : '👁'}
+                    </button>
+                  </div>
+                  {isCollapsed ? null : (<>
+                    {/* ส่วนควบคุมการแสดงผลบนหน้าจอผู้ใช้ (Public Broadcast) */}
+                    <div className="public-broadcast-control">
+                      <div className="broadcast-header">
+                        <span className="broadcast-title">📺 Public Display Control</span>
+                        <span className="broadcast-subtitle">ควบคุมการแสดงผลบนหน้าจอผู้ใช้</span>
                       </div>
-                      <div className="rank-points">
-                        ฿{formatCurrency(points)}
+
+                      <div className="broadcast-buttons">
+                        <button
+                          className={`broadcast-btn ${publicRankingType === "daily" ? "active" : ""}`}
+                          onClick={() => handleSetPublicRankingType("daily")}
+                          disabled={!systemOn}
+                        >
+                          {publicRankingType === "daily" && <span className="live-indicator">🔴 LIVE</span>}
+                          <span>รายวัน</span>
+                        </button>
+                        <button
+                          className={`broadcast-btn ${publicRankingType === "monthly" ? "active" : ""}`}
+                          onClick={() => handleSetPublicRankingType("monthly")}
+                          disabled={!systemOn}
+                        >
+                          {publicRankingType === "monthly" && <span className="live-indicator">🔴 LIVE</span>}
+                          <span>รายเดือน</span>
+                        </button>
+                        <button
+                          className={`broadcast-btn ${publicRankingType === "alltime" ? "active" : ""}`}
+                          onClick={() => handleSetPublicRankingType("alltime")}
+                          disabled={!systemOn}
+                        >
+                          {publicRankingType === "alltime" && <span className="live-indicator">🔴 LIVE</span>}
+                          <span>ตลอดกาล</span>
+                        </button>
                       </div>
-                    </li>
-                  );
-                })
-              )}
-            </ul>
+                    </div>
 
-            {rankError && <div className="rank-error">{rankError}</div>}
+                    {/* เส้นแบ่งระหว่างส่วน Public Control และ Admin View */}
+                    <div style={{
+                      height: "1px",
+                      background: "linear-gradient(90deg, transparent, #e2e8f0, transparent)",
+                      margin: "20px 0"
+                    }}></div>
 
-            <button
-              type="button"
-              className="view-more-ranks"
-              onClick={handleOpenAllRanks}
-            >
-              ดูอันดับทั้งหมด
-            </button>
+                    {/* ส่วนแสดงอันดับสำหรับ Admin ดู (Local View) */}
+                    <div className="rank-panel-heading">
+                      <div>
+                        <p className="rank-panel-title">VIP Supporters (Admin View)</p>
+                        <small>อันดับ 1-10 • รวม {totalRankers} คน</small>
+                      </div>
 
-            {/* ปุ่มจัดการสิทธิพิเศษ */}
-            <button
-              type="button"
-              className="manage-perks-btn"
-              onClick={handleOpenPerksModal}
-              style={{
-                width: "100%",
-                marginTop: "12px",
-                padding: "14px 20px",
-                background: "linear-gradient(135deg, #f59e0b, #d97706)",
-                color: "#fff",
-                border: "none",
-                borderRadius: "12px",
-                cursor: "pointer",
-                fontSize: "15px",
-                fontWeight: "700",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "8px",
-                transition: "all 0.3s ease",
-                boxShadow: "0 4px 12px rgba(245, 158, 11, 0.3)"
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.transform = "translateY(-2px)";
-                e.target.style.boxShadow = "0 6px 16px rgba(245, 158, 11, 0.4)";
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.transform = "translateY(0)";
-                e.target.style.boxShadow = "0 4px 12px rgba(245, 158, 11, 0.3)";
-              }}
-            >
-              <span>⚙️</span>
-              <span>จัดการสิทธิพิเศษ</span>
-            </button>
-          </aside>
+                      <button
+                        type="button"
+                        className="rank-refresh-btn"
+                        onClick={() => loadTopRanks(topRanks.length > 0)}
+                        disabled={refreshingRanks}
+                      >
+                        {refreshingRanks ? "รีเฟรช..." : "รีเฟรช"}
+                      </button>
+                    </div>
+
+                    {/* ตัวเลือกประเภทอันดับสำหรับ Admin (รายวัน/รายเดือน/ตลอดกาล) */}
+                    <div className="ranking-type-selector">
+                      <button
+                        className={`ranking-type-btn ${rankingType === "daily" ? "active" : ""}`}
+                        onClick={() => setRankingType("daily")}
+                      >
+                        รายวัน
+                      </button>
+                      <button
+                        className={`ranking-type-btn ${rankingType === "monthly" ? "active" : ""}`}
+                        onClick={() => setRankingType("monthly")}
+                      >
+                        รายเดือน
+                      </button>
+                      <button
+                        className={`ranking-type-btn ${rankingType === "alltime" ? "active" : ""}`}
+                        onClick={() => setRankingType("alltime")}
+                      >
+                        ตลอดกาล
+                      </button>
+                    </div>
+
+                    <ul className="rank-list">
+                      {rankLoading ? (
+                        Array.from({ length: 5 }).map((_, i) => (
+                          <li className="rank-list-item skeleton" key={i}>
+                            <div className="rank-index">--</div>
+                            <div className="rank-user-info">
+                              <div className="placeholder-bar"></div>
+                              <div className="placeholder-bar small"></div>
+                            </div>
+                            <div className="rank-points">--</div>
+                          </li>
+                        ))
+                      ) : topRanks.length === 0 ? (
+                        <li className="rank-empty">ยังไม่มีข้อมูลอันดับ</li>
+                      ) : (
+                        topRanks.map((entry, index) => {
+                          const pos = entry.position || index + 1;
+                          // Get points based on ranking type
+                          let points = entry.points || 0;
+                          if (rankingType === "daily") points = entry.dailyPoints || 0;
+                          else if (rankingType === "monthly") points = entry.monthlyPoints || 0;
+
+                          return (
+                            <li
+                              className={`rank-list-item tier-${pos <= 3 ? pos : "default"
+                                }`}
+                              key={`${entry.name}-${pos}`}
+                            >
+                              <div className="rank-index">#{pos}</div>
+                              <div className="rank-user-info">
+                                <strong>{entry.name}</strong>
+                                <span>อัปเดต {formatUpdatedAt(entry.updatedAt)}</span>
+                              </div>
+                              <div className="rank-points">
+                                ฿{formatCurrency(points)}
+                              </div>
+                            </li>
+                          );
+                        })
+                      )}
+                    </ul>
+
+                    {rankError && <div className="rank-error">{rankError}</div>}
+
+                    <button
+                      type="button"
+                      className="view-more-ranks"
+                      onClick={handleOpenAllRanks}
+                    >
+                      ดูอันดับทั้งหมด
+                    </button>
+
+                    {/* ปุ่มจัดการสิทธิพิเศษ */}
+                    <button
+                      type="button"
+                      className="manage-perks-btn"
+                      onClick={handleOpenPerksModal}
+                      style={{
+                        width: "100%",
+                        marginTop: "12px",
+                        padding: "14px 20px",
+                        background: "linear-gradient(135deg, #f59e0b, #d97706)",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "12px",
+                        cursor: "pointer",
+                        fontSize: "15px",
+                        fontWeight: "700",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "8px",
+                        transition: "all 0.3s ease",
+                        boxShadow: "0 4px 12px rgba(245, 158, 11, 0.3)"
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.transform = "translateY(-2px)";
+                        e.target.style.boxShadow = "0 6px 16px rgba(245, 158, 11, 0.4)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.transform = "translateY(0)";
+                        e.target.style.boxShadow = "0 4px 12px rgba(245, 158, 11, 0.3)";
+                      }}
+                    >
+                      <span>⚙️</span>
+                      <span>จัดการสิทธิพิเศษ</span>
+                    </button>
+                  </>)}
+                </aside>
+              </div>
+            );
+
+            return null;
+          })}
         </div>
       </main>
 
@@ -1095,32 +1228,32 @@ function Home() {
             <div className="rank-modal-body" style={{ textAlign: "center", padding: "30px" }}>
               {qrCodeUrl ? (
                 <>
-                  <div style={{ 
-                    background: "#fff", 
-                    padding: "20px", 
+                  <div style={{
+                    background: "#fff",
+                    padding: "20px",
                     borderRadius: "12px",
                     boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
                     display: "inline-block"
                   }}>
-                    <img 
-                      src={qrCodeUrl} 
-                      alt="QR Code" 
-                      style={{ 
-                        width: "300px", 
+                    <img
+                      src={qrCodeUrl}
+                      alt="QR Code"
+                      style={{
+                        width: "300px",
                         height: "300px",
                         display: "block"
-                      }} 
+                      }}
                     />
                   </div>
-                  
-                  <div style={{ 
-                    marginTop: "24px", 
-                    display: "flex", 
-                    gap: "10px", 
-                    flexDirection: "column" 
+
+                  <div style={{
+                    marginTop: "24px",
+                    display: "flex",
+                    gap: "10px",
+                    flexDirection: "column"
                   }}>
-                    <a 
-                      href={qrCodeUrl} 
+                    <a
+                      href={qrCodeUrl}
                       download={`qr-code-shop-${adminId}.png`}
                       style={{
                         padding: "14px 24px",
@@ -1138,7 +1271,7 @@ function Home() {
                     >
                       💾 ดาวน์โหลด QR Code
                     </a>
-                    
+
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(`https://cmesuserfrontend.vercel.app/?shopId=${adminId}`);
@@ -1162,25 +1295,25 @@ function Home() {
                     </button>
                   </div>
 
-                  <div style={{ 
+                  <div style={{
                     marginTop: "20px",
                     padding: "16px",
                     background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)",
                     borderRadius: "10px",
                     border: "1px solid #0ea5e9"
                   }}>
-                    <small style={{ 
-                      display: "block", 
-                      color: "#0369a1", 
+                    <small style={{
+                      display: "block",
+                      color: "#0369a1",
                       fontSize: "13px",
                       fontWeight: "600",
                       marginBottom: "8px"
                     }}>
                       🔗 URL ของคุณ:
                     </small>
-                    <small style={{ 
-                      display: "block", 
-                      color: "#64748b", 
+                    <small style={{
+                      display: "block",
+                      color: "#64748b",
                       fontSize: "12px",
                       wordBreak: "break-all",
                       fontFamily: "monospace"
@@ -1196,12 +1329,12 @@ function Home() {
                     borderRadius: "8px",
                     border: "1px solid #f59e0b"
                   }}>
-                    <small style={{ 
-                      color: "#92400e", 
+                    <small style={{
+                      color: "#92400e",
                       fontSize: "12px",
                       display: "block"
                     }}>
-                      💡 <strong>คำแนะนำ:</strong> พิมพ์ QR Code นี้ติดไว้ที่โต๊ะหรือบริเวณร้าน<br/>
+                      💡 <strong>คำแนะนำ:</strong> พิมพ์ QR Code นี้ติดไว้ที่โต๊ะหรือบริเวณร้าน<br />
                       ลูกค้าสามารถสแกนเพื่อเข้าใช้งานระบบของคุณได้ทันที
                     </small>
                   </div>
@@ -1217,9 +1350,9 @@ function Home() {
       {/* ===== Modal: จัดการสิทธิพิเศษสำหรับสมาชิก VIP ===== */}
       {showPerksModal && (
         <div className="rank-modal-overlay" onClick={handleClosePerksModal}>
-          <div 
-            className="rank-modal" 
-            onClick={(e) => e.stopPropagation()} 
+          <div
+            className="rank-modal"
+            onClick={(e) => e.stopPropagation()}
             style={{ maxWidth: "650px", maxHeight: "90vh", display: "flex", flexDirection: "column" }}
           >
             <div className="rank-modal-header">
@@ -1241,12 +1374,12 @@ function Home() {
                 <h4 style={{ fontSize: "16px", fontWeight: "700", color: "#1e293b", marginBottom: "12px" }}>
                   📋 รายการสิทธิพิเศษปัจจุบัน
                 </h4>
-                
+
                 {perks.length === 0 ? (
-                  <div style={{ 
-                    padding: "24px", 
-                    background: "#f8fafc", 
-                    borderRadius: "12px", 
+                  <div style={{
+                    padding: "24px",
+                    background: "#f8fafc",
+                    borderRadius: "12px",
                     textAlign: "center",
                     color: "#64748b"
                   }}>
@@ -1255,7 +1388,7 @@ function Home() {
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                     {perks.map((perk, index) => (
-                      <div 
+                      <div
                         key={index}
                         style={{
                           padding: "16px",
@@ -1332,10 +1465,10 @@ function Home() {
                           </div>
                         ) : (
                           <>
-                            <div style={{ 
-                              flex: 1, 
-                              fontSize: "15px", 
-                              color: "#334155", 
+                            <div style={{
+                              flex: 1,
+                              fontSize: "15px",
+                              color: "#334155",
                               fontWeight: "500",
                               lineHeight: "1.5"
                             }}>
@@ -1408,10 +1541,10 @@ function Home() {
               </div>
 
               {/* Add New Perk */}
-              <div style={{ 
-                marginTop: "24px", 
-                padding: "20px", 
-                background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)", 
+              <div style={{
+                marginTop: "24px",
+                padding: "20px",
+                background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)",
                 borderRadius: "12px",
                 border: "2px solid #0ea5e9"
               }}>
@@ -1524,13 +1657,13 @@ function Home() {
                 borderRadius: "10px",
                 border: "1px solid #f59e0b"
               }}>
-                <small style={{ 
-                  color: "#92400e", 
+                <small style={{
+                  color: "#92400e",
                   fontSize: "13px",
                   display: "block",
                   lineHeight: "1.6"
                 }}>
-                  <strong>📌 หมายเหตุ:</strong> สิทธิพิเศษเหล่านี้จะแสดงบนหน้าแรกของผู้ใช้<br/>
+                  <strong>📌 หมายเหตุ:</strong> สิทธิพิเศษเหล่านี้จะแสดงบนหน้าแรกของผู้ใช้<br />
                   เพื่อดึงดูดให้สมาชิกเข้าร่วมการแข่งขัน Top Rank มากขึ้น
                 </small>
               </div>
