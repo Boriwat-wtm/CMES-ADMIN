@@ -1,4 +1,4 @@
-.admin-home-container {
+h.admin-home-container {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
   background-size: 400% 400%;
   animation: gradientShift 15s ease infinite;
@@ -8,9 +8,17 @@
 }
 
 @keyframes gradientShift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 .admin-header {
@@ -27,8 +35,15 @@
 }
 
 @keyframes slideDown {
-  from { opacity: 0; transform: translateY(-30px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .admin-title {
@@ -137,8 +152,15 @@
 }
 
 @keyframes scaleUp {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .mode-row {
@@ -169,7 +191,8 @@
   box-shadow: 0 10px 25px rgba(102, 126, 234, 0.2);
 }
 
-.mode-btn.active, .mode-btn:active {
+.mode-btn.active,
+.mode-btn:active {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #fff;
   border: 2px solid transparent;
@@ -207,21 +230,24 @@
   letter-spacing: 0.5px;
 }
 
-.time-row, .price-row {
+.time-row,
+.price-row {
   margin-bottom: 1.5rem;
   display: flex;
   gap: 1rem;
   align-items: center;
 }
 
-.time-row label, .price-row label {
+.time-row label,
+.price-row label {
   font-weight: 600;
   color: #667eea;
   min-width: 80px;
   font-size: 0.95rem;
 }
 
-.time-inputs input, .price-row input {
+.time-inputs input,
+.price-row input {
   flex: 1;
   padding: 1rem;
   border-radius: 12px;
@@ -233,7 +259,8 @@
   font-family: 'Prompt', 'Kanit', sans-serif;
 }
 
-.time-inputs input:focus, .price-row input:focus {
+.time-inputs input:focus,
+.price-row input:focus {
   outline: none;
   border-color: #667eea;
   background-color: #fff;
@@ -1068,9 +1095,17 @@
 }
 
 @keyframes pulseBar {
-  0% { opacity: 0.6; }
-  50% { opacity: 1; }
-  100% { opacity: 0.6; }
+  0% {
+    opacity: 0.6;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.6;
+  }
 }
 
 .rank-modal-overlay {
@@ -1186,7 +1221,8 @@
     flex-wrap: wrap;
   }
 
-  .time-row, .price-row {
+  .time-row,
+  .price-row {
     flex-direction: column;
     gap: 0.5rem;
   }
@@ -1277,16 +1313,19 @@
     font-size: 0.95rem;
   }
 
-  .time-row, .price-row {
+  .time-row,
+  .price-row {
     flex-direction: column;
     gap: 0.5rem;
   }
 
-  .time-row label, .price-row label {
+  .time-row label,
+  .price-row label {
     min-width: auto;
   }
 
-  .time-inputs input, .price-row input {
+  .time-inputs input,
+  .price-row input {
     width: 100%;
     padding: 0.7rem 1rem;
   }
@@ -1302,7 +1341,10 @@
     padding: 1rem;
   }
 
-  .package-mode, .package-duration, .package-price, .package-date {
+  .package-mode,
+  .package-duration,
+  .package-price,
+  .package-date {
     text-align: center;
   }
 
@@ -1449,17 +1491,21 @@
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  gap: 40px;              /* ระยะห่างระหว่างกล่อง */
+  gap: 40px;
+  /* ระยะห่างระหว่างกล่อง */
   margin-top: 50px;
-  flex-wrap: nowrap;      /* ไม่ให้ลงบรรทัดใหม่ */
+  flex-wrap: nowrap;
+  /* ไม่ให้ลงบรรทัดใหม่ */
 }
 
 /* ให้ทุกกล่องมีขนาดเท่ากันตาม "ตั้งค่าแพ็กเกจ" */
 .feature-card,
 .package-settings-card,
 .vip-card {
-  width: 380px;           /* ความกว้างของกล่องตั้งค่าแพ็คเกจ */
-  min-height: 460px;      /* ความสูงเท่าๆ กัน */
+  width: 380px;
+  /* ความกว้างของกล่องตั้งค่าแพ็คเกจ */
+  min-height: 460px;
+  /* ความสูงเท่าๆ กัน */
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -1630,9 +1676,12 @@
 }
 
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.6;
   }
@@ -1699,3 +1748,136 @@
   margin-top: 15px;
 }
 
+/* ===== Card Eye Button (ปุ่มตาบนขวาของ card header) ===== */
+.card-eye-btn {
+  margin-left: auto;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: 2px solid rgba(148, 163, 184, 0.3);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  line-height: 1;
+  width: 5rem;
+}
+
+.card-eye-btn:hover {
+  translate: 0 -2px;
+}
+
+/* ===== Collapsed Card ===== */
+.card-collapsed {
+  min-height: auto !important;
+  opacity: 0.7;
+}
+
+.card-collapsed .card-drag-handle {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 4px;
+}
+
+
+/* ===== Card Drag Wrapper ===== */
+.card-drag-wrapper {
+  transition: transform 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
+  border-radius: 22px;
+  position: relative;
+  flex: 0 1 380px;
+  min-width: 300px;
+}
+
+.card-drag-wrapper.dragging {
+  opacity: 0.4;
+  transform: scale(0.97);
+}
+
+.card-drag-wrapper.drag-over {
+  transform: scale(1.02);
+  box-shadow: 0 0 0 3px #667eea, 0 12px 30px rgba(102, 126, 234, 0.25);
+  border-radius: 22px;
+}
+
+.card-drag-wrapper.drag-over::before {
+  content: '📌 วางที่นี่';
+  position: absolute;
+  top: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  z-index: 10;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+/* ===== Card Drag Handle ===== */
+.card-drag-handle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: grab;
+  padding: 4px 0 12px 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+  margin-bottom: 16px;
+  user-select: none;
+}
+
+.card-drag-handle:active {
+  cursor: grabbing;
+}
+
+.card-drag-handle h2,
+.card-drag-handle h3,
+.card-drag-handle span {
+  margin: 0;
+}
+
+.drag-icon {
+  font-size: 1.4rem;
+  color: #94a3b8;
+  transition: color 0.2s ease;
+  line-height: 1;
+  letter-spacing: 2px;
+}
+
+.card-drag-handle:hover .drag-icon {
+  color: #667eea;
+}
+
+/* Override original card widths to let wrapper control sizing */
+.card-drag-wrapper .feature-card,
+.card-drag-wrapper .package-settings-card,
+.card-drag-wrapper .vip-card {
+  width: 100%;
+  min-height: auto;
+}
+
+/* Responsive for toolbar */
+@media (max-width: 768px) {
+  .card-layout-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px 12px;
+    margin-top: 20px;
+  }
+
+  .card-layout-toolbar-left {
+    justify-content: center;
+  }
+
+  .card-layout-reset {
+    align-self: center;
+  }
+
+  .card-drag-wrapper {
+    flex: 1 1 auto;
+    min-width: auto;
+  }
+}
