@@ -2,6 +2,13 @@ import mongoose from "mongoose";
 
 const checkHistorySchema = new mongoose.Schema(
   {
+    // Multi-tenant Identifier
+    shopId: {
+      type: String,
+      required: true,
+      index: true
+    },
+
     // Common fields
     transactionId: { type: String, required: true }, // เดิม giftId
     type: {
@@ -63,6 +70,9 @@ checkHistorySchema.index(
     partialFilterExpression: { type: { $ne: "gift" } }
   }
 );
+
+// Index for shop-specific queries
+checkHistorySchema.index({ shopId: 1, status: 1, createdAt: -1 });
 
 const CheckHistory = mongoose.model("CheckHistory", checkHistorySchema);
 

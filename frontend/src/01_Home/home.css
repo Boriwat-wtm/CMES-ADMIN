@@ -418,15 +418,18 @@ h.admin-home-container {
 
 .admin-header-minimal {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  padding: 2rem 1rem 1.5rem 1rem;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
   border-radius: 0 0 24px 24px;
   border: 1px solid rgba(255, 255, 255, 0.7);
   animation: slideDown 0.6s ease;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .brand-minimal {
@@ -434,24 +437,60 @@ h.admin-home-container {
   align-items: center;
   gap: 0.7rem;
   font-size: 1.8rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
   font-weight: 700;
 }
 
 .brand-minimal::before {
   content: '⚙️ ';
   font-size: 1.8rem;
-  background: none;
-  -webkit-text-fill-color: unset;
+}
+
+/* Marquee container */
+.brand-title-container {
+  display: flex;
+  overflow: hidden;
+  max-width: 170px;
+  /* Adjust max-width based on header layout */
+  white-space: nowrap;
+  position: relative;
+  /* Add fade effect on left and right edges */
+  mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+  padding: 0 4px;
+}
+
+.brand-title-content {
+  display: flex;
+  gap: 2rem;
+  width: max-content;
+}
+
+.brand-title-content.marquee {
+  animation: marquee-scroll 8s linear infinite;
+}
+
+.brand-title-content.marquee:hover {
+  animation-play-state: paused;
+}
+
+@keyframes marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(calc(-50% - 1rem));
+  }
 }
 
 .brand-title {
   font-size: 1.8rem;
   font-weight: 700;
   letter-spacing: 1px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .nav-minimal {

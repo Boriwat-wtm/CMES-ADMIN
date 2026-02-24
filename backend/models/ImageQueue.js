@@ -1,6 +1,13 @@
 import mongoose from 'mongoose';
 
 const imageQueueSchema = new mongoose.Schema({
+  // Multi-tenant Identifier
+  shopId: {
+    type: String,
+    required: true,
+    index: true
+  },
+
   // Queue Information
   queueNumber: {
     type: Number,
@@ -142,9 +149,9 @@ const imageQueueSchema = new mongoose.Schema({
 });
 
 // Indexes for better query performance
-imageQueueSchema.index({ status: 1, receivedAt: 1 });
-imageQueueSchema.index({ type: 1, status: 1 });
-imageQueueSchema.index({ userId: 1 });
+imageQueueSchema.index({ shopId: 1, status: 1, receivedAt: 1 });
+imageQueueSchema.index({ shopId: 1, type: 1, status: 1 });
+imageQueueSchema.index({ shopId: 1, userId: 1 });
 imageQueueSchema.index({ 'giftOrder.orderId': 1 });
 imageQueueSchema.index({ completedAt: 1 });
 

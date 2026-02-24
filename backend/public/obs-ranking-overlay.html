@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <title>OBS Ranking Overlay</title>
   <style>
     /* ===== สไตล์พื้นฐาน ===== */
-    html, body {
+    html,
+    body {
       margin: 0;
       padding: 0;
       width: 100%;
@@ -14,6 +16,7 @@
       overflow: hidden;
       font-family: 'Segoe UI', sans-serif;
     }
+
     /* ===== คอนเทนเนอร์หลักสำหรับแสดงอันดับ ===== */
     #ranking-container {
       position: fixed;
@@ -23,70 +26,101 @@
       background: transparent;
       padding: 10px 0 10px 10px;
       color: white;
-      text-shadow: 
-        -1px -1px 0 #000,  
-         1px -1px 0 #000,
-        -1px  1px 0 #000,
-         1px  1px 0 #000,
-         0 2px 4px rgba(0,0,0,0.9);
+      text-shadow:
+        -1px -1px 0 #000,
+        1px -1px 0 #000,
+        -1px 1px 0 #000,
+        1px 1px 0 #000,
+        0 2px 4px rgba(0, 0, 0, 0.9);
     }
+
     /* ===== หัวข้อ Top Supporter ===== */
     h2 {
       margin: 0 0 12px 0;
       font-size: 18px;
-      text-align: right; /* Changed from center to right */
+      text-align: right;
+      /* Changed from center to right */
       color: #fbbf24;
       text-transform: uppercase;
       letter-spacing: 1px;
-      text-shadow: 
-        -2px -2px 0 #000,  
-         2px -2px 0 #000,
-        -2px  2px 0 #000,
-         2px  2px 0 #000;
+      text-shadow:
+        -2px -2px 0 #000,
+        2px -2px 0 #000,
+        -2px 2px 0 #000,
+        2px 2px 0 #000;
     }
+
     /* ===== แต่ละรายการของ Ranking ===== */
     .rank-item {
       display: flex;
       align-items: center;
-      justify-content: flex-end; /* Align items to the right */
+      justify-content: flex-end;
+      /* Align items to the right */
       padding: 8px 0;
       /* border-bottom: 1px solid rgba(255,255,255,0.1); Removed border to look cleaner transparent */
     }
+
     .rank-item:last-child {
       border-bottom: none;
     }
+
     /* ===== หมายเลขอันดับ ===== */
     .rank-num {
       width: 24px;
       font-weight: bold;
       color: #9ca3af;
-      text-align: center; /* Keep rank number centered in its box */
-      order: 3; /* Move rank number to the rightmost */
-      margin-left: 10px; /* Add margin left */
+      text-align: center;
+      /* Keep rank number centered in its box */
+      order: 3;
+      /* Move rank number to the rightmost */
+      margin-left: 10px;
+      /* Add margin left */
     }
+
     /* สีสำหรับอันดับ 1-3 */
-    .rank-num.top-1 { color: #fbbf24; font-size: 1.2em; } /* ทอง */
-    .rank-num.top-2 { color: #94a3b8; font-size: 1.1em; } /* เงิน */
-    .rank-num.top-3 { color: #b45309; font-size: 1.1em; } /* ทองแดง */
-    
+    .rank-num.top-1 {
+      color: #fbbf24;
+      font-size: 1.2em;
+    }
+
+    /* ทอง */
+    .rank-num.top-2 {
+      color: #94a3b8;
+      font-size: 1.1em;
+    }
+
+    /* เงิน */
+    .rank-num.top-3 {
+      color: #b45309;
+      font-size: 1.1em;
+    }
+
+    /* ทองแดง */
+
     /* ===== รูปโปรไฟล์ ===== */
     .rank-avatar {
       width: 32px;
       height: 32px;
       border-radius: 50%;
-      margin-left: 10px; /* Changed from margin-right to margin-left */
+      margin-left: 10px;
+      /* Changed from margin-right to margin-left */
       margin-right: 0;
       background: #333;
       object-fit: cover;
-      order: 2; /* Move avatar to the middle */
+      order: 2;
+      /* Move avatar to the middle */
     }
+
     /* ===== ข้อมูลผู้ใช้ (ชื่อ + คะแนน) ===== */
     .rank-info {
       flex: 1;
       overflow: hidden;
-      text-align: right; /* Align text to the right */
-      order: 1; /* Move info to the leftmost (visually rightmost in RTL thinking, but here we just reorder) */
+      text-align: right;
+      /* Align text to the right */
+      order: 1;
+      /* Move info to the leftmost (visually rightmost in RTL thinking, but here we just reorder) */
     }
+
     /* ชื่อผู้ใช้ */
     .rank-name {
       font-weight: 600;
@@ -94,6 +128,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+
     /* คะแนน */
     .rank-points {
       font-size: 0.85em;
@@ -101,6 +136,7 @@
     }
   </style>
 </head>
+
 <body>
   <!-- คอนเทนเนอร์หลักสำหรับแสดง Ranking -->
   <div id="ranking-container">
@@ -117,7 +153,17 @@
     // ===== การตั้งค่า URL และเชื่อมต่อ Socket.IO =====
     const REALTIME_URL = 'https://cmes-admin-realtime.onrender.com';
     const API_BASE_URL = 'https://cmes-admin-server.onrender.com';
-    const socket = io(REALTIME_URL, { transports: ['websocket', 'polling'] });
+
+    // 🔥 อ่าน shopId จาก URL ?shopId=KAIYANG
+    const urlParams = new URLSearchParams(window.location.search);
+    const shopId = urlParams.get('shopId') || '';
+    console.log('[OBS Ranking] shopId from URL:', shopId);
+
+    // 🔥 เชื่อมต่อ socket พร้อมส่ง shopId เพื่อเข้า room เฉพาะร้าน
+    const socket = io(REALTIME_URL, {
+      transports: ['websocket', 'polling'],
+      query: { shopId }
+    });
     const listEl = document.getElementById('ranking-list');
 
     // ===== ฟังก์ชันแสดงผล Ranking =====
@@ -133,7 +179,7 @@
         const rank = index + 1; // อันดับเริ่มจาก 1
         const rankClass = rank <= 3 ? `top-${rank}` : ''; // เพิ่มคลาสพิเศษสำหรับ 3 อันดับแรก
         const avatarUrl = r.avatar || '/data-icon/unknown-person-icon.png'; // ใช้รูป default ถ้าไม่มี
-        
+
         return `
           <div class="rank-item">
             <div class="rank-num ${rankClass}">${rank}</div>
@@ -150,7 +196,9 @@
     // ===== ฟังก์ชันดึงข้อมูล Ranking จาก API =====
     async function fetchRanking() {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/rankings/top`);
+        const res = await fetch(`${API_BASE_URL}/api/rankings/top`, {
+          headers: { 'x-shop-id': shopId }  // 🔥 ส่ง shopId
+        });
         if (res.ok) {
           const json = await res.json();
           // API คืนค่า { success: true, ranks: [...] }
@@ -174,9 +222,10 @@
       console.log('Ranking update received:', data);
       renderRanking(data);
     });
-    
+
     // รีเฟรชข้อมูลทุก 30 วินาที (เผื่อกรณีที่ socket ขาดหาย)
     setInterval(fetchRanking, 30000);
   </script>
 </body>
+
 </html>

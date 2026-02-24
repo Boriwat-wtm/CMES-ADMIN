@@ -18,7 +18,10 @@ import GiftSetting from "./models/GiftSetting.js";
 import Ranking from './models/Ranking.js'; // Keep Ranking import
 import AdminUser from './models/AdminUser.js'; // Keep AdminUser import
 import ImageQueue from './models/ImageQueue.js'; // 🔥 Image Queue Model
+import TimeHistory from './models/TimeHistory.js'; // 🔥 Time History Model
+import ShopSetting from './models/ShopSetting.js'; // 🔥 Shop-specific settings
 import { verifyPassword, hashPassword } from './hashPasswords.js'; // Keep password utilities import
+import { requireShopId, requireAdminAuth } from './middleware/authMiddleware.js'; // Multi-tenant middleware
 
 dotenv.config();
 
@@ -49,14 +52,57 @@ async function connectDB() {
 }
 connectDB();
 
+// ===== CONFIG SWITCHES MANAGEMENT (จาก realtime-server.js) =====
+const settingsPath = path.join(__dirname, "settings.json");
+
+let systemConfig = {
+  systemOn: true,
+  enableImage: true,
+  enableText: true,
+  enableGift: true,
+  enableBirthday: true,
+  birthdaySpendingRequirement: 100,
+  price: 100,
+  time: 10,
+  publicRankingType: 'alltime'
+};
+
+// โหลด config switches จากไฟล์
+function loadSystemConfig() {
+  try {
+    if (fs.existsSync(settingsPath)) {
+      const saved = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      systemConfig = { ...systemConfig, ...saved };
+      console.log('[Admin] โหลด config switches สำเร็จ');
+    } else {
+      fs.writeFileSync(settingsPath, JSON.stringify(systemConfig, null, 2));
+      console.log('[Admin] สร้างไฟล์ settings.json ใหม่');
+    }
+  } catch (error) {
+    console.error('[Admin] Error loading config:', error);
+  }
+}
+
+function saveSystemConfig() {
+  try {
+    fs.writeFileSync(settingsPath, JSON.stringify(systemConfig, null, 2));
+    console.log('[Admin] บันทึก config switches แล้ว');
+  } catch (error) {
+    console.error('[Admin] Error saving config:', error);
+  }
+}
+
+// โหลด config ตอนเริ่มต้น
+loadSystemConfig();
+
 // ===== การตั้งค่า CLOUDINARY สำหรับจัดเก็บรูปภาพ =====
 /**
  * กำหนดค่า Cloudinary สำหรับการอัปโหลดและจัดเก็บรูปภาพ
  * รองรับทั้งค่าจาก environment variables และค่าเริ่มต้น
  */
-cloudinary.config({ 
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dfcqbb9pt', 
-  api_key: process.env.CLOUDINARY_API_KEY || '396185692714272', 
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dfcqbb9pt',
+  api_key: process.env.CLOUDINARY_API_KEY || '396185692714272',
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
@@ -93,7 +139,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-shop-id', 'x-admin-id']
 }));
 
 // ===== Middleware สำหรับ Parse ข้อมูล =====
@@ -174,13 +220,23 @@ const uploadUser = multer({ storage: userStorage }).fields([
  * @param {string} email - อีเมลผู้ใช้
  * @param {string} avatar - URL รูป avatar
  */
-async function addRankingPoint(userId, name, amount, email = null, avatar = null) {
+/**
+ * บันทึกคะแนน ranking สำหรับผู้ใช้ที่ทำการสนับสนุน
+ * 🔥 Multi-tenant: แยกตาม shopId
+ */
+async function addRankingPoint(userId, name, amount, email = null, avatar = null, shopId) {
   try {
-    console.log(`[Ranking] addRankingPoint called: userId=${userId}, name=${name}, amount=${amount}, email=${email}`);
+    console.log(`[Ranking] addRankingPoint called: shopId=${shopId}, userId=${userId}, name=${name}, amount=${amount}, email=${email}`);
 
     const points = Number(amount);
     if (isNaN(points) || points <= 0) {
       console.log("[Ranking] ข้าม: คะแนนไม่ถูกต้อง");
+      return;
+    }
+
+    // ต้องมี shopId และ userId
+    if (!shopId) {
+      console.log("[Ranking] ข้าม: ไม่มี shopId");
       return;
     }
 
@@ -194,8 +250,8 @@ async function addRankingPoint(userId, name, amount, email = null, avatar = null
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
 
-    // ค้นหา ranking ของผู้ใช้
-    let ranking = await Ranking.findOne({ userId });
+    // 🔥 ค้นหา ranking ของผู้ใช้แยกตาม shopId
+    let ranking = await Ranking.findOne({ userId, shopId });
     if (ranking) {
       // อัปเดตคะแนนทั้งหมด (all-time points)
       ranking.points = (ranking.points || 0) + points;
@@ -225,6 +281,7 @@ async function addRankingPoint(userId, name, amount, email = null, avatar = null
     } else {
       // สร้าง ranking ใหม่ถ้ายังไม่มี
       ranking = await Ranking.create({
+        shopId, // 🔥 Multi-tenant
         userId,
         name: userName,
         email,
@@ -239,16 +296,16 @@ async function addRankingPoint(userId, name, amount, email = null, avatar = null
       console.log(`[Ranking] สร้างใหม่ ${userName} (${userId}): ${points} คะแนน`);
     }
 
-    // ส่งข้อมูลการอัปเดต ranking ไปยัง clients ทั้งหมด
-    const topRankings = await Ranking.find({}).sort({ points: -1 }).limit(10);
+    // ส่งข้อมูลการอัปเดต ranking ไปยัง clients ของ shop นี้เท่านั้น
+    const topRankings = await Ranking.find({ shopId }).sort({ points: -1 }).limit(10);
     // คำนวณอันดับอีกครั้ง (pre-save hook จัดการแล้ว แต่การ fetch แบบ bulk ปลอดภัยกว่า)
     const formattedRankings = topRankings.map((r, index) => ({
       ...r.toObject(),
       rank: index + 1
     }));
-    // ใช้ global io instance ถ้ามี (เพื่อ broadcast ไปยัง clients ทั้งหมด)
+    // 🔥 Emit ไปยัง Room เฉพาะของ shop นี้
     if (typeof io !== 'undefined') {
-      io.emit("ranking-update", formattedRankings);
+      io.to(shopId).emit("ranking-update", formattedRankings);
     }
   } catch (error) {
     console.error("[Ranking] Error adding points:", error.message);
@@ -323,10 +380,12 @@ async function findUser(username) {
 // ===== API สำหรับจัดการการตั้งค่าของขวัญ (GIFT SETTINGS API) =====
 /**
  * API สำหรับดึงการตั้งค่าของขวัญ (จำนวนโต๊ะ และรายการสินค้า)
+ * 🔥 Multi-tenant: filter ด้วย shopId
  */
-app.get("/api/gifts/settings", async (req, res) => {
+app.get("/api/gifts/settings", requireAdminAuth, async (req, res) => {
   try {
-    const gifts = await GiftSetting.find({});
+    const { shopId } = req; // ได้จาก middleware
+    const gifts = await GiftSetting.find({ shopId });
     const tableCount = giftSettings.tableCount || 10;
     res.json({
       tableCount,
@@ -346,9 +405,10 @@ app.get("/api/gifts/settings", async (req, res) => {
 
 /**
  * ฟังก์ชัน Helper สำหรับ sync ข้อมูล gift settings จาก DB ไปยัง JSON file
+ * 🔥 Multi-tenant: แยกตาม shopId
  */
-async function syncGiftSettingsFromDB() {
-  const gifts = await GiftSetting.find({});
+async function syncGiftSettingsFromDB(shopId) {
+  const gifts = await GiftSetting.find({ shopId });
   giftSettings.items = gifts.map(g => ({
     id: g._id.toString(),
     name: g.giftName,
@@ -362,9 +422,11 @@ async function syncGiftSettingsFromDB() {
 
 /**
  * API สำหรับเพิ่มสินค้าใหม่เข้าระบบ
+ * 🔥 Multi-tenant: บันทึกพร้อม shopId
  */
-app.post("/api/gifts/items", async (req, res) => {
+app.post("/api/gifts/items", requireAdminAuth, async (req, res) => {
   try {
+    const { shopId } = req; // ได้จาก middleware
     const { name, price, description, imageUrl } = req.body;
     if (!name || price === undefined || price === null || price === "") {
       return res.status(400).json({ success: false, message: "กรุณาระบุชื่อสินค้าและราคา" });
@@ -378,6 +440,7 @@ app.post("/api/gifts/items", async (req, res) => {
 
     // สร้าง Gift Setting ใหม่ในฐานข้อมูล
     const newGift = new GiftSetting({
+      shopId, // 🔥 Multi-tenant
       giftId: Date.now().toString(),
       giftName: name.trim(),
       price: numPrice,
@@ -396,7 +459,7 @@ app.post("/api/gifts/items", async (req, res) => {
     };
 
     // Sync กับ DB เพื่อความสอดคล้องข้อมูล
-    await syncGiftSettingsFromDB();
+    await syncGiftSettingsFromDB(shopId);
 
     res.json({ success: true, item, settings: giftSettings });
   } catch (error) {
@@ -407,9 +470,11 @@ app.post("/api/gifts/items", async (req, res) => {
 
 /**
  * API สำหรับแก้ไขข้อมูลสินค้า
+ * 🔥 Multi-tenant: ตรวจสอบ shopId
  */
-app.put("/api/gifts/items/:id", async (req, res) => {
+app.put("/api/gifts/items/:id", requireAdminAuth, async (req, res) => {
   try {
+    const { shopId } = req; // ได้จาก middleware
     const { id } = req.params;
     const { name, price, description, imageUrl } = req.body;
 
@@ -420,8 +485,9 @@ app.put("/api/gifts/items/:id", async (req, res) => {
       }
     }
 
-    const updatedGift = await GiftSetting.findByIdAndUpdate(
-      id,
+    // 🔥 ตรวจสอบว่า gift นี้เป็นของ shop นี้จริงหรือไม่
+    const updatedGift = await GiftSetting.findOneAndUpdate(
+      { _id: id, shopId }, // 🔥 filter ด้วย shopId
       {
         ...(name && { giftName: name.trim() }),
         ...(price !== undefined && { price: Number(price) }),
@@ -444,7 +510,7 @@ app.put("/api/gifts/items/:id", async (req, res) => {
     };
 
     // Sync กับ DB เพื่อความสอดคล้องข้อมูล
-    await syncGiftSettingsFromDB();
+    await syncGiftSettingsFromDB(shopId);
 
     res.json({ success: true, item, settings: giftSettings });
   } catch (error) {
@@ -480,12 +546,15 @@ const deleteImageFile = (imagePath) => {
 
 /**
  * API สำหรับลบสินค้า
+ * 🔥 Multi-tenant: ตรวจสอบ shopId
  */
-app.delete("/api/gifts/items/:id", async (req, res) => {
+app.delete("/api/gifts/items/:id", requireAdminAuth, async (req, res) => {
   try {
+    const { shopId } = req; // ได้จาก middleware
     const { id } = req.params;
 
-    const deletedGift = await GiftSetting.findByIdAndDelete(id);
+    // 🔥 ตรวจสอบว่า gift นี้เป็นของ shop นี้จริงหรือไม่
+    const deletedGift = await GiftSetting.findOneAndDelete({ _id: id, shopId });
 
     if (!deletedGift) {
       return res.status(404).json({ success: false, message: "ไม่พบรายการ" });
@@ -497,7 +566,7 @@ app.delete("/api/gifts/items/:id", async (req, res) => {
     }
 
     // Sync กับ DB เพื่อความสอดคล้องข้อมูล
-    await syncGiftSettingsFromDB();
+    await syncGiftSettingsFromDB(shopId);
 
     res.json({ success: true, settings: giftSettings });
   } catch (error) {
@@ -508,22 +577,29 @@ app.delete("/api/gifts/items/:id", async (req, res) => {
 
 /**
  * API สำหรับอัปเดตจำนวนโต๊ะที่รองรับ
+ * 🔥 Multi-tenant: ต้องอัปเดตใน Database แทน in-memory giftSettings
+ * เพราะ giftSettings เป็น global variable ไม่เหมาะกับ multi-tenant
  */
-app.patch("/api/gifts/table-count", (req, res) => {
+app.patch("/api/gifts/table-count", requireAdminAuth, async (req, res) => {
+  const { shopId } = req; // 🔥 ได้จาก middleware
   const { tableCount } = req.body;
   const parsed = Number(tableCount);
   if (!parsed || parsed < 1) {
     return res.status(400).json({ success: false, message: "จำนวนโต๊ะไม่ถูกต้อง" });
   }
+  // TODO: เก็บ tableCount ใน Database (ShopSetting Model) แทนที่จะเป็น global variable
+  // ตอนนี้แค่อัปเดต in-memory ไปก่อน (ไม่เหมาะกับ multi-tenant)
   giftSettings.tableCount = parsed;
   saveGiftSettings();
+  console.log(`[Gift][${shopId}] Table count updated to: ${parsed}`);
   res.json({ success: true, tableCount: parsed });
 });
 
 /**
  * API สำหรับอัปโหลดรูปภาพ Gift (ใช้ giftStorage สำหรับ upload ไป Cloudinary)
+ * 🔥 Multi-tenant: ต้องเป็น Admin ถึงจะ upload ได้
  */
-app.post("/api/gifts/upload", uploadGift.single("image"), async (req, res) => {
+app.post("/api/gifts/upload", requireAdminAuth, uploadGift.single("image"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: "No file uploaded" });
@@ -542,23 +618,25 @@ app.post("/api/gifts/upload", uploadGift.single("image"), async (req, res) => {
 /**
  * API ดึง ranking ทั้งหมดหรือตามจำนวนที่กำหนด
  * รองรับทั้ง daily, monthly, alltime
+ * 🔥 Multi-tenant: filter ด้วย shopId
  */
-app.get("/api/rankings", async (req, res) => {
+app.get("/api/rankings", requireAdminAuth, async (req, res) => {
   try {
+    const { shopId } = req; // ได้จาก middleware
     const limit = parseInt(req.query.limit) || 10;
     const type = req.query.type || "alltime"; // daily, monthly, alltime
 
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
 
-    let query = {};
+    let query = { shopId }; // 🔥 filter ด้วย shopId
     let sortField = { points: -1 };
 
     if (type === "daily") {
-      query = { dailyDate: today };
+      query = { shopId, dailyDate: today };
       sortField = { dailyPoints: -1 };
     } else if (type === "monthly") {
-      query = { monthlyPeriod: currentMonth };
+      query = { shopId, monthlyPeriod: currentMonth };
       sortField = { monthlyPoints: -1 };
     }
 
@@ -589,21 +667,23 @@ app.get("/api/rankings", async (req, res) => {
 
 /**
  * API ดึง top 3 rankings สำหรับ backward compatibility
+ * 🔥 Multi-tenant: เพิ่ม requireAdminAuth หรือ requireShopId (ถ้าเป็น public API)
  */
-app.get("/api/rankings/top", async (req, res) => {
+app.get("/api/rankings/top", requireShopId, async (req, res) => {
   try {
+    const { shopId } = req; // 🔥 ได้จาก middleware
     const type = req.query.type || "alltime";
     const today = new Date().toISOString().split('T')[0];
     const currentMonth = new Date().toISOString().slice(0, 7);
 
-    let query = {};
+    let query = { shopId }; // 🔥 filter ด้วย shopId
     let sortField = { points: -1 };
 
     if (type === "daily") {
-      query = { dailyDate: today };
+      query.dailyDate = today;
       sortField = { dailyPoints: -1 };
     } else if (type === "monthly") {
-      query = { monthlyPeriod: currentMonth };
+      query.monthlyPeriod = currentMonth;
       sortField = { monthlyPoints: -1 };
     }
 
@@ -627,9 +707,11 @@ app.get("/api/rankings/top", async (req, res) => {
 /**
  * API อัปเดต avatar ของ user ใน ranking
  * ถูกเรียกจาก User Backend เมื่อมีการเปลี่ยน avatar
+ * 🔥 Multi-tenant: ต้องส่ง shopId มาด้วย
  */
-app.put("/api/rankings/update-avatar", async (req, res) => {
+app.put("/api/rankings/update-avatar", requireShopId, async (req, res) => {
   try {
+    const { shopId } = req; // 🔥 ได้จาก middleware
     const { userId, email, avatar, username } = req.body;
 
     if (!userId && !email) {
@@ -639,8 +721,8 @@ app.put("/api/rankings/update-avatar", async (req, res) => {
       });
     }
 
-    // หา ranking record โดยใช้ userId หรือ email
-    let query = {};
+    // หา ranking record โดยใช้ userId หรือ email 🔥 + shopId
+    let query = { shopId }; // 🔥 filter ด้วย shopId
     if (userId) {
       query.userId = userId;
     } else if (email) {
@@ -653,17 +735,17 @@ app.put("/api/rankings/update-avatar", async (req, res) => {
       // อัปเดต avatar และชื่อถ้ามี
       if (avatar !== undefined) ranking.avatar = avatar;
       if (username) ranking.name = username;
-      
+
       await ranking.save();
-      console.log(`[Ranking] Avatar updated for user ${ranking.name} (${ranking.userId})`);
-      
+      console.log(`[Ranking][${shopId}] Avatar updated for user ${ranking.name} (${ranking.userId})`);
+
       return res.json({
         success: true,
         message: "Avatar updated successfully"
       });
     } else {
       // ถ้ายังไม่มี ranking record ก็ไม่ต้องสร้าง (จะสร้างตอนซื้อครั้งแรก)
-      console.log(`[Ranking] ไม่พบ ranking record สำหรับ user จะสร้างตอนซื้อครั้งแรก`);
+      console.log(`[Ranking][${shopId}] ไม่พบ ranking record สำหรับ user จะสร้างตอนซื้อครั้งแรก`);
       return res.json({
         success: true,
         message: "No ranking record yet, will update on first purchase"
@@ -681,20 +763,22 @@ app.put("/api/rankings/update-avatar", async (req, res) => {
 // ===== API สำหรับจัดการค่าขั้นต่ำการใช้จ่ายสำหรับวันเกิด (Birthday Spending Requirement) =====
 /**
  * API ดึงค่า birthday spending requirement
+ * 🔥 Multi-tenant: แต่ละ shop มี config ของตัวเอง
  */
-app.get("/api/config/birthday-requirement", (req, res) => {
+app.get("/api/config/birthday-requirement", requireAdminAuth, async (req, res) => {
   try {
-    const settingsPath = path.join(__dirname, "settings.json");
-    let birthdayRequirement = 100; // ค่าเริ่มต้น
+    const { shopId } = req; // ได้จาก middleware
 
-    if (fs.existsSync(settingsPath)) {
-      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
-      birthdayRequirement = settings.birthdaySpendingRequirement || 100;
-    }
+    // หา settings ของ shop นี้ หรือสร้างใหม่ถ้ายังไม่มี (Atomic operation ป้องกัน Race Condition)
+    let settings = await ShopSetting.findOneAndUpdate(
+      { shopId },
+      {},
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
 
     res.json({
       success: true,
-      birthdaySpendingRequirement: birthdayRequirement
+      birthdaySpendingRequirement: settings.birthdaySpendingRequirement
     });
   } catch (error) {
     console.error("Error fetching birthday requirement:", error);
@@ -704,9 +788,11 @@ app.get("/api/config/birthday-requirement", (req, res) => {
 
 /**
  * API อัปเดตค่า birthday spending requirement
+ * 🔥 Multi-tenant: แต่ละ shop มี config ของตัวเอง
  */
-app.post("/api/config/birthday-requirement", (req, res) => {
+app.post("/api/config/birthday-requirement", requireAdminAuth, async (req, res) => {
   try {
+    const { shopId } = req; // ได้จาก middleware
     const { birthdaySpendingRequirement } = req.body;
     const requirement = Number(birthdaySpendingRequirement);
 
@@ -717,17 +803,17 @@ app.post("/api/config/birthday-requirement", (req, res) => {
       });
     }
 
-    const settingsPath = path.join(__dirname, "settings.json");
-    let settings = {};
+    // อัปเดตใน Database
+    let settings = await ShopSetting.findOneAndUpdate(
+      { shopId },
+      { birthdaySpendingRequirement: requirement },
+      { upsert: true, new: true }
+    );
 
-    if (fs.existsSync(settingsPath)) {
-      settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
-    }
+    console.log(`[Admin][${shopId}] Birthday spending requirement updated to: ${requirement}`);
 
-    settings.birthdaySpendingRequirement = requirement;
-    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-
-    console.log(`[Admin] Birthday spending requirement updated to: ${requirement}`);
+    // 🔥 แจ้ง Admin ของ shop นี้
+    io.to(shopId).emit('configUpdated', { birthdaySpendingRequirement: requirement });
 
     res.json({
       success: true,
@@ -742,27 +828,22 @@ app.post("/api/config/birthday-requirement", (req, res) => {
 // ===== API สำหรับจัดการสิทธิพิเศษ (Perks Management) =====
 /**
  * API ดึงรายการสิทธิพิเศษทั้งหมด
+ * 🔥 Multi-tenant: แต่ละ shop มี perks ของตัวเอง
  */
-app.get("/api/config/perks", (req, res) => {
+app.get("/api/config/perks", requireAdminAuth, async (req, res) => {
   try {
-    const settingsPath = path.join(__dirname, "settings.json");
-    let perks = [
-      "🎁 แล้งข้อแลวโปรไฟล์ฟรีกับหน้าอันดับผู้สนับสนุน",
-      "🌟 ป้าย Diamond/Gold/Silver ที่ช่วยแยกความโดดเด่น",
-      "💎 สิทธิเข้าถึงโปรโมชั่นพิเศษหรือกิจกรรมทดลองใหม่",
-      "💬 ช่องทางติดต่อทีมเซทอัพสำหรับแคลงค่า"
-    ]; // สิทธิพิเศษเริ่มต้น
+    const { shopId } = req; // ได้จาก middleware
 
-    if (fs.existsSync(settingsPath)) {
-      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
-      if (settings.perks && Array.isArray(settings.perks) && settings.perks.length > 0) {
-        perks = settings.perks;
-      }
-    }
+    // หา settings ของ shop นี้ หรือสร้างใหม่ถ้ายังไม่มี (Atomic operation)
+    let settings = await ShopSetting.findOneAndUpdate(
+      { shopId },
+      {},
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
 
     res.json({
       success: true,
-      perks: perks
+      perks: settings.perks
     });
   } catch (error) {
     console.error("Error fetching perks:", error);
@@ -772,9 +853,11 @@ app.get("/api/config/perks", (req, res) => {
 
 /**
  * API อัปเดตรายการสิทธิพิเศษ
+ * 🔥 Multi-tenant: แต่ละ shop มี perks ของตัวเอง
  */
-app.post("/api/config/perks", (req, res) => {
+app.post("/api/config/perks", requireAdminAuth, async (req, res) => {
   try {
+    const { shopId } = req; // ได้จาก middleware
     const { perks } = req.body;
 
     if (!Array.isArray(perks) || perks.length === 0) {
@@ -794,17 +877,17 @@ app.post("/api/config/perks", (req, res) => {
       });
     }
 
-    const settingsPath = path.join(__dirname, "settings.json");
-    let settings = {};
+    // อัปเดตใน Database
+    let settings = await ShopSetting.findOneAndUpdate(
+      { shopId },
+      { perks: validPerks },
+      { upsert: true, new: true }
+    );
 
-    if (fs.existsSync(settingsPath)) {
-      settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
-    }
+    console.log(`[Admin][${shopId}] Perks updated. Total: ${validPerks.length} perks`);
 
-    settings.perks = validPerks;
-    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-
-    console.log(`[Admin] Perks updated. Total: ${validPerks.length} perks`);
+    // 🔥 แจ้ง Admin ของ shop นี้
+    io.to(shopId).emit('configUpdated', { perks: validPerks });
 
     res.json({
       success: true,
@@ -818,9 +901,11 @@ app.post("/api/config/perks", (req, res) => {
 
 /**
  * API ตรวจสอบว่า user มีสิทธิ์ใช้ฟีเจอร์วันเกิดหรือไม่ (ครบยอดใช้จ่ายตามเงื่อนไข)
+ * 🔥 Multi-tenant: ต้อง filter Ranking ด้วย shopId
  */
-app.get("/api/birthday-eligibility/:email", async (req, res) => {
+app.get("/api/birthday-eligibility/:email", requireShopId, async (req, res) => {
   try {
+    const { shopId } = req; // 🔥 ได้จาก middleware
     const email = decodeURIComponent(req.params.email);
 
     if (!email || email === "guest" || email === "unknown") {
@@ -833,18 +918,17 @@ app.get("/api/birthday-eligibility/:email", async (req, res) => {
       });
     }
 
-    // ดึงยอดใช้จ่ายของ user จาก email
-    const userRanking = await Ranking.findOne({ email });
+    // ดึงยอดใช้จ่ายของ user จาก email 🔥 filter ด้วย shopId
+    const userRanking = await Ranking.findOne({ email, shopId });
     const totalSpent = userRanking ? (userRanking.points || 0) : 0;
 
-    // ดึงค่า requirement จาก settings
-    const settingsPath = path.join(__dirname, "settings.json");
-    let birthdayRequirement = 100;
-
-    if (fs.existsSync(settingsPath)) {
-      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
-      birthdayRequirement = settings.birthdaySpendingRequirement || 100;
-    }
+    // ดึงค่า requirement จาก ShopSetting Database 🔥 แทนการใช้ settings.json
+    let settings = await ShopSetting.findOneAndUpdate(
+      { shopId },
+      {},
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+    const birthdayRequirement = settings.birthdaySpendingRequirement;
 
     const eligible = totalSpent >= birthdayRequirement;
 
@@ -864,24 +948,26 @@ app.get("/api/birthday-eligibility/:email", async (req, res) => {
 /**
  * API สำหรับรับคำสั่งซื้อของขวัญจาก User Backend
  * บันทึกลง ImageQueue และจัดการ ranking ถ้า user login
+ * 🔥 Multi-tenant: รับ shopId จาก Request
  */
-app.post("/api/gifts/order", async (req, res) => {
+app.post("/api/gifts/order", requireShopId, async (req, res) => {
   try {
     console.log("[Admin] Received gift order:", JSON.stringify(req.body, null, 2));
 
+    const { shopId } = req; // 🔥 ได้จาก middleware
     const { orderId, sender, userId, email, avatar, tableNumber, note, items, totalPrice } = req.body;
 
-    console.log("[Admin] Parsed data: userId=", userId, "sender=", sender, "price=", totalPrice);
+    console.log("[Admin] Parsed data: shopId=", shopId, "userId=", userId, "sender=", sender, "price=", totalPrice);
 
     if (!orderId || !tableNumber || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ success: false, message: "ข้อมูลคำสั่งซื้อไม่ครบ" });
     }
 
-    // เติมข้อมูล image จาก GiftSetting ถ้าไม่มี
+    // เติมข้อมูล image จาก GiftSetting ถ้าไม่มี (🔥 filter ด้วย shopId)
     const enrichedItems = await Promise.all(items.map(async (item) => {
       if (!item.image && item.id) {
         try {
-          const giftSetting = await GiftSetting.findById(item.id);
+          const giftSetting = await GiftSetting.findOne({ _id: item.id, shopId });
           if (giftSetting && giftSetting.image) {
             return { ...item, image: giftSetting.image };
           }
@@ -895,6 +981,7 @@ app.post("/api/gifts/order", async (req, res) => {
     console.log("[Admin] Enriched items with images:", enrichedItems);
 
     const queueData = {
+      shopId, // 🔥 Multi-tenant
       type: "gift",
       text: `ส่งของขวัญไปยังโต๊ะ ${tableNumber}`,
       time: 30,
@@ -928,11 +1015,14 @@ app.post("/api/gifts/order", async (req, res) => {
 
     // บันทึก ranking เฉพาะ user ที่ login แล้ว
     if (userId) {
-      console.log("[Admin] Calling addRankingPoint for userId:", userId);
-      addRankingPoint(userId, sender, Number(totalPrice) || 0, email, avatar);
+      console.log("[Admin] Calling addRankingPoint for userId:", userId, "shopId:", shopId);
+      addRankingPoint(userId, sender, Number(totalPrice) || 0, email, avatar, shopId); // 🔥 ส่ง shopId
     } else {
       console.log("[Admin] No userId provided, skipping ranking");
     }
+
+    // 🔥 Emit ไปยัง Room ของ shop นี้
+    io.to(shopId).emit("admin-update-queue");
 
     res.json({ success: true, queueItem });
   } catch (error) {
@@ -943,9 +1033,11 @@ app.post("/api/gifts/order", async (req, res) => {
 });
 
 // API สำหรับรับข้อมูลจาก User backend
-app.post("/api/upload", uploadUser, async (req, res) => {
+// 🔥 Multi-tenant: รับ shopId จาก Request
+app.post("/api/upload", requireShopId, uploadUser, async (req, res) => {
   try {
-    console.log("=== Upload request received ===");
+    const { shopId } = req; // 🔥 ได้จาก middleware
+    console.log(`=== Upload request received from shop: ${shopId} ===`);
     const mainFile = req.files?.file?.[0];
     const qrFile = req.files?.qrCode?.[0];
     const imageUrl = req.body.imageUrl; // รับ Cloudinary URL จาก User Backend
@@ -1037,6 +1129,7 @@ app.post("/api/upload", uploadUser, async (req, res) => {
 
     // สร้างข้อมูลสำหรับบันทึกลง ImageQueue
     const itemData = {
+      shopId, // 🔥 Multi-tenant
       type: type || "image",
       text: text || "",
       time: Number(time) || 0,
@@ -1057,14 +1150,17 @@ app.post("/api/upload", uploadUser, async (req, res) => {
 
     const queueItem = await ImageQueue.create(itemData);
 
-    // Notify admins for real-time update
-    io.emit("new-upload", queueItem);
+    // 🔥 Emit ไปยัง Room เฉพาะของ shop นี้
+    io.to(shopId).emit("new-upload", queueItem);
 
-    // บันทึก ranking เฉพาะ user ที่ login แล้ว (ไม่บันทึกสำหรับ birthday เพราะฟรี)
-    // ย้ายไปทำหลังชำระเงินแล้ว
-    // if (userId && type !== "birthday") {
-    //   addRankingPoint(userId, sender, Number(price) || 0, email, avatar);
-    // }
+    // ✅ บันทึก ranking: User backend เรียก /api/upload หลังจากการชำระเงินผ่านแล้ว
+    // จึงบันทึก ranking ได้เลย (ยกเว้น birthday เพราะฟรี)
+    if (userId && userId !== "guest" && userId !== "unknown" && type !== "birthday" && Number(price) > 0) {
+      console.log(`[Ranking] Triggered from /api/upload: userId=${userId}, price=${price}, shopId=${shopId}`);
+      addRankingPoint(userId, sender, Number(price) || 0, email, avatar, shopId);
+    } else {
+      console.log(`[Ranking] Skipped: userId=${userId}, type=${type}, price=${price}`);
+    }
     console.log("[Admin] Upload item created and queued:", queueItem._id, "type:", queueItem.type);
     res.json({ success: true, uploadId: queueItem._id.toString() });
   } catch (e) {
@@ -1076,18 +1172,22 @@ app.post("/api/upload", uploadUser, async (req, res) => {
 /**
  * API สำหรับดูคิวรูปภาพทั้งหมด - เรียงตามวันที่เวลา (เก่าไปใหม่)
  * ดึงเฉพาะรายการที่ยังไม่เสร็จ (pending, approved, playing)
+ * 🔥 Multi-tenant: filter ด้วย shopId
  */
-app.get("/api/queue", async (req, res) => {
+app.get("/api/queue", requireShopId, async (req, res) => {
   try {
-    console.log("=== มีการขอ Queue request");
+    const { shopId } = req; // 🔥 ได้จาก middleware
+    console.log(`=== Queue request from shop: ${shopId}`);
 
-    // ดึงรายการที่ยังไม่เสร็จ (pending + approved + playing) - ไม่รวม payment_pending
-    const queueItems = await ImageQueue.find({ status: { $in: ['pending', 'approved', 'playing'] } })
+    // 🔥 ดึงเฉพาะรายการของ shop นี้ที่ยังไม่เสร็จ
+    const queueItems = await ImageQueue.find({
+      shopId,
+      status: { $in: ['pending', 'approved', 'playing'] }
+    })
       .sort({ receivedAt: 1 })
       .lean();
 
-    console.log("ความยาวคิวปัจจุบัน:", queueItems.length);
-    console.log("คืนรายการที่เรียงลำดับจาก MongoDB");
+    console.log(`[${shopId}] Queue length: ${queueItems.length}`);
     res.json(queueItems);
   } catch (error) {
     console.error('Error fetching queue:', error);
@@ -1095,27 +1195,30 @@ app.get("/api/queue", async (req, res) => {
   }
 });
 
+
 /**
  * API สำหรับยืนยันการชำระเงินและเข้าคิว
  * เปลี่ยนสถานะจาก payment_pending เป็น pending
+ * 🔥 Multi-tenant: filter ด้วย shopId
  */
-app.post("/api/confirm-payment/:uploadId", async (req, res) => {
+app.post("/api/confirm-payment/:uploadId", requireShopId, async (req, res) => {
   try {
+    const { shopId } = req; // 🔥 ได้จาก middleware
     const { uploadId } = req.params;
     const { userId, email, avatar } = req.body;
 
-    console.log(`[Admin] ยืนยันการชำระเงินสำหรับ upload: ${uploadId}`);
+    console.log(`[Admin][${shopId}] ยืนยันการชำระเงินสำหรับ upload: ${uploadId}`);
 
-    // ค้นหา queue item
-    const queueItem = await ImageQueue.findById(uploadId);
+    // ค้นหา queue item 🔥 filter ด้วย shopId
+    const queueItem = await ImageQueue.findOne({ _id: uploadId, shopId });
 
     if (!queueItem) {
-      console.log("[Admin] ไม่พบข้อมูลการ upload");
+      console.log(`[Admin][${shopId}] ไม่พบข้อมูลการ upload`);
       return res.status(404).json({ success: false, error: "ไม่พบข้อมูลการอัปโหลด" });
     }
 
     if (queueItem.status !== "payment_pending") {
-      console.log("[Admin] ข้อมูลถูกประมวลผลแล้วหรือสถานะไม่ถูกต้อง:", queueItem.status);
+      console.log(`[Admin][${shopId}] ข้อมูลถูกประมวลผลแล้วหรือสถานะไม่ถูกต้อง:`, queueItem.status);
       return res.status(400).json({ success: false, error: "สถานะการอัปโหลดไม่ถูกต้อง" });
     }
 
@@ -1126,10 +1229,10 @@ app.post("/api/confirm-payment/:uploadId", async (req, res) => {
 
     // บันทึก ranking เฉพาะ user ที่ login แล้ว (ไม่บันทึกสำหรับ birthday เพราะฟรี)
     if (userId && queueItem.type !== "birthday" && queueItem.price > 0) {
-      addRankingPoint(userId, queueItem.sender, queueItem.price, email, avatar);
+      addRankingPoint(userId, queueItem.sender, queueItem.price, email, avatar, queueItem.shopId); // 🔥 ส่ง shopId
     }
 
-    console.log("[Admin] ยืนยันการชำระเงินแล้ว, ย้าย item เข้าคิว");
+    console.log(`[Admin][${shopId}] ยืนยันการชำระเงินแล้ว, ย้าย item เข้าคิว`);
     res.json({ success: true, queueItem });
   } catch (error) {
     console.error("[Admin] Error confirming payment:", error);
@@ -1140,14 +1243,16 @@ app.post("/api/confirm-payment/:uploadId", async (req, res) => {
 /**
  * API สำหรับอัพเดทสถานะรูปที่กำลังแสดง + broadcast ไป OBS overlay
  * Force complete รายการที่กำลังแสดงอยู่ก่่อนเพื่อป้องกัน stuck items
+ * 🔥 Multi-tenant: filter ด้วย shopId
  */
-app.post("/api/playing/:id", async (req, res) => {
+app.post("/api/playing/:id", requireAdminAuth, async (req, res) => {
   try {
+    const { shopId } = req; // ได้จาก middleware
     const { id } = req.params;
-    console.log("=== เปลี่ยนสถานะเป็นกำลังเล่น:", id);
+    console.log("=== เปลี่ยนสถานะเป็นกำลังเล่น:", id, "Shop:", shopId);
 
-    // ค้นหารายการที่กำลังเล่นอยู่แล้วและบันทึกเสร็จก่อน (Force complete)
-    const currentlyPlaying = await ImageQueue.find({ status: 'playing', _id: { $ne: id } });
+    // 🔥 ค้นหารายการที่กำลังเล่นอยู่แล้วและบันทึกเสร็จก่อัน (Force complete) - เฉพาะ shop นี้
+    const currentlyPlaying = await ImageQueue.find({ shopId, status: 'playing', _id: { $ne: id } });
     for (const playingItem of currentlyPlaying) {
       console.log(`[Auto-Complete] บันทึกเสร็จสิ้นอัตโนมัติสำหรับ item ที่ค้าง: ${playingItem._id}`);
 
@@ -1155,9 +1260,9 @@ app.post("/api/playing/:id", async (req, res) => {
       await completeItem(playingItem);
     }
 
-    // อัปเดตสถานะเป็น 'playing'
-    const updated = await ImageQueue.findByIdAndUpdate(
-      id,
+    // อัปเดตสถานะเป็น 'playing' (🔥 filter ด้วย shopId)
+    const updated = await ImageQueue.findOneAndUpdate(
+      { _id: id, shopId },
       {
         status: 'playing',
         playingAt: new Date()
@@ -1166,7 +1271,7 @@ app.post("/api/playing/:id", async (req, res) => {
     );
 
     if (!updated) {
-      return res.status(404).json({ success: false, message: 'Item not found' });
+      return res.status(404).json({ success: false, message: 'Item not found or unauthorized' });
     }
 
     // Debug: ตรวจสอบ type และ giftOrder
@@ -1182,7 +1287,8 @@ app.post("/api/playing/:id", async (req, res) => {
     // ถ้าเป็น Gift ให้ใช้ event พิเศษและส่งข้อมูลเพิ่มเติม
     if (updated.type === "gift" && updated.giftOrder) {
       console.log('[Playing] ส่ง now-playing-gift event');
-      io.emit("now-playing-gift", {
+      // 🔥 Emit ไปยัง Room ของ shop นี้
+      io.to(shopId).emit("now-playing-gift", {
         id: updated._id?.toString(),
         sender: updated.sender || "Guest",
         avatar: updated.avatar || null,
@@ -1195,7 +1301,8 @@ app.post("/api/playing/:id", async (req, res) => {
       });
     } else {
       console.log('[Playing] ส่ง now-playing-image event (ไม่ใช่ gift)');
-      io.emit("now-playing-image", {
+      // 🔥 Emit ไปยัง Room ของ shop นี้
+      io.to(shopId).emit("now-playing-image", {
         id: updated._id?.toString(),
         sender: updated.sender,
         price: updated.price,
@@ -1220,16 +1327,19 @@ app.post("/api/playing/:id", async (req, res) => {
 });
 
 // API สำหรับอนุมัติรูปภาพ (บันทึกลง CheckHistory Database)
-app.post("/api/approve/:id", async (req, res) => {
+// 🔥 Multi-tenant: filter ด้วย shopId
+app.post("/api/approve/:id", requireAdminAuth, async (req, res) => {
   try {
+    const { shopId } = req; // ได้จาก middleware
     const { id } = req.params;
     const { width, height } = req.body; // รับค่า width, height จาก body
-    console.log("=== Approving image:", id, "Size:", width, "x", height);
+    console.log("=== Approving image:", id, "Shop:", shopId, "Size:", width, "x", height);
 
-    const item = await ImageQueue.findById(id);
+    // 🔥 filter ด้วย shopId
+    const item = await ImageQueue.findOne({ _id: id, shopId });
 
     if (!item) {
-      return res.status(404).json({ success: false, message: 'Image not found' });
+      return res.status(404).json({ success: false, message: 'Image not found or unauthorized' });
     }
 
     // RACE CONDITION FIX: Only update status if NOT already 'playing'
@@ -1249,8 +1359,8 @@ app.post("/api/approve/:id", async (req, res) => {
 
     await ImageQueue.findByIdAndUpdate(id, updateData);
 
-    // Notify all admins to update their lists
-    io.emit("admin-update-queue");
+    // 🔥 Notify admins ของ shop นี้เท่านั้น
+    io.to(shopId).emit("admin-update-queue");
 
     res.json({ success: true, message: 'Item approved' });
   } catch (error) {
@@ -1260,19 +1370,23 @@ app.post("/api/approve/:id", async (req, res) => {
 });
 
 // API สำหรับปฏิเสธรูปภาพ (บันทึกลง CheckHistory Database)
-app.post("/api/reject/:id", async (req, res) => {
+// 🔥 Multi-tenant: filter ด้วย shopId และบันทึก CheckHistory พร้อม shopId
+app.post("/api/reject/:id", requireAdminAuth, async (req, res) => {
   try {
+    const { shopId } = req; // ได้จาก middleware
     const { id } = req.params;
-    console.log("=== Rejecting image:", id);
+    console.log("=== Rejecting image:", id, "Shop:", shopId);
 
-    const item = await ImageQueue.findById(id);
+    // 🔥 filter ด้วย shopId
+    const item = await ImageQueue.findOne({ _id: id, shopId });
 
     if (!item) {
-      return res.status(404).json({ success: false, message: 'Image not found' });
+      return res.status(404).json({ success: false, message: 'Image not found or unauthorized' });
     }
 
-    // บันทึกลง CheckHistory ก่อนลบ
+    // บันทึกลง CheckHistory ก่อนลบ (🔥 พร้อม shopId)
     await CheckHistory.create({
+      shopId: item.shopId, // 🔥 เพิ่ม shopId
       transactionId: item._id.toString(),
       type: item.type || (item.filePath ? 'image' : 'text'),
       sender: item.sender || 'Unknown',
@@ -1313,8 +1427,8 @@ app.post("/api/reject/:id", async (req, res) => {
     // ลบออกจากคิว
     await ImageQueue.findByIdAndDelete(id);
 
-    // Notify all admins to update their lists
-    io.emit("admin-update-queue");
+    // 🔥 Notify admins ของ shop นี้เท่านั้น
+    io.to(shopId).emit("admin-update-queue");
 
     res.json({ success: true, message: 'Item rejected and saved to history' });
   } catch (error) {
@@ -1324,12 +1438,15 @@ app.post("/api/reject/:id", async (req, res) => {
 });
 
 // API สำหรับบันทึกรูปที่เล่นจบแล้ว (เมื่อหมดเวลา)
-app.post("/api/complete/:id", async (req, res) => {
+// 🔥 Multi-tenant: filter ด้วย shopId
+app.post("/api/complete/:id", requireAdminAuth, async (req, res) => {
   try {
+    const { shopId } = req; // ได้จาก middleware
     const { id } = req.params;
-    console.log("=== Completing image manually:", id);
+    console.log("=== Completing image manually:", id, "Shop:", shopId);
 
-    const item = await ImageQueue.findById(id);
+    // 🔥 filter ด้วย shopId
+    const item = await ImageQueue.findOne({ _id: id, shopId });
     if (!item) {
       return res.json({ success: true, message: 'Already processed or not found' });
     }
@@ -1340,7 +1457,8 @@ app.post("/api/complete/:id", async (req, res) => {
     // Start 15s Delay
     console.log("[API] Manual complete, starting 15s delay...");
     nextPlayTime = Date.now() + 15000;
-    if (typeof io !== 'undefined') io.emit('pause-display', { remaining: 15, isCountingDown: true });
+    // 🔥 Emit ไปยัง Room ของ shop นี้
+    if (typeof io !== 'undefined' && shopId) io.to(shopId).emit('pause-display', { remaining: 15, isCountingDown: true });
 
     res.json({ success: true, message: 'Item completed and saved to history' });
   } catch (error) {
@@ -1350,18 +1468,22 @@ app.post("/api/complete/:id", async (req, res) => {
 });
 
 // API สำหรับนำรายการจากประวัติกลับเข้าคิว
-app.post("/api/history/restore/:id", async (req, res) => {
+// 🔥 Multi-tenant: filter ด้วย shopId
+app.post("/api/history/restore/:id", requireAdminAuth, async (req, res) => {
   try {
+    const { shopId } = req; // ได้จาก middleware
     const { id } = req.params;
-    console.log("[Restore] Restoring history ID:", id);
+    console.log("[Restore] Restoring history ID:", id, "Shop:", shopId);
 
-    const historyItem = await CheckHistory.findById(id);
+    // 🔥 filter ด้วย shopId
+    const historyItem = await CheckHistory.findOne({ _id: id, shopId });
     if (!historyItem) {
       return res.status(404).json({ success: false, message: 'History item not found' });
     }
 
     // สร้างรายการใหม่ใน ImageQueue พร้อมคืน QR Code และข้อมูล user
     const newQueueItem = await ImageQueue.create({
+      shopId: historyItem.shopId, // 🔥 เพิ่ม shopId
       sender: historyItem.sender || 'Unknown',
       price: historyItem.price || 0,
       time: historyItem.duration || historyItem.metadata?.duration || 10,
@@ -1396,9 +1518,12 @@ app.post("/api/history/restore/:id", async (req, res) => {
 
 
 // API สำหรับดึงประวัติการตรวจสอบ
-app.get("/api/check-history", async (req, res) => {
+// 🔥 Multi-tenant: filter ด้วย shopId
+app.get("/api/check-history", requireAdminAuth, async (req, res) => {
   try {
-    const history = await CheckHistory.find({}).sort({ approvalDate: -1 });
+    const { shopId } = req; // ได้จาก middleware
+    // 🔥 filter ด้วย shopId
+    const history = await CheckHistory.find({ shopId }).sort({ approvalDate: -1 });
 
     // Map data ให้ตรงกับที่ Frontend ต้องการ (รองรับทั้ง Schema เก่าและใหม่)
     const formattedHistory = history.map(item => {
@@ -1442,12 +1567,14 @@ app.get("/api/check-history", async (req, res) => {
 });
 
 // ลบทีละรายการ
-app.post("/api/delete-history", async (req, res) => {
+// 🔥 Multi-tenant: filter ด้วย shopId
+app.post("/api/delete-history", requireAdminAuth, async (req, res) => {
   try {
+    const { shopId } = req; // ได้จาก middleware
     const { id } = req.body;
 
-    // Find before delete to remove image
-    const deletedItem = await CheckHistory.findByIdAndDelete(id);
+    // 🔥 Find before delete to remove image - ตรวจสอบ shopId ด้วย
+    const deletedItem = await CheckHistory.findOneAndDelete({ _id: id, shopId });
 
     if (deletedItem) {
       // ตรวจสอบทั้ง mediaUrl และ filePath (legacy)
@@ -1465,9 +1592,12 @@ app.post("/api/delete-history", async (req, res) => {
 });
 
 // API สำหรับดึงประวัติ (สำหรับ ImageQueue history modal)
-app.get("/api/history", async (req, res) => {
+// 🔥 Multi-tenant: filter ด้วย shopId
+app.get("/api/history", requireAdminAuth, async (req, res) => {
   try {
-    const history = await CheckHistory.find({}).sort({ approvalDate: -1 }).limit(50);
+    const { shopId } = req; // ได้จาก middleware
+    // 🔥 filter ด้วย shopId
+    const history = await CheckHistory.find({ shopId }).sort({ approvalDate: -1 }).limit(50);
     res.json(history);
   } catch (error) {
     console.error('Error fetching history:', error);
@@ -1478,17 +1608,20 @@ app.get("/api/history", async (req, res) => {
 
 
 // API สำหรับตรวจสอบสถานะออเดอร์ (สำหรับ User frontend)
-app.get("/api/order-status/:orderId", async (req, res) => {
+// 🔥 Multi-tenant: filter ด้วย shopId
+app.get("/api/order-status/:orderId", requireShopId, async (req, res) => {
   try {
+    const { shopId } = req; // 🔥 ได้จาก middleware
     const { orderId } = req.params;
-    console.log("[OrderStatus] Checking status for:", orderId);
+    console.log(`[OrderStatus][${shopId}] Checking status for:`, orderId);
 
-    // 1. ค้นหาใน ImageQueue ตามสถานะต่างๆ
-    let query = { 'giftOrder.orderId': orderId };
+    // 1. ค้นหาใน ImageQueue ตามสถานะต่างๆ 🔥 filter ด้วย shopId
+    let query = { 'giftOrder.orderId': orderId, shopId };
 
     // ถ้า orderId เป็น valid ObjectId ให้ค้นหาด้วย _id ด้วย
     if (orderId.match(/^[0-9a-fA-F]{24}$/)) {
       query = {
+        shopId, // 🔥 ต้องมี shopId เสมอ
         $or: [
           { _id: orderId },
           { 'giftOrder.orderId': orderId }
@@ -1496,15 +1629,16 @@ app.get("/api/order-status/:orderId", async (req, res) => {
       };
     }
 
-    console.log("[OrderStatus] Query:", JSON.stringify(query));
+    console.log(`[OrderStatus][${shopId}] Query:`, JSON.stringify(query));
 
     const queueItem = await ImageQueue.findOne(query);
 
     if (!queueItem) {
-      // ไม่พบใน ImageQueue -> ค้นหาใน CheckHistory (rejected/completed)
-      console.log("[OrderStatus] Not found in ImageQueue, checking CheckHistory");
+      // ไม่พบใน ImageQueue -> ค้นหาใน CheckHistory (rejected/completed) 🔥 filter ด้วย shopId
+      console.log(`[OrderStatus][${shopId}] Not found in ImageQueue, checking CheckHistory`);
       const historyItem = await CheckHistory.findOne({
-        transactionId: orderId
+        transactionId: orderId,
+        shopId // 🔥 filter ด้วย shopId
       }).sort({ approvalDate: -1 });
 
       if (historyItem) {
@@ -1539,7 +1673,9 @@ app.get("/api/order-status/:orderId", async (req, res) => {
     // 2. ตรวจสอบสถานะ
     if (queueItem.status === 'pending') {
       // สถานะรอตรวจสอบ - ไม่แสดงเวลาประมาณการ
+      // 🔥 นับเฉพาะ pending ของ shop นี้
       const queuePosition = await ImageQueue.countDocuments({
+        shopId, // 🔥 filter ด้วย shopId
         status: 'pending',
         receivedAt: { $lt: queueItem.receivedAt }
       });
@@ -1555,7 +1691,7 @@ app.get("/api/order-status/:orderId", async (req, res) => {
           price: queueItem.price,
           queueNumber: queuePosition + 1,
           queuePosition: queuePosition + 1,
-          totalQueue: await ImageQueue.countDocuments({ status: 'pending' }),
+          totalQueue: await ImageQueue.countDocuments({ status: 'pending', shopId }), // 🔥 filter shopId
           tableNumber: queueItem.giftOrder?.tableNumber || null,
           giftItems: queueItem.giftOrder?.items || null,
           waitingForApproval: true
@@ -1567,8 +1703,8 @@ app.get("/api/order-status/:orderId", async (req, res) => {
       // สถานะอนุมัติแล้ว รอแสดง - คำนวณเวลาจาก playing + approved queue
       const statusText = 'อนุมัติแล้ว รอแสดง';
 
-      // หาภาพที่กำลังแสดงอยู่
-      const currentlyPlaying = await ImageQueue.findOne({ status: 'playing' });
+      // หาภาพที่กำลังแสดงอยู่ 🔥 filter ด้วย shopId
+      const currentlyPlaying = await ImageQueue.findOne({ status: 'playing', shopId });
 
       let totalSecondsBefore = 0;
 
@@ -1581,8 +1717,9 @@ app.get("/api/order-status/:orderId", async (req, res) => {
         totalSecondsBefore += remainingSeconds;
       }
 
-      // หาคิว approved ที่อยู่ก่อนหน้า (เรียงตาม approvedAt)
+      // หาคิว approved ที่อยู่ก่อนหน้า (เรียงตาม approvedAt) 🔥 filter ด้วย shopId
       const approvedBefore = await ImageQueue.find({
+        shopId, // 🔥 filter shopId
         status: 'approved',
         approvedAt: { $lt: queueItem.approvedAt }
       }).sort({ approvedAt: 1 });
@@ -1594,7 +1731,7 @@ app.get("/api/order-status/:orderId", async (req, res) => {
 
       // นับตำแหน่งคิว (approved + playing ที่เริ่มก่อน)
       const approvedPosition = approvedBefore.length + (currentlyPlaying ? 1 : 0) + 1;
-      const totalApproved = await ImageQueue.countDocuments({ status: 'approved' });
+      const totalApproved = await ImageQueue.countDocuments({ status: 'approved', shopId }); // 🔥 filter shopId
 
       const estimatedStartTime = new Date(Date.now() + totalSecondsBefore * 1000);
       const currentDuration = queueItem.time || 0;
@@ -1667,10 +1804,12 @@ app.get("/api/order-status/:orderId", async (req, res) => {
 });
 
 // ลบทั้งหมด
-app.post("/api/delete-all-history", async (req, res) => {
+// 🔥 Multi-tenant: filter ด้วย shopId
+app.post("/api/delete-all-history", requireAdminAuth, async (req, res) => {
   try {
-    // ดึงข้อมูลทั้งหมดเพื่อลบรูป
-    const allHistory = await CheckHistory.find({});
+    const { shopId } = req; // ได้จาก middleware
+    // 🔥 ดึงข้อมูลทั้งหมดเพื่อลบรูป (เฉพาะ shop นี้)
+    const allHistory = await CheckHistory.find({ shopId });
 
     // วนลบรูปภาพทีละรายการ
     for (const item of allHistory) {
@@ -1680,8 +1819,8 @@ app.post("/api/delete-all-history", async (req, res) => {
       }
     }
 
-    // ลบข้อมูลใน DB
-    await CheckHistory.deleteMany({});
+    // ลบข้อมูลใน DB (🔥 เฉพาะ shop นี้)
+    await CheckHistory.deleteMany({ shopId });
     res.json({ success: true });
   } catch (error) {
     console.error('Error deleting all history:', error);
@@ -1690,10 +1829,13 @@ app.post("/api/delete-all-history", async (req, res) => {
 });
 
 // API สำหรับลบรูปภาพที่ถูกปฏิเสธ
-app.delete("/api/delete/:id", async (req, res) => {
+// 🔥 Multi-tenant: filter ด้วย shopId
+app.delete("/api/delete/:id", requireAdminAuth, async (req, res) => {
   try {
+    const { shopId } = req; // ได้จาก middleware
     const { id } = req.params;
-    const item = await ImageQueue.findById(id);
+    // 🔥 filter ด้วย shopId
+    const item = await ImageQueue.findOne({ _id: id, shopId });
 
     if (!item) {
       return res.status(404).json({ success: false, message: 'Image not found' });
@@ -1775,8 +1917,10 @@ app.get("/obs-image-overlay.html", (req, res) => {
 
 // ----- Reports Storage (using Database) -----
 // ----- Reports Storage (using Database) -----
-app.post("/api/report", async (req, res) => {
+// 🔥 Multi-tenant: User ส่ง reportId จาก User Frontend พร้อม shopId
+app.post("/api/report", requireShopId, async (req, res) => {
   try {
+    const { shopId } = req; // ได้จาก middleware
     const { reportId, category, detail } = req.body;
 
     // ตรวจสอบข้อมูล
@@ -1785,6 +1929,7 @@ app.post("/api/report", async (req, res) => {
     }
 
     const report = await AdminReport.create({
+      shopId, // 🔥 เพิ่ม shopId
       reportId: reportId || Date.now().toString(),
       category: category || "other",
       description: detail.trim(),
@@ -1792,6 +1937,8 @@ app.post("/api/report", async (req, res) => {
     });
 
     console.log('Report saved successfully to database');
+    // 🔥 แจ้ง Admin ของ shop นี้เท่านั้น
+    io.to(req.shopId).emit('newReport', report);
     return res.json({ success: true, report });
   } catch (error) {
     console.error('Error saving report:', error);
@@ -1803,9 +1950,11 @@ app.post("/api/report", async (req, res) => {
 });
 
 // GET: admin ดูรายการ
-app.get("/api/reports", async (req, res) => {
+// 🔥 Multi-tenant: filter ด้วย shopId
+app.get("/api/reports", requireAdminAuth, async (req, res) => {
   try {
-    const reports = await AdminReport.find({}).sort({ createdAt: -1 });
+    const { shopId } = req; // ได้จาก middleware
+    const reports = await AdminReport.find({ shopId }).sort({ createdAt: -1 });
     const formatted = reports.map(r => ({
       id: r._id, // Map _id to id
       reportId: r.reportId,
@@ -1824,13 +1973,15 @@ app.get("/api/reports", async (req, res) => {
 
 // PATCH: admin อัปเดตสถานะ
 // PATCH: admin อัปเดตสถานะ
-app.patch("/api/reports/:id", async (req, res) => {
+// 🔥 Multi-tenant: filter ด้วย shopId
+app.patch("/api/reports/:id", requireAdminAuth, async (req, res) => {
   try {
+    const { shopId } = req; // ได้จาก middleware
     const { id } = req.params;
     const { status } = req.body;
 
-    const report = await AdminReport.findByIdAndUpdate(
-      id,
+    const report = await AdminReport.findOneAndUpdate(
+      { _id: id, shopId }, // 🔥 filter ด้วย shopId
       { status, updatedAt: new Date() },
       { new: true }
     );
@@ -1850,9 +2001,186 @@ app.patch("/api/reports/:id", async (req, res) => {
       updatedAt: report.updatedAt
     };
 
+    // 🔥 แจ้ง Admin ของ shop นี้เท่านั้น
+    io.to(shopId).emit('reportUpdated', formatted);
+
     res.json({ success: true, report: formatted });
   } catch (error) {
     console.error('Error updating report:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ==========================================
+// CONFIG SWITCHES APIs (จาก realtime-server.js)
+// 🔥 Multi-tenant: แต่ละ shop มี config ของตัวเอง
+// ==========================================
+/**
+ * API ดึง system config ของ shop
+ */
+app.get('/api/status', requireAdminAuth, async (req, res) => {
+  try {
+    const { shopId } = req; // ได้จาก middleware
+
+    // หา settings ของ shop นี้ หรือสร้างใหม่ถ้ายังไม่มี (Atomic operation)
+    let settings = await ShopSetting.findOneAndUpdate(
+      { shopId },
+      {},
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    // รวม systemConfig (from file) กับ settings (from DB)
+    const config = {
+      ...systemConfig, // Legacy config from settings.json
+      ...settings.systemConfig, // Shop-specific config
+      shopId: settings.shopId,
+      displayTime: settings.displayTime,
+      autoPlayEnabled: settings.autoPlayEnabled,
+      birthdaySpendingRequirement: settings.birthdaySpendingRequirement
+    };
+
+    res.json(config);
+  } catch (error) {
+    console.error('[Admin] Error fetching status:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch status' });
+  }
+});
+
+/**
+ * API อัปเดต system config ของ shop
+ */
+app.post('/api/config/update', requireAdminAuth, async (req, res) => {
+  try {
+    const { shopId } = req; // ได้จาก middleware
+    const updates = req.body;
+
+    // อัปเดตใน Database
+    let settings = await ShopSetting.findOneAndUpdate(
+      { shopId },
+      { systemConfig: updates },
+      { upsert: true, new: true }
+    );
+
+    console.log(`[Admin][${shopId}] System config updated:`, Object.keys(updates));
+
+    // รวม config
+    const config = {
+      ...systemConfig,
+      ...updates,
+      shopId: settings.shopId,
+      displayTime: settings.displayTime,
+      autoPlayEnabled: settings.autoPlayEnabled
+    };
+
+    // 🔥 แจ้ง clients ของ shop นี้
+    io.to(shopId).emit('status', config);
+    io.to(shopId).emit('configUpdate', config);
+
+    res.json({ success: true, config });
+  } catch (error) {
+    console.error('[Admin] Error updating config:', error);
+    res.status(500).json({ success: false, message: 'Config update failed' });
+  }
+});
+
+// ==========================================
+// SHOP PROFILE API (สำหรับ User Frontend ดึงข้อมูลร้านค้า)
+// ==========================================
+/**
+ * API ดึงข้อมูล Profile ของร้านค้า (ชื่อร้าน, โลโก้) ไปแสดงบนหน้า User Frontend
+ * 🔥 Multi-tenant: filter ด้วย shopId
+ */
+app.get('/api/shop/profile', requireShopId, async (req, res) => {
+  try {
+    const { shopId } = req; // ได้จาก middleware
+
+    // ค้นห้าข้อมูลร้านจาก AdminUser collection (ถ้ามีเก็บ name, logo ไว้ในนั้น)
+    // หรือถ้าไม่ได้เก็บ ให้ส่งค่าเริ่มต้นกลับไปก่อน
+    const adminUser = await AdminUser.findOne({ shopId }).lean();
+
+    if (!adminUser) {
+      return res.status(404).json({ success: false, message: 'Shop not found' });
+    }
+
+    res.json({
+      success: true,
+      shop: {
+        shopId: adminUser.shopId,
+        name: adminUser.shopId || adminUser.username || "Shop",
+        logo: adminUser.avatar || null // ใช้ avatar ของแอดมินหรือ logo ของร้านถ้ามีฟิลด์
+      }
+    });
+
+  } catch (error) {
+    console.error(`[ShopProfile] Error fetching profile for ${req.shopId}:`, error);
+    res.status(500).json({ success: false, message: 'Failed to fetch shop profile' });
+  }
+});
+
+// ==========================================
+// TIME HISTORY APIs (จาก realtime-server.js)
+// ==========================================
+// 🔥 Multi-tenant: Admin ดูประวัติเวลาใช้งานของ shop ตัวเอง
+app.get('/api/time-history', requireAdminAuth, async (req, res) => {
+  try {
+    const { shopId } = req; // ได้จาก middleware
+    const history = await TimeHistory.find({ shopId }).sort({ createdAt: -1 });
+    const formatted = history.map(h => ({
+      id: h.id,
+      mode: h.mode,
+      date: h.date,
+      duration: h.duration,
+      time: h.time,
+      price: h.price
+    }));
+    res.json(formatted);
+  } catch (error) {
+    console.error('Error fetching time history:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Alias สำหรับ check-history (ใช้โดย realtime-server.js) - DEPRECATED
+// 🔥 Route นี้ซ้ำซ้อนกับ GET /api/check-history ที่ใช้ CheckHistory Model จริง
+// ควรลบออกหรือเปลี่ยนมาใช้ GET /api/time-history แทน
+// app.get('/api/check-history', async (req, res) => {
+//   try {
+//     const history = await TimeHistory.find({}).sort({ createdAt: -1 });
+//     const formatted = history.map(h => ({
+//       id: h.id,
+//       mode: h.mode,
+//       date: h.date,
+//       duration: h.duration,
+//       time: h.time,
+//       price: h.price
+//     }));
+//     res.json(formatted);
+//   } catch (error) {
+//     console.error('Error fetching check history:', error);
+//     res.status(500).json([]);
+//   }
+// });
+
+app.post('/api/time-history', requireAdminAuth, async (req, res) => {
+  try {
+    const { shopId } = req; // ได้จาก middleware
+    const setting = await TimeHistory.create({ ...req.body, shopId }); // 🔥 บันทึก shopId
+    io.to(shopId).emit('settingAdded', setting);
+    res.json({ success: true, setting });
+  } catch (error) {
+    console.error('Error creating time history:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+app.delete('/api/time-history/:id', requireAdminAuth, async (req, res) => {
+  try {
+    const { shopId } = req; // ได้จาก middleware
+    await TimeHistory.findOneAndDelete({ id: req.params.id, shopId }); // 🔥 filter ด้วย shopId
+    io.to(shopId).emit('settingRemoved', { id: req.params.id });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting time history:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
@@ -1864,32 +2192,170 @@ let publicRankingType = 'alltime'; // Default public display mode
 
 // ==========================================
 // SOCKET.IO CONNECTION HANDLER
+// 🔥 Multi-tenant: รองรับ Rooms แยกตาม shopId
 // ==========================================
+
+// Helper สำหรับรวม systemConfig เข้ากับ settings(TimeHistory) เพื่อส่งให้ User Frontend
+const getSystemConfigWithSettings = async (shopId) => {
+  try {
+    if (!shopId) return systemConfig;
+    const history = await TimeHistory.find({ shopId }).sort({ createdAt: -1 });
+    const settings = history.map(h => ({
+      id: h.id,
+      mode: h.mode,
+      date: h.date,
+      duration: h.duration,
+      time: h.time,
+      price: h.price
+    }));
+    return { ...systemConfig, settings };
+  } catch (error) {
+    console.error('Error fetching settings for status:', error);
+    return systemConfig;
+  }
+};
+
 io.on('connection', (socket) => {
   console.log('[Socket.IO] Client connected:', socket.id);
 
-  // Send current public ranking type to newly connected client
-  socket.emit('publicRankingTypeUpdated', { type: publicRankingType });
+  // 🔥 รับ shopId จาก query parameter และ join room
+  const shopId = socket.handshake.query.shopId;
+
+  if (shopId) {
+    socket.join(shopId); // Join room ตาม shopId
+    console.log(`[Socket.IO] Client ${socket.id} joined room: ${shopId}`);
+
+    // เก็บ shopId ใน socket object สำหรับใช้ใน events อื่นๆ
+    socket.shopId = shopId;
+
+    // ส่ง config ปัจจุบันให้ client ที่เพิ่งเชื่อมต่อ (room-specific)
+    getSystemConfigWithSettings(shopId).then(config => {
+      socket.emit('status', config);
+    });
+    socket.emit('publicRankingTypeUpdated', { type: publicRankingType });
+  } else {
+    console.warn(`[Socket.IO] Client ${socket.id} connected without shopId`);
+  }
+
+  // === CONFIG MANAGEMENT EVENTS (จาก realtime-server.js) ===
+  socket.on('updateStatus', (newStatus) => {
+    systemConfig = { ...systemConfig, ...newStatus };
+    saveSystemConfig();
+    // 🔥 Emit เฉพาะ Room ของ shop นี้
+    if (socket.shopId) {
+      getSystemConfigWithSettings(socket.shopId).then(config => {
+        io.to(socket.shopId).emit('status', config);
+      });
+    }
+  });
+
+  socket.on('getConfig', async () => {
+    const config = await getSystemConfigWithSettings(socket.shopId);
+    socket.emit('status', config);
+  });
+
+  socket.on('adminUpdateConfig', (newConfig) => {
+    systemConfig = { ...systemConfig, ...newConfig };
+    saveSystemConfig();
+    // 🔥 Emit เฉพาะ Room ของ shop นี้
+    if (socket.shopId) {
+      io.to(socket.shopId).emit('configUpdate', systemConfig);
+    }
+  });
+
+  // === TIMEHISTORY MANAGEMENT EVENTS ===
+  socket.on('addSetting', async (setting) => {
+    try {
+      // 🔥 ต้องบันทึก shopId
+      if (!socket.shopId) {
+        console.warn('[Socket.IO] addSetting called without shopId');
+        return;
+      }
+
+      await TimeHistory.create({
+        shopId: socket.shopId, // 🔥 เพิ่ม shopId
+        id: String(setting.id), // 🔥 แปลงจาก Number เป็น String ให้ตรงกับ Model
+
+        mode: setting.mode,
+        date: setting.date,
+        duration: setting.duration,
+        time: setting.time,
+        price: setting.price
+      });
+      console.log('[Socket.IO] TimeHistory added:', setting.id);
+      // 🔥 Emit เฉพาะ Room ของ shop นี้
+      if (socket.shopId) {
+        io.to(socket.shopId).emit('settingAdded', setting);
+        // อัปเดต status ให้ User Frontend รีโหลดแพ็คเกจ
+        const config = await getSystemConfigWithSettings(socket.shopId);
+        io.to(socket.shopId).emit('status', config);
+      }
+    } catch (error) {
+      console.error('[Socket.IO] Error adding TimeHistory:', error);
+    }
+  });
+
+  socket.on('removeSetting', async (id) => {
+    try {
+      // 🔥 filter ด้วย shopId
+      if (!socket.shopId) {
+        console.warn('[Socket.IO] removeSetting called without shopId');
+        return;
+      }
+
+      await TimeHistory.findOneAndDelete({ id, shopId: socket.shopId });
+      console.log('[Socket.IO] TimeHistory removed:', id);
+      // 🔥 Emit เฉพาะ Room ของ shop นี้
+      if (socket.shopId) {
+        io.to(socket.shopId).emit('settingRemoved', { id });
+        // อัปเดต status ให้ User Frontend รีโหลดแพ็คเกจ
+        const config = await getSystemConfigWithSettings(socket.shopId);
+        io.to(socket.shopId).emit('status', config);
+      }
+    } catch (error) {
+      console.error('[Socket.IO] Error removing TimeHistory:', error);
+    }
+  });
+
+  // === PERKS BROADCAST EVENT ===
+  socket.on('adminUpdatePerks', (data) => {
+    const { perks } = data;
+    if (perks && Array.isArray(perks)) {
+      console.log(`[Socket.IO] Broadcasting perks update: ${perks.length} items`);
+      // 🔥 Emit เฉพาะ Room ของ shop นี้
+      if (socket.shopId) {
+        io.to(socket.shopId).emit('perksUpdated', { perks });
+      }
+    } else {
+      console.warn('[Socket.IO] Invalid perks data received:', data);
+    }
+  });
 
   // รับสัญญาณหยุดชั่วคราวจาก Admin Panel
   socket.on('pause-display', (data) => {
     console.log('[Socket.IO] Pause display event received:', data);
-    // ส่งต่อไป OBS
-    io.emit('pause-display', data);
+    // 🔥 ส่งต่อไป OBS เฉพาะ Room
+    if (socket.shopId) {
+      io.to(socket.shopId).emit('pause-display', data);
+    }
   });
 
   // รับสัญญาณเริ่มต่อจาก Admin Panel
   socket.on('resume-display', (data) => {
     console.log('[Socket.IO] Resume display event received:', data);
-    // ส่งต่อไป OBS
-    io.emit('resume-display', data);
+    // 🔥 ส่งต่อไป OBS เฉพาะ Room
+    if (socket.shopId) {
+      io.to(socket.shopId).emit('resume-display', data);
+    }
   });
 
   // รับสัญญาณข้ามคิวจาก Admin Panel
   socket.on('skip-current', () => {
     console.log('[Socket.IO] Skip current event received');
-    // ส่งต่อไป OBS ให้ซ่อนการแสดงทันที
-    io.emit('skip-current');
+    // 🔥 ส่งต่อไป OBS เฉพาะ Room
+    if (socket.shopId) {
+      io.to(socket.shopId).emit('skip-current');
+    }
   });
 
   // Complete playing (from OBS)
@@ -1909,18 +2375,24 @@ io.on('connection', (socket) => {
     if (['daily', 'monthly', 'alltime'].includes(type)) {
       publicRankingType = type;
       console.log(`[Socket.IO] Public ranking type updated to: ${type}`);
-      // Broadcast to ALL clients (Admin + Users)
-      io.emit('publicRankingTypeUpdated', { type: publicRankingType });
+      // 🔥 Broadcast to shop room only
+      if (socket.shopId) {
+        io.to(socket.shopId).emit('publicRankingTypeUpdated', { type: publicRankingType });
+      }
     } else {
       console.warn(`[Socket.IO] Invalid ranking type received: ${type}`);
     }
   });
 
   // Handle Queue Reorder from Admin
+  // 🔥 Multi-tenant: เก็บ customQueueOrder per shop
   socket.on('admin-reorder-queue', (orderIds) => {
-    if (Array.isArray(orderIds)) {
-      customQueueOrder = orderIds;
-      console.log('[Socket.IO] Queue order updated:', customQueueOrder.length, 'items');
+    if (Array.isArray(orderIds) && socket.shopId) {
+      const state = getShopState(socket.shopId);
+      state.customQueueOrder = orderIds;
+      console.log(`[Socket.IO] Queue order updated for shop ${socket.shopId}:`, state.customQueueOrder.length, 'items');
+      // 🔥 Emit ไปยัง Room เฉพาะ
+      io.to(socket.shopId).emit('queue-reordered', { orderIds });
     }
   });
 
@@ -1933,24 +2405,44 @@ io.on('connection', (socket) => {
 
 // ==========================================
 // SERVER-SIDE QUEUE LOGIC
+// 🔥 Multi-tenant: Per-shop state management
 // ==========================================
 
-let nextPlayTime = 0; // Global delay tracker
-let customQueueOrder = []; // Store admin's custom queue order
+// Per-shop state: { shopId: { nextPlayTime, customQueueOrder } }
+const shopStates = new Map();
 
-async function processAutoQueue() {
+/**
+ * Get or initialize state สำหรับ shop
+ */
+function getShopState(shopId) {
+  if (!shopStates.has(shopId)) {
+    shopStates.set(shopId, {
+      nextPlayTime: 0,
+      customQueueOrder: []
+    });
+  }
+  return shopStates.get(shopId);
+}
+
+/**
+ * Queue worker สำหรับแต่ละ shop
+ * 🔥 Multi-tenant: รับ shopId parameter และ process only that shop's queue
+ */
+async function processAutoQueue(shopId) {
   try {
+    const state = getShopState(shopId);
+
     // Check wait time
-    if (Date.now() < nextPlayTime) {
+    if (Date.now() < state.nextPlayTime) {
       if (typeof io !== 'undefined') {
-        const remaining = Math.ceil((nextPlayTime - Date.now()) / 1000);
-        io.emit('pause-display', { remaining, isCountingDown: true });
+        const remaining = Math.ceil((state.nextPlayTime - Date.now()) / 1000);
+        io.to(shopId).emit('pause-display', { remaining, isCountingDown: true });
       }
       return;
     }
 
-    // 1. Find currently playing item
-    const playingItem = await ImageQueue.findOne({ status: 'playing' });
+    // 1. Find currently playing item FOR THIS SHOP
+    const playingItem = await ImageQueue.findOne({ status: 'playing', shopId });
 
     if (playingItem) {
       // Calculate elapsed time
@@ -1962,18 +2454,18 @@ async function processAutoQueue() {
 
         // If time expired (+ small buffer 0.5s)
         if (elapsedSec >= durationSec) {
-          console.log(`[QueueWorker] Item ${playingItem._id} expired (${elapsedSec.toFixed(1)}/${durationSec}s). Completing...`);
+          console.log(`[QueueWorker][${shopId}] Item ${playingItem._id} expired (${elapsedSec.toFixed(1)}/${durationSec}s). Completing...`);
           await completeItem(playingItem);
 
           // Start 15s Delay instead of immediate play
-          console.log("[QueueWorker] Starting 15s delay...");
-          nextPlayTime = Date.now() + 15000;
-          if (typeof io !== 'undefined') io.emit('pause-display', { remaining: 15, isCountingDown: true });
+          console.log(`[QueueWorker][${shopId}] Starting 15s delay...`);
+          state.nextPlayTime = Date.now() + 15000;
+          if (typeof io !== 'undefined') io.to(shopId).emit('pause-display', { remaining: 15, isCountingDown: true });
         }
       } else {
         // If no playingAt, set it now? Or treat as just started?
         // Ideally should have been set. If missing, fix it.
-        console.log(`[QueueWorker] Item ${playingItem._id} has no playingAt. Setting now.`);
+        console.log(`[QueueWorker][${shopId}] Item ${playingItem._id} has no playingAt. Setting now.`);
         await ImageQueue.findByIdAndUpdate(playingItem._id, { playingAt: new Date() });
       }
     } else {
@@ -1984,26 +2476,31 @@ async function processAutoQueue() {
       // User said: "เวลามีรูปภาพที่กำลังแสดงอยู่แล้วไม่ได้เปิดเว็บนั้นค้างไว้เวลาจะไม่นับคูลดาว"
       // So continuous play is desired.
 
-      const nextApproved = await ImageQueue.findOne({ status: 'approved' }).sort({ approvedAt: 1 });
+      const nextApproved = await ImageQueue.findOne({ status: 'approved', shopId }).sort({ approvedAt: 1 });
       if (nextApproved) {
-        console.log("[QueueWorker] Nothing playing, found approved item. Auto-starting...");
-        await playNextItem();
+        console.log(`[QueueWorker][${shopId}] Nothing playing, found approved item. Auto-starting...`);
+        await playNextItem(shopId);
       }
     }
 
   } catch (err) {
-    console.error("[QueueWorker] Error:", err);
+    console.error(`[QueueWorker][${shopId}] Error:`, err);
   }
 }
 
+/**
+ * Helper function สำหรับบันทึก item ที่เล่นเสร็จแล้ว
+ * 🔥 Multi-tenant: บันทึก CheckHistory พร้อม shopId และ emit ต่อ room
+ */
 async function completeItem(item) {
   try {
     // Delete from Queue (Atomic mostly, if concurrently deleted by API, findByIdAndDelete returns null)
     const deleted = await ImageQueue.findByIdAndDelete(item._id);
     if (!deleted) return; // Already processed
 
-    // Create History
+    // 🔥 Create History with shopId
     await CheckHistory.create({
+      shopId: item.shopId, // 🔥 Multi-tenant
       transactionId: item._id.toString(),
       type: item.type || (item.filePath ? 'image' : 'text'),
       sender: item.sender || 'Unknown',
@@ -2035,25 +2532,34 @@ async function completeItem(item) {
       notes: 'Completed by QueueWorker'
     });
 
-    console.log(`[QueueWorker] Completed item ${item._id}`);
+    console.log(`[QueueWorker] Completed item ${item._id} for shop ${item.shopId}`);
 
-    // Notify clients that item is done (optional, but good for UI sync)
-    io.emit("item-completed", { id: item._id, transactionId: item._id });
-    io.emit("admin-update-queue"); // Sync admin UI
+    // 🔥 Notify clients of this shop only
+    if (item.shopId) {
+      io.to(item.shopId).emit("item-completed", { id: item._id, transactionId: item._id });
+      io.to(item.shopId).emit("admin-update-queue"); // Sync admin UI
+    }
 
   } catch (err) {
     console.error("[QueueWorker] Error completing item:", err);
   }
 }
 
-async function playNextItem() {
+/**
+ * Play next approved item in queue
+ * 🔥 Multi-tenant: รับ shopId parameter และ play เฉพาะ shop นั้น
+ */
+async function playNextItem(shopId) {
   try {
-    // 1. Get all approved items
-    const approvedItems = await ImageQueue.find({ status: 'approved' });
+    const state = getShopState(shopId);
+
+    // 1. Get all approved items FOR THIS SHOP
+    const approvedItems = await ImageQueue.find({ status: 'approved', shopId });
 
     if (approvedItems.length === 0) {
-      console.log("[QueueWorker] No approved items waiting.");
-      io.emit("queue-empty");
+      console.log(`[QueueWorker][${shopId}] No approved items waiting.`);
+      // 🔥 Emit queue-empty event to this shop's room
+      io.to(shopId).emit('queue-empty');
       return;
     }
 
@@ -2061,8 +2567,8 @@ async function playNextItem() {
     approvedItems.sort((a, b) => {
       const idA = a._id.toString();
       const idB = b._id.toString();
-      const indexA = customQueueOrder.indexOf(idA);
-      const indexB = customQueueOrder.indexOf(idB);
+      const indexA = state.customQueueOrder.indexOf(idA);
+      const indexB = state.customQueueOrder.indexOf(idB);
 
       // If both in custom order, sort by index
       if (indexA !== -1 && indexB !== -1) return indexA - indexB;
@@ -2076,7 +2582,7 @@ async function playNextItem() {
     });
 
     const nextItem = approvedItems[0];
-    console.log(`[QueueWorker] Starting next item: ${nextItem._id} (Order Index: ${customQueueOrder.indexOf(nextItem._id.toString())})`);
+    console.log(`[QueueWorker][${shopId}] Starting next item: ${nextItem._id} (Order Index: ${state.customQueueOrder.indexOf(nextItem._id.toString())})`);
 
     // Update status to playing
     const updated = await ImageQueue.findByIdAndUpdate(
@@ -2092,8 +2598,9 @@ async function playNextItem() {
       // Broadcast to Overlay & Client
       // ถ้าเป็น Gift ให้ใช้ event พิเศษและส่งข้อมูลเพิ่มเติม
       if (updated.type === "gift" && updated.giftOrder) {
-        console.log('[QueueWorker] Sending now-playing-gift event');
-        io.emit("now-playing-gift", {
+        console.log(`[QueueWorker][${shopId}] Sending now-playing-gift event`);
+        // 🔥 Emit ไปยัง Room ของ shop นี้
+        io.to(shopId).emit("now-playing-gift", {
           id: updated._id?.toString(),
           sender: updated.sender || "Guest",
           avatar: updated.avatar || null,
@@ -2106,8 +2613,9 @@ async function playNextItem() {
           playingAt: updated.playingAt
         });
       } else {
-        console.log('[QueueWorker] Sending now-playing-image event');
-        io.emit("now-playing-image", {
+        console.log(`[QueueWorker][${shopId}] Sending now-playing-image event`);
+        // 🔥 Emit ไปยัง Room ของ shop นี้
+        io.to(shopId).emit("now-playing-image", {
           id: updated._id.toString(),
           sender: updated.sender,
           price: updated.price,
@@ -2126,28 +2634,31 @@ async function playNextItem() {
       }
 
       // Update Admin UI
-      io.emit("admin-update-queue");
+      // 🔥 Emit ไปยัง Room ของ shop นี้
+      io.to(shopId).emit("admin-update-queue");
     }
 
   } catch (err) {
-    console.error("[QueueWorker] Error starting next item:", err);
+    console.error(`[QueueWorker][${shopId}] Error starting next item:`, err);
   }
 }
 
 
 
 // --- Lucky Wheel API ---
-app.post('/api/lucky-wheel/spin', (req, res) => {
+// 🔥 Multi-tenant: Lucky Wheel ของแต่ละ shop
+app.post('/api/lucky-wheel/spin', requireAdminAuth, (req, res) => {
+  const { shopId } = req; // ได้จาก middleware
   const { segments, winnerIndex, reward } = req.body;
 
   if (!segments || winnerIndex === undefined) {
     return res.status(400).json({ error: 'Missing segments or winnerIndex' });
   }
 
-  console.log('[LuckyWheel] Spin event received. Winner Index:', winnerIndex);
+  console.log(`[LuckyWheel][${shopId}] Spin event received. Winner Index:`, winnerIndex);
 
-  // Broadcast to all connected clients (including OBS)
-  io.emit('lucky-wheel-spin', {
+  // Broadcast to connected clients of this shop (including OBS)
+  io.to(shopId).emit('lucky-wheel-spin', {
     segments,
     winnerIndex,
     reward,
@@ -2158,18 +2669,80 @@ app.post('/api/lucky-wheel/spin', (req, res) => {
 });
 
 // To clear/hide the wheel on OBS manually if needed
-app.post('/api/lucky-wheel/hide', (req, res) => {
-  io.emit('lucky-wheel-hide');
+// 🔥 Multi-tenant: Hide wheel ของแต่ละ shop
+app.post('/api/lucky-wheel/hide', requireAdminAuth, (req, res) => {
+  const { shopId } = req; // ได้จาก middleware
+  io.to(shopId).emit('lucky-wheel-hide');
   return res.json({ success: true, message: 'Hide event broadcasted' });
 });
 
 // Broadcast preview/update event
-app.post('/api/lucky-wheel/preview', (req, res) => {
+// 🔥 Multi-tenant: Preview ของแต่ละ shop
+app.post('/api/lucky-wheel/preview', requireAdminAuth, (req, res) => {
+  const { shopId } = req; // ได้จาก middleware
   const { segments } = req.body;
   if (!segments) return res.status(400).json({ error: 'Missing segments' });
 
-  io.emit('lucky-wheel-preview', { segments });
+  io.to(shopId).emit('lucky-wheel-preview', { segments });
   return res.json({ success: true });
+});
+
+// ===== API: เปลี่ยน Shop ID (ชื่อร้านค้า) =====
+app.post("/api/admin/change-shopid", requireAdminAuth, async (req, res) => {
+  try {
+    const { newShopId } = req.body;
+    const adminId = req.adminId; // จาก token auth/middleware
+    const oldShopId = req.shopId;
+
+    if (!newShopId || typeof newShopId !== 'string') {
+      return res.status(400).json({ success: false, message: "ระบุชื่อร้านค้าใหม่ไม่ถูกต้อง" });
+    }
+
+    const trimmedNewShopId = newShopId.trim();
+
+    if (trimmedNewShopId.length > 40) {
+      return res.status(400).json({ success: false, message: "ชื่อร้านค้าต้องไม่เกิน 40 ตัวอักษร" });
+    }
+
+    if (trimmedNewShopId === oldShopId) {
+      return res.status(400).json({ success: false, message: "ชื่อร้านค้านี้กำลังใช้งานอยู่แล้ว" });
+    }
+
+    // 1. ตรวจสอบว่า Shop ID ใหม่ซ้ำกับของคนอื่นหรือไม่
+    const existingAdmin = await AdminUser.findOne({ shopId: trimmedNewShopId });
+    if (existingAdmin) {
+      return res.status(400).json({ success: false, message: "ชื่อร้านค้านี้มีผู้ใช้งานแล้ว โปรดเลือกชื่ออื่น" });
+    }
+
+    // 2. อัปเดต Shop ID ใน AdminUser
+    await AdminUser.findByIdAndUpdate(adminId, { shopId: trimmedNewShopId });
+
+    // 3. ย้าย ShopSetting ไปยัง Shop ID ใหม่ (ถ้ามี)
+    const oldSettings = await ShopSetting.findOne({ shopId: oldShopId });
+    if (oldSettings) {
+      // โคลน Setting เดิมและเปลี่ยน ID
+      const settingsData = oldSettings.toObject();
+      delete settingsData._id;
+      delete settingsData.__v;
+      settingsData.shopId = trimmedNewShopId;
+
+      await ShopSetting.create(settingsData);
+      // 🔥 Optional: หากต้องการลบอันเก่าออก
+      await ShopSetting.deleteOne({ _id: oldSettings._id });
+    }
+
+    // แจ้งเตือนไปยัง socket ทุกคนที่อยู่ในห้องเก่า (ทาง frontend จะรีคอนเนกต์ใหม่เองเมื่อรับค่าใหม่)
+    io.to(oldShopId).emit("shop-id-changed", { newShopId: trimmedNewShopId });
+
+    res.json({
+      success: true,
+      message: "เปลี่ยนชื่อร้านค้าสำเร็จ",
+      newShopId: trimmedNewShopId
+    });
+  } catch (error) {
+    console.error("[Admin API] Error changing shopId:", error);
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์" });
+  }
 });
 
 // ===== ADMIN LOGIN ENDPOINT =====
@@ -2208,14 +2781,15 @@ app.post('/login', async (req, res) => {
     admin.lastLogin = new Date();
     await admin.save();
 
-    // Return success
+    // Return success พร้อม shopId
     res.json({
       success: true,
       message: 'เข้าสู่ระบบสำเร็จ',
       user: {
         id: admin._id,
         username: admin.username,
-        role: admin.role
+        role: admin.role,
+        shopId: admin.shopId // 🔥 Multi-tenant: ส่ง shopId กลับไป
       }
     });
 
@@ -2246,6 +2820,21 @@ server.listen(PORT, async () => {
   }
 
   // Start Server-Side Queue Worker
-  console.log("[QueueWorker] Starting 1s interval loop...");
-  setInterval(processAutoQueue, 1000);
+  // 🔥 Multi-tenant: Loop through all active shops
+  console.log("[QueueWorker] Starting 1s interval loop for all shops...");
+  setInterval(async () => {
+    try {
+      // ดึงรายการ shopId ที่มี queue active (pending, approved, หรือ playing)
+      const activeShops = await ImageQueue.distinct('shopId', {
+        status: { $in: ['pending', 'approved', 'playing'] }
+      });
+
+      // Process queue for each shop
+      for (const shopId of activeShops) {
+        await processAutoQueue(shopId);
+      }
+    } catch (error) {
+      console.error('[QueueWorker] Error in main loop:', error);
+    }
+  }, 1000);
 });

@@ -526,7 +526,17 @@
   <script>
     const REALTIME_URL = 'https://cmes-admin-realtime.onrender.com';
     const API_BASE_URL = 'https://cmes-admin-server.onrender.com';
-    const socket = io(API_BASE_URL, { transports: ['websocket', 'polling'] });
+
+    // 🔥 อ่าน shopId จาก URL ?shopId=KAIYANG
+    const urlParams = new URLSearchParams(window.location.search);
+    const shopId = urlParams.get('shopId') || '';
+    console.log('[OBS] shopId from URL:', shopId);
+
+    // 🔥 เชื่อมต่อ socket พร้อมส่ง shopId เพื่อเข้า room เฉพาะร้าน
+    const socket = io(API_BASE_URL, {
+      transports: ['websocket', 'polling'],
+      query: { shopId }
+    });
 
     // เก็บการตั้งค่ารูปภาพสินค้า
     let giftSettingsItems = [];
@@ -534,7 +544,9 @@
     // ฟังก์ชันดึงการตั้งค่ารูปภาพ
     async function fetchGiftSettings() {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/gifts/settings`);
+        const response = await fetch(`${API_BASE_URL}/api/gifts/settings`, {
+          headers: { 'x-shop-id': shopId }  // 🔥 ส่ง shopId
+        });
         if (response.ok) {
           const data = await response.json();
           giftSettingsItems = data.items || [];

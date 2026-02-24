@@ -2,9 +2,13 @@ import mongoose from "mongoose";
 
 const adminReportSchema = new mongoose.Schema(
   {
+    shopId: {
+      type: String,
+      required: true,
+      index: true
+    },
     reportId: {
       type: String,
-      unique: true,
       required: true,
     },
     title: String,
@@ -34,6 +38,9 @@ const adminReportSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Index: reportId ไม่ซ้ำซ้อนภายใน shop เดียวกัน
+adminReportSchema.index({ shopId: 1, reportId: 1 }, { unique: true });
 
 const AdminReport = mongoose.model("AdminReport", adminReportSchema);
 

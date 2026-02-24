@@ -1,7 +1,7 @@
 // นำเข้า React hooks และ component ที่จำเป็น
 import React, { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom"; // Import Link สำหรับการนำทาง
-import { API_BASE_URL, REALTIME_URL }  from "./config/apiConfig"; // URL ของ API และ Realtime Server
+import { API_BASE_URL, REALTIME_URL } from "../config/apiConfig"; // URL ของ API และ Realtime Server
 import "./LuckyWheel.css";
 
 // ฟังก์ชันสุ่มเลขจำนวนเต็มระหว่าง min และ max
@@ -121,14 +121,14 @@ function LuckyWheel() {
   const spinWheel = () => {
     // ตรวจสอบเงื่อนไข: ต้องมีอย่างน้อย 2 ช่องและไม่กำลังหมุนอยู่
     if (segments.length < 2 || spinning) return;
-    
+
     // รีเซ็ตสถานะต่างๆ
     setPreviewing(false); // ปิด preview state
     setWinner(null);
     setSpinning(true);
     setShowPopup(false);
     setPopupEffect(false);
-    
+
     // สุ่มผู้ชนะ
     const winnerIdx = getRandomInt(0, segments.length - 1);
     const degPerSeg = 360 / segments.length; // องศาต่อช่อง
@@ -237,7 +237,7 @@ function LuckyWheel() {
   useEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;
-    
+
     const handleKeyDown = (e) => {
       // อนุญาตให้กดเว้นวรรคได้ตามปกติ
       if (e.key === " " && !e.shiftKey && !e.ctrlKey && !e.altKey) {
@@ -249,7 +249,7 @@ function LuckyWheel() {
         handleAddFromTextarea();
       }
     };
-    
+
     textarea.addEventListener("keydown", handleKeyDown);
     return () => textarea.removeEventListener("keydown", handleKeyDown);
   }, [input, segments]);

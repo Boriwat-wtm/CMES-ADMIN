@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import { io } from "socket.io-client";
-import { API_BASE_URL, REALTIME_URL } from "./config/apiConfig";
+import React, { useState, useEffect, useCallback, useRef, useContext } from "react";
+import { useNavigate } from "react-router-dom";
+import { ShopContext } from "../contexts/ShopContext"; // 🔥 Multi-tenant Context
+import { API_BASE_URL, REALTIME_URL } from "../config/apiConfig";
 import "./home.css";
 
-// เชื่อมต่อกับ Realtime Server สำหรับการอัพเดทแบบ Real-time
-const socket = io(REALTIME_URL);
+// 🔥 ไม่สร้าง socket ที่นี่แล้ว - จะใช้จาก Context
+// const socket = io(REALTIME_URL); // ❌ ลบบรรทัดนี้
 
 // จำนวนอันดับสูงสุดที่จะแสดงในหน้าหลัก (Top 10)
 const RANK_LIMIT = 10;
@@ -24,6 +25,10 @@ const formatUpdatedAt = (value) => {
 };
 
 function Home() {
+  // 🔥 ดึง socket และ shopId จาก Context
+  const { socket, shopId, isSocketConnected, logout } = useContext(ShopContext);
+  const navigate = useNavigate();
+
   // ===== State สำหรับการควบคุมระบบ =====
   const [systemOn, setSystemOn] = useState(true); // สถานะเปิด/ปิดระบบทั้งหมด
   const [enableImage, setEnableImage] = useState(true); // เปิด/ปิดฟังก์ชันส่งรูปภาพ
@@ -57,6 +62,20 @@ function Home() {
   // ===== ข้อมูล Admin จาก localStorage =====
   const adminId = localStorage.getItem("adminId") || "default-admin"; // รหัสร้านของ Admin
   const adminUsername = localStorage.getItem("adminUsername") || "Admin"; // ชื่อผู้ใช้ Admin
+
+  // ===== Helper: fetch พร้อม auth headers =====
+  const authFetch = (url, options = {}) => {
+    const storedShopId = shopId || localStorage.getItem("shopId") || "shop1";
+    return fetch(url, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        "x-shop-id": storedShopId,
+        "x-admin-id": adminId,
+        ...(options.headers || {}),
+      },
+    });
+  };
 
   // ===== State สำหรับปุ่ม Copy OBS Links =====
   const [copiedImage, setCopiedImage] = useState(false); // สถานะคัดลอกลิงก์ Image Overlay
@@ -145,7 +164,13 @@ function Home() {
 
   // ===== useEffect: โหลดการตั้งค่าระบบจาก Socket.IO =====
   // รับการตั้งค่าระบบแบบ Real-time และอัพเดท state
+  // 🔥 เพิ่ม condition check socket
   useEffect(() => {
+    if (!socket) {
+      console.log('[Home] Socket not ready, skipping config setup');
+      return;
+    }
+
     socket.on("status", (config) => {
       setSystemOn(config.systemOn);
       setEnableImage(config.enableImage);
@@ -155,18 +180,24 @@ function Home() {
     });
     socket.emit("getConfig");
     return () => socket.off("status");
-  }, []);
+  }, [socket]); // 🔥 เพิ่ม socket เป็น dependency
 
   // ===== useEffect: รับฟังการเปลี่ยนแปลงประเภทอันดับที่แสดงต่อสาธารณะ =====
   // เมื่อ Admin เปลี่ยนประเภทอันดับที่แสดงบนหน้าจอผู้ใช้
+  // 🔥 เพิ่ม condition check socket
   useEffect(() => {
+    if (!socket) {
+      console.log('[Home] Socket not ready, skipping ranking type setup');
+      return;
+    }
+
     socket.on("publicRankingTypeUpdated", (data) => {
       console.log("[Admin] Public ranking type updated:", data.type);
       setPublicRankingType(data.type);
     });
 
     return () => socket.off("publicRankingTypeUpdated");
-  }, []);
+  }, [socket]); // 🔥 เพิ่ม socket เป็น dependency
 
   // ===== ฟังก์ชัน: โหลดข้อมูลอันดับ Top 10 =====
   // silent = true จะไม่แสดง loading indicator (ใช้เวลารีเฟรช)
@@ -176,7 +207,7 @@ function Home() {
 
     try {
       setRankError("");
-      const res = await fetch(`${API_BASE_URL}/api/rankings?limit=${RANK_LIMIT}&type=${rankingType}`);
+      const res = await authFetch(`${API_BASE_URL}/api/rankings?limit=${RANK_LIMIT}&type=${rankingType}`);
       if (!res.ok) throw new Error("FAILED");
       const data = await res.json();
       if (!data.success) throw new Error("FAILED");
@@ -211,7 +242,7 @@ function Home() {
   // ===== ฟังก์ชัน: โหลดยอดใช้จ่ายขั้นต่ำสำหรับวันเกิด =====
   const loadBirthdayRequirement = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/config/birthday-requirement`);
+      const res = await authFetch(`${API_BASE_URL}/api/config/birthday-requirement`);
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
@@ -226,6 +257,8 @@ function Home() {
   // ===== ฟังก์ชัน: เปิด/ปิดระบบทั้งหมด =====
   // เมื่อปิดระบบ จะปิดฟังก์ชันทั้งหมด / เมื่อเปิดจะเปิดฟังก์ชันทั้งหมด
   const handleToggleSystem = () => {
+    if (!socket) return; // 🔥 Check socket
+
     const newStatus = !systemOn;
     setSystemOn(newStatus);
 
@@ -258,6 +291,8 @@ function Home() {
 
   // ===== ฟังก์ชัน: เปิด/ปิดฟังก์ชันส่งรูปภาพ =====
   const handleToggleImage = () => {
+    if (!socket) return; // 🔥 Check socket
+
     const newStatus = !enableImage;
     setEnableImage(newStatus);
     socket.emit("adminUpdateConfig", {
@@ -271,6 +306,8 @@ function Home() {
 
   // ===== ฟังก์ชัน: เปิด/ปิดฟังก์ชันข้อความ =====
   const handleToggleText = () => {
+    if (!socket) return; // 🔥 Check socket
+
     const newStatus = !enableText;
     setEnableText(newStatus);
     socket.emit("adminUpdateConfig", {
@@ -284,6 +321,8 @@ function Home() {
 
   // ===== ฟังก์ชัน: เปิด/ปิดฟังก์ชันส่งของขวัญ =====
   const handleToggleGift = () => {
+    if (!socket) return; // 🔥 Check socket
+
     const newStatus = !enableGift;
     setEnableGift(newStatus);
     socket.emit("adminUpdateConfig", {
@@ -297,6 +336,8 @@ function Home() {
 
   // ===== ฟังก์ชัน: เปิด/ปิดฟังก์ชันอวยพรวันเกิด =====
   const handleToggleBirthday = () => {
+    if (!socket) return; // 🔥 Check socket
+
     const newStatus = !enableBirthday;
     setEnableBirthday(newStatus);
     socket.emit("adminUpdateConfig", {
@@ -317,9 +358,8 @@ function Home() {
     }
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/config/birthday-requirement`, {
+      const res = await authFetch(`${API_BASE_URL}/api/config/birthday-requirement`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ birthdaySpendingRequirement: requirement })
       });
 
@@ -338,7 +378,7 @@ function Home() {
   useEffect(() => {
     const loadPerks = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/config/perks`);
+        const res = await authFetch(`${API_BASE_URL}/api/config/perks`);
         if (res.ok) {
           const data = await res.json();
           if (data.success && data.perks && data.perks.length > 0) {
@@ -418,17 +458,19 @@ function Home() {
 
     setSavingPerks(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/config/perks`, {
+      const res = await authFetch(`${API_BASE_URL}/api/config/perks`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ perks })
       });
 
       if (res.ok) {
         // Broadcast perks update to all users via Socket.IO
-        console.log("[Admin] 🔥 Broadcasting perks update via Socket.IO:", perks.length, "items");
-        socket.emit("adminUpdatePerks", { perks });
-        console.log("[Admin] ✅ Socket emitted: adminUpdatePerks");
+        // 🔥 Check socket before emit
+        if (socket) {
+          console.log("[Admin] 🔥 Broadcasting perks update via Socket.IO:", perks.length, "items");
+          socket.emit("adminUpdatePerks", { perks });
+          console.log("[Admin] ✅ Socket emitted: adminUpdatePerks");
+        }
         alert("✅ บันทึกสิทธิพิเศษสำเร็จ\n\nการเปลี่ยนแปลงจะแสดงแบบ Real-time บนหน้า User ทันที");
         handleClosePerksModal();
       } else {
@@ -466,7 +508,10 @@ function Home() {
       price: mode === "birthday" ? 0 : price,
     };
 
-    socket.emit("addSetting", packageData);
+    // 🔥 Check socket before emit
+    if (socket) {
+      socket.emit("addSetting", packageData);
+    }
     setMinute("");
     setSecond("");
     setPrice("");
@@ -476,13 +521,16 @@ function Home() {
   // ===== ฟังก์ชัน: กำหนดประเภทอันดับที่จะแสดงบนหน้าจอผู้ใช้ =====
   // Broadcast ไปยังทุกผู้ใช้แบบ Real-time
   const handleSetPublicRankingType = (type) => {
+    if (!socket) return; // 🔥 Check socket
     console.log("[Admin] Broadcasting public ranking type:", type);
     socket.emit("setPublicRankingType", { type });
   };
 
   // ===== ฟังก์ชัน: สร้าง QR Code สำหรับลูกค้าสแกนเข้าระบบ =====
   const generateQRCode = () => {
-    const userAppUrl = `https://cmesuserfrontend.vercel.app/?shopId=${adminId}`;
+    // 🔥 ใช้ shopId แทน adminId สำหรับ Multi-tenant
+    const shopParam = shopId || localStorage.getItem('shopId') || 'CMES ADMIN';
+    const userAppUrl = `${window.location.origin.replace(':3001', ':3000')}/?shopId=${shopParam}`;
     const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(userAppUrl)}&format=png&ecc=H`;
     setQrCodeUrl(qrApiUrl);
     setShowQrModal(true);
@@ -497,7 +545,7 @@ function Home() {
     setAllRankError("");
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/rankings?limit=500&type=${rankingType}`);
+      const res = await authFetch(`${API_BASE_URL}/api/rankings?limit=500&type=${rankingType}`);
       if (!res.ok) throw new Error("FAILED");
       const data = await res.json();
       if (!data.success) throw new Error("FAILED");
@@ -526,7 +574,12 @@ function Home() {
       {/* ===== Header - แสดงชื่อระบบและเมนูนำทาง ===== */}
       <header className="admin-header-minimal">
         <div className="brand-minimal">
-          <span className="brand-title">CMES ADMIN</span>
+          <div className="brand-title-container" title={shopId || "CMES ADMIN"}>
+            <div className={`brand-title-content ${(shopId || "CMES ADMIN").length > 15 ? 'marquee' : ''}`}>
+              <span className="brand-title">{shopId || "CMES ADMIN"}</span>
+              {(shopId || "CMES ADMIN").length > 15 && <span className="brand-title">{shopId || "CMES ADMIN"}</span>}
+            </div>
+          </div>
         </div>
         <nav className="nav-minimal">
           <a href="/TimeHistory">ประวัติการตั้งเวลา</a>
@@ -536,6 +589,65 @@ function Home() {
           <a href="/lucky-wheel">วงล้อเสี่ยงดวง</a>
           <a href="/gift-setting">ตั้งค่าส่งของขวัญ</a>
         </nav>
+        {/* Grouping Avatar and QR Code Generator in upper right */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <button
+            onClick={generateQRCode}
+            title="QR Code ร้านค้า"
+            style={{
+              padding: "8px 16px",
+              backgroundColor: "#f8f9fa",
+              color: "#333",
+              border: "1px solid #ddd",
+              borderRadius: "20px",
+              cursor: "pointer",
+              fontWeight: "600",
+              fontSize: "14px",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              transition: "all 0.2s"
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#e2e8f0"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#f8f9fa"; }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <rect x="7" y="7" width="3" height="3"></rect>
+              <rect x="14" y="7" width="3" height="3"></rect>
+              <rect x="7" y="14" width="3" height="3"></rect>
+              <rect x="14" y="14" width="3" height="3"></rect>
+            </svg>
+            ลิงก์ & QR Code
+          </button>
+
+          {/* Avatar button วงกลมมุมขวาบน */}
+          <button
+            onClick={() => navigate("/edit-profile")}
+            title={adminUsername}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: "50%",
+              background: "linear-gradient(135deg, #667eea, #764ba2)",
+              border: "2px solid rgba(255,255,255,0.3)",
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: 15,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              boxShadow: "0 2px 8px rgba(102,126,234,0.4)",
+              transition: "transform 0.2s, box-shadow 0.2s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.1)"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(102,126,234,0.6)"; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(102,126,234,0.4)"; }}
+          >
+            {adminUsername.slice(0, 2).toUpperCase()}
+          </button>
+        </div>
       </header>
 
       <main className="admin-main-minimal">
@@ -560,6 +672,7 @@ function Home() {
             ระบบถูกปิด ฝั่งผู้ใช้จะไม่สามารถใช้งานได้
           </div>
         )}
+
 
         {/* ===== คอนเทนเนอร์หลัก 3 กล่อง (ลำดับตาม cardOrder) ===== */}
         <div className="three-box-container">
@@ -1274,7 +1387,8 @@ function Home() {
 
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(`https://cmesuserfrontend.vercel.app/?shopId=${adminId}`);
+                        const url = `${window.location.origin.replace(':3001', ':3000')}/?shopId=${shopId || localStorage.getItem('shopId') || 'CMES ADMIN'}`;
+                        navigator.clipboard.writeText(url);
                         alert("✅ คัดลอกลิงก์สำเร็จ!");
                       }}
                       style={{
@@ -1291,7 +1405,29 @@ function Home() {
                       onMouseEnter={(e) => e.target.style.transform = "scale(1.02)"}
                       onMouseLeave={(e) => e.target.style.transform = "scale(1)"}
                     >
-                      📋 คัดลอกลิงก์
+                      📋 คัดลอกลิงก์ให้ลูกค้าสแกน/กดเข้า
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const url = `${window.location.origin.replace(':3001', ':3000')}/?shopId=${shopId || localStorage.getItem('shopId') || 'CMES ADMIN'}`;
+                        window.open(url, '_blank');
+                      }}
+                      style={{
+                        padding: "14px 24px",
+                        background: "linear-gradient(135deg, #a855f7, #9333ea)",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "10px",
+                        cursor: "pointer",
+                        fontWeight: "600",
+                        fontSize: "15px",
+                        transition: "transform 0.2s ease"
+                      }}
+                      onMouseEnter={(e) => e.target.style.transform = "scale(1.02)"}
+                      onMouseLeave={(e) => e.target.style.transform = "scale(1)"}
+                    >
+                      🌐 ทดสอบเปิดหน้าต่างผู้ใช้งาน
                     </button>
                   </div>
 
@@ -1318,7 +1454,7 @@ function Home() {
                       wordBreak: "break-all",
                       fontFamily: "monospace"
                     }}>
-                      https://cmesuserfrontend.vercel.app/?shopId={adminId}
+                      {`${window.location.origin.replace(':3001', ':3000')}/?shopId=${shopId || 'CMES ADMIN'}`}
                     </small>
                   </div>
 
@@ -1345,333 +1481,336 @@ function Home() {
             </div>
           </div>
         </div>
-      )}
+      )
+      }
 
       {/* ===== Modal: จัดการสิทธิพิเศษสำหรับสมาชิก VIP ===== */}
-      {showPerksModal && (
-        <div className="rank-modal-overlay" onClick={handleClosePerksModal}>
-          <div
-            className="rank-modal"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: "650px", maxHeight: "90vh", display: "flex", flexDirection: "column" }}
-          >
-            <div className="rank-modal-header">
-              <div>
-                <h3>⚙️ จัดการสิทธิพิเศษสำหรับสมาชิกพรีเมียม</h3>
-                <p>แก้ไขสิทธิพิเศษที่จะแสดงให้กับสมาชิก Top Rank</p>
+      {
+        showPerksModal && (
+          <div className="rank-modal-overlay" onClick={handleClosePerksModal}>
+            <div
+              className="rank-modal"
+              onClick={(e) => e.stopPropagation()}
+              style={{ maxWidth: "650px", maxHeight: "90vh", display: "flex", flexDirection: "column" }}
+            >
+              <div className="rank-modal-header">
+                <div>
+                  <h3>⚙️ จัดการสิทธิพิเศษสำหรับสมาชิกพรีเมียม</h3>
+                  <p>แก้ไขสิทธิพิเศษที่จะแสดงให้กับสมาชิก Top Rank</p>
+                </div>
+                <button
+                  type="button"
+                  className="close-rank-modal"
+                  onClick={handleClosePerksModal}
+                >
+                  ✕
+                </button>
               </div>
-              <button
-                type="button"
-                className="close-rank-modal"
-                onClick={handleClosePerksModal}
-              >
-                ✕
-              </button>
-            </div>
 
-            <div className="rank-modal-body" style={{ padding: "24px", overflowY: "auto", flex: 1 }}>
-              <div style={{ marginBottom: "20px" }}>
-                <h4 style={{ fontSize: "16px", fontWeight: "700", color: "#1e293b", marginBottom: "12px" }}>
-                  📋 รายการสิทธิพิเศษปัจจุบัน
-                </h4>
+              <div className="rank-modal-body" style={{ padding: "24px", overflowY: "auto", flex: 1 }}>
+                <div style={{ marginBottom: "20px" }}>
+                  <h4 style={{ fontSize: "16px", fontWeight: "700", color: "#1e293b", marginBottom: "12px" }}>
+                    📋 รายการสิทธิพิเศษปัจจุบัน
+                  </h4>
 
-                {perks.length === 0 ? (
-                  <div style={{
-                    padding: "24px",
-                    background: "#f8fafc",
-                    borderRadius: "12px",
-                    textAlign: "center",
-                    color: "#64748b"
-                  }}>
-                    ยังไม่มีสิทธิพิเศษ กรุณาเพิ่มสิทธิพิเศษด้านล่าง
-                  </div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                    {perks.map((perk, index) => (
-                      <div
-                        key={index}
-                        style={{
-                          padding: "16px",
-                          background: editingPerkIndex === index ? "#fff7ed" : "#fff",
-                          borderRadius: "12px",
-                          border: editingPerkIndex === index ? "2px solid #f97316" : "1px solid #e2e8f0",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "16px",
-                          transition: "all 0.2s ease",
-                          boxShadow: "0 2px 4px rgba(0,0,0,0.02)"
-                        }}
-                      >
-                        {editingPerkIndex === index ? (
-                          <div style={{ display: "flex", gap: "10px", width: "100%", alignItems: "center" }}>
-                            <input
-                              type="text"
-                              value={perkInputValue}
-                              onChange={(e) => setPerkInputValue(e.target.value)}
-                              style={{
+                  {perks.length === 0 ? (
+                    <div style={{
+                      padding: "24px",
+                      background: "#f8fafc",
+                      borderRadius: "12px",
+                      textAlign: "center",
+                      color: "#64748b"
+                    }}>
+                      ยังไม่มีสิทธิพิเศษ กรุณาเพิ่มสิทธิพิเศษด้านล่าง
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                      {perks.map((perk, index) => (
+                        <div
+                          key={index}
+                          style={{
+                            padding: "16px",
+                            background: editingPerkIndex === index ? "#fff7ed" : "#fff",
+                            borderRadius: "12px",
+                            border: editingPerkIndex === index ? "2px solid #f97316" : "1px solid #e2e8f0",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "16px",
+                            transition: "all 0.2s ease",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.02)"
+                          }}
+                        >
+                          {editingPerkIndex === index ? (
+                            <div style={{ display: "flex", gap: "10px", width: "100%", alignItems: "center" }}>
+                              <input
+                                type="text"
+                                value={perkInputValue}
+                                onChange={(e) => setPerkInputValue(e.target.value)}
+                                style={{
+                                  flex: 1,
+                                  padding: "10px 14px",
+                                  border: "2px solid #f97316",
+                                  borderRadius: "8px",
+                                  fontSize: "14px",
+                                  outline: "none",
+                                  boxShadow: "0 0 0 3px rgba(249, 115, 22, 0.1)"
+                                }}
+                                placeholder="แก้ไขข้อความสิทธิพิเศษ"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSavePerk();
+                                  if (e.key === 'Escape') handleCancelEditPerk();
+                                }}
+                              />
+                              <div style={{ display: "flex", gap: "8px" }}>
+                                <button
+                                  onClick={handleSavePerk}
+                                  title="บันทึก"
+                                  style={{
+                                    padding: "10px",
+                                    background: "#10b981",
+                                    color: "#fff",
+                                    border: "none",
+                                    borderRadius: "8px",
+                                    cursor: "pointer",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    transition: "background 0.2s"
+                                  }}
+                                >
+                                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                </button>
+                                <button
+                                  onClick={handleCancelEditPerk}
+                                  title="ยกเลิก"
+                                  style={{
+                                    padding: "10px",
+                                    background: "#94a3b8",
+                                    color: "#fff",
+                                    border: "none",
+                                    borderRadius: "8px",
+                                    cursor: "pointer",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    transition: "background 0.2s"
+                                  }}
+                                >
+                                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div style={{
                                 flex: 1,
-                                padding: "10px 14px",
-                                border: "2px solid #f97316",
-                                borderRadius: "8px",
-                                fontSize: "14px",
-                                outline: "none",
-                                boxShadow: "0 0 0 3px rgba(249, 115, 22, 0.1)"
-                              }}
-                              placeholder="แก้ไขข้อความสิทธิพิเศษ"
-                              autoFocus
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleSavePerk();
-                                if (e.key === 'Escape') handleCancelEditPerk();
-                              }}
-                            />
-                            <div style={{ display: "flex", gap: "8px" }}>
-                              <button
-                                onClick={handleSavePerk}
-                                title="บันทึก"
-                                style={{
-                                  padding: "10px",
-                                  background: "#10b981",
-                                  color: "#fff",
-                                  border: "none",
-                                  borderRadius: "8px",
-                                  cursor: "pointer",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  transition: "background 0.2s"
-                                }}
-                              >
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                              </button>
-                              <button
-                                onClick={handleCancelEditPerk}
-                                title="ยกเลิก"
-                                style={{
-                                  padding: "10px",
-                                  background: "#94a3b8",
-                                  color: "#fff",
-                                  border: "none",
-                                  borderRadius: "8px",
-                                  cursor: "pointer",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  transition: "background 0.2s"
-                                }}
-                              >
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <div style={{
-                              flex: 1,
-                              fontSize: "15px",
-                              color: "#334155",
-                              fontWeight: "500",
-                              lineHeight: "1.5"
-                            }}>
-                              {perk}
-                            </div>
-                            <div style={{ display: "flex", gap: "8px" }}>
-                              <button
-                                onClick={() => handleEditPerk(index)}
-                                style={{
-                                  padding: "8px 12px",
-                                  background: "#eff6ff",
-                                  color: "#3b82f6",
-                                  border: "1px solid #dbeafe",
-                                  borderRadius: "8px",
-                                  cursor: "pointer",
-                                  fontSize: "13px",
-                                  fontWeight: "600",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: "6px",
-                                  transition: "all 0.2s"
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.background = "#dbeafe";
-                                  e.currentTarget.style.borderColor = "#bfdbfe";
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.background = "#eff6ff";
-                                  e.currentTarget.style.borderColor = "#dbeafe";
-                                }}
-                              >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                                <span>แก้ไข</span>
-                              </button>
-                              <button
-                                onClick={() => handleDeletePerk(index)}
-                                style={{
-                                  padding: "8px 12px",
-                                  background: "#fef2f2",
-                                  color: "#ef4444",
-                                  border: "1px solid #fee2e2",
-                                  borderRadius: "8px",
-                                  cursor: "pointer",
-                                  fontSize: "13px",
-                                  fontWeight: "600",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: "6px",
-                                  transition: "all 0.2s"
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.background = "#fee2e2";
-                                  e.currentTarget.style.borderColor = "#fecaca";
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.background = "#fef2f2";
-                                  e.currentTarget.style.borderColor = "#fee2e2";
-                                }}
-                              >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                <span>ลบ</span>
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                                fontSize: "15px",
+                                color: "#334155",
+                                fontWeight: "500",
+                                lineHeight: "1.5"
+                              }}>
+                                {perk}
+                              </div>
+                              <div style={{ display: "flex", gap: "8px" }}>
+                                <button
+                                  onClick={() => handleEditPerk(index)}
+                                  style={{
+                                    padding: "8px 12px",
+                                    background: "#eff6ff",
+                                    color: "#3b82f6",
+                                    border: "1px solid #dbeafe",
+                                    borderRadius: "8px",
+                                    cursor: "pointer",
+                                    fontSize: "13px",
+                                    fontWeight: "600",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "6px",
+                                    transition: "all 0.2s"
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = "#dbeafe";
+                                    e.currentTarget.style.borderColor = "#bfdbfe";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = "#eff6ff";
+                                    e.currentTarget.style.borderColor = "#dbeafe";
+                                  }}
+                                >
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                  <span>แก้ไข</span>
+                                </button>
+                                <button
+                                  onClick={() => handleDeletePerk(index)}
+                                  style={{
+                                    padding: "8px 12px",
+                                    background: "#fef2f2",
+                                    color: "#ef4444",
+                                    border: "1px solid #fee2e2",
+                                    borderRadius: "8px",
+                                    cursor: "pointer",
+                                    fontSize: "13px",
+                                    fontWeight: "600",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "6px",
+                                    transition: "all 0.2s"
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = "#fee2e2";
+                                    e.currentTarget.style.borderColor = "#fecaca";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = "#fef2f2";
+                                    e.currentTarget.style.borderColor = "#fee2e2";
+                                  }}
+                                >
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                  <span>ลบ</span>
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
-              {/* Add New Perk */}
-              <div style={{
-                marginTop: "24px",
-                padding: "20px",
-                background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)",
-                borderRadius: "12px",
-                border: "2px solid #0ea5e9"
-              }}>
-                <h4 style={{ fontSize: "16px", fontWeight: "700", color: "#0369a1", marginBottom: "12px" }}>
-                  ➕ เพิ่มสิทธิพิเศษใหม่
-                </h4>
-                <div style={{ display: "flex", gap: "10px" }}>
-                  <input
-                    type="text"
-                    value={editingPerkIndex === null ? perkInputValue : ""}
-                    onChange={(e) => setPerkInputValue(e.target.value)}
-                    disabled={editingPerkIndex !== null}
-                    placeholder="เช่น: 🎁 ลดราคาพิเศษ 10% สำหรับสมาชิก VIP"
+                {/* Add New Perk */}
+                <div style={{
+                  marginTop: "24px",
+                  padding: "20px",
+                  background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)",
+                  borderRadius: "12px",
+                  border: "2px solid #0ea5e9"
+                }}>
+                  <h4 style={{ fontSize: "16px", fontWeight: "700", color: "#0369a1", marginBottom: "12px" }}>
+                    ➕ เพิ่มสิทธิพิเศษใหม่
+                  </h4>
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <input
+                      type="text"
+                      value={editingPerkIndex === null ? perkInputValue : ""}
+                      onChange={(e) => setPerkInputValue(e.target.value)}
+                      disabled={editingPerkIndex !== null}
+                      placeholder="เช่น: 🎁 ลดราคาพิเศษ 10% สำหรับสมาชิก VIP"
+                      style={{
+                        flex: 1,
+                        padding: "12px 16px",
+                        border: "2px solid #0ea5e9",
+                        borderRadius: "10px",
+                        fontSize: "14px",
+                        outline: "none",
+                        opacity: editingPerkIndex !== null ? 0.5 : 1
+                      }}
+                      onKeyPress={(e) => {
+                        if (e.key === "Enter" && editingPerkIndex === null) {
+                          handleAddPerk();
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={handleAddPerk}
+                      disabled={editingPerkIndex !== null}
+                      style={{
+                        padding: "12px 24px",
+                        background: editingPerkIndex !== null ? "#cbd5e1" : "linear-gradient(135deg, #10b981, #059669)",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "10px",
+                        cursor: editingPerkIndex !== null ? "not-allowed" : "pointer",
+                        fontSize: "14px",
+                        fontWeight: "600",
+                        whiteSpace: "nowrap"
+                      }}
+                    >
+                      ➕ เพิ่ม
+                    </button>
+                  </div>
+                  <small style={{ display: "block", marginTop: "8px", color: "#0369a1", fontSize: "12px" }}>
+                    💡 เคล็ดลับ: เริ่มต้นด้วย emoji เพื่อให้ดูน่าสนใจมากขึ้น เช่น 🎁 🌟 💎 📱
+                  </small>
+                </div>
+
+                {/* Save All Button */}
+                <div style={{ marginTop: "24px", display: "flex", gap: "12px" }}>
+                  <button
+                    onClick={handleClosePerksModal}
+                    disabled={savingPerks}
                     style={{
-                      flex: 1,
-                      padding: "12px 16px",
-                      border: "2px solid #0ea5e9",
-                      borderRadius: "10px",
-                      fontSize: "14px",
-                      outline: "none",
-                      opacity: editingPerkIndex !== null ? 0.5 : 1
+                      width: "120px",
+                      padding: "16px 24px",
+                      background: savingPerks ? "#cbd5e1" : "#f1f5f9",
+                      color: savingPerks ? "#94a3b8" : "#64748b",
+                      border: savingPerks ? "none" : "2px solid #e2e8f0",
+                      borderRadius: "12px",
+                      cursor: savingPerks ? "not-allowed" : "pointer",
+                      fontSize: "16px",
+                      fontWeight: "700",
+                      transition: "all 0.2s ease"
                     }}
-                    onKeyPress={(e) => {
-                      if (e.key === "Enter" && editingPerkIndex === null) {
-                        handleAddPerk();
+                    onMouseEnter={(e) => {
+                      if (!savingPerks) {
+                        e.target.style.background = "#e2e8f0";
+                        e.target.style.borderColor = "#cbd5e1";
                       }
                     }}
-                  />
-                  <button
-                    onClick={handleAddPerk}
-                    disabled={editingPerkIndex !== null}
-                    style={{
-                      padding: "12px 24px",
-                      background: editingPerkIndex !== null ? "#cbd5e1" : "linear-gradient(135deg, #10b981, #059669)",
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: "10px",
-                      cursor: editingPerkIndex !== null ? "not-allowed" : "pointer",
-                      fontSize: "14px",
-                      fontWeight: "600",
-                      whiteSpace: "nowrap"
+                    onMouseLeave={(e) => {
+                      if (!savingPerks) {
+                        e.target.style.background = "#f1f5f9";
+                        e.target.style.borderColor = "#e2e8f0";
+                      }
                     }}
                   >
-                    ➕ เพิ่ม
+                    ปิด
+                  </button>
+                  <button
+                    onClick={handleSaveAllPerks}
+                    disabled={savingPerks || perks.length === 0}
+                    style={{
+                      flex: 1,
+                      padding: "16px 24px",
+                      background: savingPerks || perks.length === 0 ? "#cbd5e1" : "linear-gradient(135deg, #f59e0b, #d97706)",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: "12px",
+                      cursor: savingPerks || perks.length === 0 ? "not-allowed" : "pointer",
+                      fontSize: "16px",
+                      fontWeight: "700",
+                      transition: "all 0.3s ease",
+                      boxShadow: savingPerks || perks.length === 0 ? "none" : "0 4px 12px rgba(245, 158, 11, 0.3)"
+                    }}
+                  >
+                    {savingPerks ? "กำลังบันทึก..." : "💾 บันทึกทั้งหมด"}
                   </button>
                 </div>
-                <small style={{ display: "block", marginTop: "8px", color: "#0369a1", fontSize: "12px" }}>
-                  💡 เคล็ดลับ: เริ่มต้นด้วย emoji เพื่อให้ดูน่าสนใจมากขึ้น เช่น 🎁 🌟 💎 📱
-                </small>
-              </div>
 
-              {/* Save All Button */}
-              <div style={{ marginTop: "24px", display: "flex", gap: "12px" }}>
-                <button
-                  onClick={handleClosePerksModal}
-                  disabled={savingPerks}
-                  style={{
-                    width: "120px",
-                    padding: "16px 24px",
-                    background: savingPerks ? "#cbd5e1" : "#f1f5f9",
-                    color: savingPerks ? "#94a3b8" : "#64748b",
-                    border: savingPerks ? "none" : "2px solid #e2e8f0",
-                    borderRadius: "12px",
-                    cursor: savingPerks ? "not-allowed" : "pointer",
-                    fontSize: "16px",
-                    fontWeight: "700",
-                    transition: "all 0.2s ease"
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!savingPerks) {
-                      e.target.style.background = "#e2e8f0";
-                      e.target.style.borderColor = "#cbd5e1";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!savingPerks) {
-                      e.target.style.background = "#f1f5f9";
-                      e.target.style.borderColor = "#e2e8f0";
-                    }
-                  }}
-                >
-                  ปิด
-                </button>
-                <button
-                  onClick={handleSaveAllPerks}
-                  disabled={savingPerks || perks.length === 0}
-                  style={{
-                    flex: 1,
-                    padding: "16px 24px",
-                    background: savingPerks || perks.length === 0 ? "#cbd5e1" : "linear-gradient(135deg, #f59e0b, #d97706)",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: "12px",
-                    cursor: savingPerks || perks.length === 0 ? "not-allowed" : "pointer",
-                    fontSize: "16px",
-                    fontWeight: "700",
-                    transition: "all 0.3s ease",
-                    boxShadow: savingPerks || perks.length === 0 ? "none" : "0 4px 12px rgba(245, 158, 11, 0.3)"
-                  }}
-                >
-                  {savingPerks ? "กำลังบันทึก..." : "💾 บันทึกทั้งหมด"}
-                </button>
-              </div>
-
-              {/* Note */}
-              <div style={{
-                marginTop: "20px",
-                padding: "16px",
-                background: "#fef3c7",
-                borderRadius: "10px",
-                border: "1px solid #f59e0b"
-              }}>
-                <small style={{
-                  color: "#92400e",
-                  fontSize: "13px",
-                  display: "block",
-                  lineHeight: "1.6"
+                {/* Note */}
+                <div style={{
+                  marginTop: "20px",
+                  padding: "16px",
+                  background: "#fef3c7",
+                  borderRadius: "10px",
+                  border: "1px solid #f59e0b"
                 }}>
-                  <strong>📌 หมายเหตุ:</strong> สิทธิพิเศษเหล่านี้จะแสดงบนหน้าแรกของผู้ใช้<br />
-                  เพื่อดึงดูดให้สมาชิกเข้าร่วมการแข่งขัน Top Rank มากขึ้น
-                </small>
+                  <small style={{
+                    color: "#92400e",
+                    fontSize: "13px",
+                    display: "block",
+                    lineHeight: "1.6"
+                  }}>
+                    <strong>📌 หมายเหตุ:</strong> สิทธิพิเศษเหล่านี้จะแสดงบนหน้าแรกของผู้ใช้<br />
+                    เพื่อดึงดูดให้สมาชิกเข้าร่วมการแข่งขัน Top Rank มากขึ้น
+                  </small>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 }
 

@@ -2,9 +2,13 @@ import mongoose from "mongoose";
 
 const adminUserSchema = new mongoose.Schema(
   {
+    shopId: {
+      type: String,
+      required: true,
+      index: true
+    },
     username: {
       type: String,
-      unique: true,
       required: true,
       trim: true,
     },
@@ -27,6 +31,9 @@ const adminUserSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Compound unique index: username ต้องไม่ซ้ำภายใน shop เดียวกัน
+adminUserSchema.index({ shopId: 1, username: 1 }, { unique: true });
 
 const AdminUser = mongoose.model("AdminUser", adminUserSchema);
 
