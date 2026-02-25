@@ -6,8 +6,8 @@ import "./home.css";
 // เชื่อมต่อกับ Realtime Server สำหรับการอัพเดทแบบ Real-time
 const socket = io(REALTIME_URL);
 
-// จำนวนอันดับสูงสุดที่จะแสดงในหน้าหลัก (Top 10)
-const RANK_LIMIT = 10;
+// จำนวนอันดับเริ่มต้นที่จะแสดงในหน้าหลัก
+const DEFAULT_RANK_LIMIT = 10;
 
 // ฟังก์ชันจัดรูปแบบตัวเลขเป็นสกุลเงินไทย (เช่น 1,000)
 const formatCurrency = (value) => Number(value || 0).toLocaleString("th-TH");
@@ -22,6 +22,11 @@ const formatUpdatedAt = (value) => {
     timeStyle: "short",
   });
 };
+
+// Helper: วันที่ปัจจุบันในรูปแบบต่างๆ
+const getTodayStr = () => new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+const getCurrentMonthStr = () => new Date().toISOString().slice(0, 7); // YYYY-MM
+const getCurrentYearStr = () => new Date().getFullYear().toString(); // YYYY
 
 function Home() {
   // ===== State สำหรับการควบคุมระบบ =====
@@ -39,12 +44,19 @@ function Home() {
   const [price, setPrice] = useState(""); // ราคาแพ็คเกจ
 
   // ===== State สำหรับระบบจัดอันดับ (Rankings) =====
-  const [topRanks, setTopRanks] = useState([]); // ข้อมูลอันดับ Top 10
+  const [topRanks, setTopRanks] = useState([]); // ข้อมูลอันดับ
   const [totalRankers, setTotalRankers] = useState(0); // จำนวนผู้ใช้ทั้งหมดที่มีอันดับ
   const [rankLoading, setRankLoading] = useState(true); // สถานะกำลังโหลดข้อมูลอันดับ
   const [refreshingRanks, setRefreshingRanks] = useState(false); // สถานะกำลังรีเฟรชข้อมูล
   const [rankError, setRankError] = useState(""); // ข้อความแสดงข้อผิดพลาด
   const [rankingType, setRankingType] = useState("alltime"); // ประเภทอันดับสำหรับ Admin ดู (daily, monthly, alltime)
+  const [rankLimit, setRankLimit] = useState(DEFAULT_RANK_LIMIT); // จำนวนอันดับที่ต้องการแสดง (กรอกได้)
+
+  // ===== State สำหรับ Date/Month/Year Picker =====
+  const [selectedDate, setSelectedDate] = useState(getTodayStr()); // YYYY-MM-DD สำหรับรายวัน (default วันนี้)
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthStr()); // YYYY-MM สำหรับรายเดือน (default เดือนนี้)
+  const [selectedYear, setSelectedYear] = useState(getCurrentYearStr()); // YYYY สำหรับตลอดกาล (default ปีนี้)
+  const [rankingSummary, setRankingSummary] = useState({ totalSum: 0, totalUsers: 0 }); // ยอดรวม
   const [publicRankingType, setPublicRankingType] = useState("alltime"); // ประเภทอันดับที่กำลังแสดงบนหน้าจอผู้ใช้ (PUBLIC BROADCAST)
 
   // ===== State สำหรับ Modal แสดงอันดับทั้งหมด =====
@@ -176,7 +188,16 @@ function Home() {
 
     try {
       setRankError("");
-      const res = await fetch(`${API_BASE_URL}/api/rankings?limit=${RANK_LIMIT}&type=${rankingType}`);
+      // สร้าง query params ตาม filter ที่เลือก
+      const params = new URLSearchParams({
+        limit: String(rankLimit),
+        type: rankingType
+      });
+      if (rankingType === "daily" && selectedDate) params.set("date", selectedDate);
+      if (rankingType === "monthly" && selectedMonth) params.set("month", selectedMonth);
+      if (rankingType === "alltime" && selectedYear) params.set("year", selectedYear);
+
+      const res = await fetch(`${API_BASE_URL}/api/rankings?${params}`);
       if (!res.ok) throw new Error("FAILED");
       const data = await res.json();
       if (!data.success) throw new Error("FAILED");
@@ -191,22 +212,43 @@ function Home() {
       if (silent) setRefreshingRanks(false);
       else setRankLoading(false);
     }
-  }, [rankingType]);
+  }, [rankingType, rankLimit, selectedDate, selectedMonth, selectedYear]);
+
+  // ===== ฟังก์ชัน: โหลดยอดรวม (Summary) =====
+  const loadRankingSummary = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({ type: rankingType });
+      if (rankingType === "daily" && selectedDate) params.set("date", selectedDate);
+      if (rankingType === "monthly" && selectedMonth) params.set("month", selectedMonth);
+      if (rankingType === "alltime" && selectedYear) params.set("year", selectedYear);
+
+      const res = await fetch(`${API_BASE_URL}/api/rankings/summary?${params}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.success) {
+        setRankingSummary({ totalSum: data.totalSum || 0, totalUsers: data.totalUsers || 0 });
+      }
+    } catch (error) {
+      console.error("[Admin] loadRankingSummary failed", error);
+    }
+  }, [rankingType, selectedDate, selectedMonth, selectedYear]);
 
   // ===== useEffect: โหลดข้อมูลเริ่มต้น =====
   // โหลดอันดับและยอดใช้จ่ายวันเกิดเมื่อเริ่มต้น
   useEffect(() => {
     loadTopRanks();
+    loadRankingSummary();
     loadBirthdayRequirement();
-  }, [loadTopRanks]);
+  }, [loadTopRanks, loadRankingSummary]);
 
-  // ===== useEffect: โหลดอันดับใหม่เมื่อเปลี่ยนประเภท =====
-  // Reset cache ของ Modal และโหลดข้อมูลใหม่
+  // ===== useEffect: โหลดอันดับใหม่เมื่อเปลี่ยนประเภทหรือ filter =====
+  // Reset cache ของ Modal และ reset filter เมื่อเปลี่ยนประเภท
   useEffect(() => {
-    setAllRanksLoaded(false); // Reset modal cache when type changes
+    setAllRanksLoaded(false);
     setAllRanks([]);
     loadTopRanks();
-  }, [rankingType, loadTopRanks]);
+    loadRankingSummary();
+  }, [rankingType, rankLimit, selectedDate, selectedMonth, selectedYear, loadTopRanks, loadRankingSummary]);
 
   // ===== ฟังก์ชัน: โหลดยอดใช้จ่ายขั้นต่ำสำหรับวันเกิด =====
   const loadBirthdayRequirement = async () => {
@@ -1019,7 +1061,7 @@ function Home() {
                     <div className="rank-panel-heading">
                       <div>
                         <p className="rank-panel-title">VIP Supporters (Admin View)</p>
-                        <small>อันดับ 1-10 • รวม {totalRankers} คน</small>
+                        <small>อันดับ 1-{rankLimit}</small>
                       </div>
 
                       <button
@@ -1032,26 +1074,113 @@ function Home() {
                       </button>
                     </div>
 
+                    {/* ช่องกรอกจำนวนอันดับที่ต้องการแสดง */}
+                    <div className="rank-limit-row">
+                      <label>แสดงจำนวน:</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="500"
+                        value={rankLimit}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 1;
+                          setRankLimit(Math.max(1, Math.min(500, val)));
+                        }}
+                        className="rank-limit-input"
+                      />
+                      <span className="rank-limit-label">อันดับ</span>
+                    </div>
+
                     {/* ตัวเลือกประเภทอันดับสำหรับ Admin (รายวัน/รายเดือน/ตลอดกาล) */}
                     <div className="ranking-type-selector">
                       <button
                         className={`ranking-type-btn ${rankingType === "daily" ? "active" : ""}`}
-                        onClick={() => setRankingType("daily")}
+                        onClick={() => { setRankingType("daily"); setSelectedDate(getTodayStr()); }}
                       >
                         รายวัน
                       </button>
                       <button
                         className={`ranking-type-btn ${rankingType === "monthly" ? "active" : ""}`}
-                        onClick={() => setRankingType("monthly")}
+                        onClick={() => { setRankingType("monthly"); setSelectedMonth(getCurrentMonthStr()); }}
                       >
                         รายเดือน
                       </button>
                       <button
                         className={`ranking-type-btn ${rankingType === "alltime" ? "active" : ""}`}
-                        onClick={() => setRankingType("alltime")}
+                        onClick={() => { setRankingType("alltime"); setSelectedYear(getCurrentYearStr()); }}
                       >
                         ตลอดกาล
                       </button>
+                    </div>
+
+                    {/* ===== Date/Month/Year Picker ตามประเภทอันดับ ===== */}
+                    <div className="rank-date-filter">
+                      {rankingType === "daily" && (
+                        <div className="date-picker-row">
+                          <label>📅 เลือกวันที่:</label>
+                          <input
+                            type="date"
+                            value={selectedDate}
+                            onChange={(e) => setSelectedDate(e.target.value)}
+                            max={new Date().toISOString().split('T')[0]}
+                            min={`${new Date().getFullYear()}-01-01`}
+                            className="date-picker-input"
+                          />
+                          {selectedDate && (
+                            <button className="clear-filter-btn" onClick={() => setSelectedDate("")}>✕ ล้าง</button>
+                          )}
+                        </div>
+                      )}
+
+                      {rankingType === "monthly" && (
+                        <div className="date-picker-row">
+                          <label>📅 เลือกเดือน:</label>
+                          <input
+                            type="month"
+                            value={selectedMonth}
+                            onChange={(e) => setSelectedMonth(e.target.value)}
+                            max={new Date().toISOString().slice(0, 7)}
+                            min={`${new Date().getFullYear()}-01`}
+                            className="date-picker-input"
+                          />
+                          {selectedMonth && (
+                            <button className="clear-filter-btn" onClick={() => setSelectedMonth("")}>✕ ล้าง</button>
+                          )}
+                        </div>
+                      )}
+
+                      {rankingType === "alltime" && (
+                        <div className="date-picker-row">
+                          <label>📅 เลือกปี:</label>
+                          <select
+                            value={selectedYear}
+                            onChange={(e) => setSelectedYear(e.target.value)}
+                            className="date-picker-input"
+                          >
+                            <option value="">ทุกปี</option>
+                            {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                              <option key={year} value={year}>{year}</option>
+                            ))}
+                          </select>
+                          {selectedYear && (
+                            <button className="clear-filter-btn" onClick={() => setSelectedYear("")}>✕ ล้าง</button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ===== กล่องแสดงยอดรวม ===== */}
+                    <div className="rank-summary-box">
+                      <div className="summary-item">
+                        <span className="summary-label">
+                          {rankingType === "daily" ? "💰 ยอดรวมรายวัน" : rankingType === "monthly" ? "💰 ยอดรวมรายเดือน" : "💰 ยอดรวมตลอดกาล"}
+                        </span>
+                        <span className="summary-value">฿{formatCurrency(rankingSummary.totalSum)}</span>
+                      </div>
+                      <div className="summary-item">
+                        <span className="summary-label">👥 จำนวนผู้สนับสนุน</span>
+                        <span className="summary-value">{rankingSummary.totalUsers} คน</span>
+                      </div>
                     </div>
 
                     <ul className="rank-list">

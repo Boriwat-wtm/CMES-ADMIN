@@ -16,7 +16,7 @@ function TimeHistory() {
     // ฟังก์ชันดึงข้อมูลประวัติจาก API
     const fetchHistory = async () => {
       try {
-        const response = await fetch(`${REALTIME_URL}/api/check-history`);
+        const response = await fetch(`${REALTIME_URL}/api/settings-history`);
         if (response.ok) {
           const data = await response.json();
           console.log("[TimeHistory] Fetched history:", data);
@@ -39,7 +39,7 @@ function TimeHistory() {
       console.log("[TimeHistory] Received status event, refetching...");
       fetchHistory(); // ดึงข้อมูลใหม่เมื่อมีการเปลี่ยนแปลง
     });
-    
+
     // Cleanup function: ยกเลิก interval และตัดการเชื่อมต่อ Socket เมื่อ Component ถูก unmount
     return () => {
       clearInterval(interval);
