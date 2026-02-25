@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ShopContext } from "../contexts/ShopContext"; // 🔥 Multi-tenant Context
 import { API_BASE_URL, REALTIME_URL } from "../config/apiConfig";
 import "./home.css";
+import OBSControl from "../10_OBSControl/OBSControl";
 
 // 🔥 ไม่สร้าง socket ที่นี่แล้ว - จะใช้จาก Context
 // const socket = io(REALTIME_URL); // ❌ ลบบรรทัดนี้
@@ -77,6 +78,29 @@ function Home() {
     });
   };
 
+  // ===== Fetch Shop Profile =====
+  const [shopProfile, setShopProfile] = useState({ name: adminUsername, logo: null });
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await authFetch(`${API_BASE_URL}/api/shop/profile`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.shop) {
+            setShopProfile({
+              name: data.shop.name || adminUsername,
+              logo: data.shop.logo || null
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("[Home] Failed to load shop profile:", err.message);
+      }
+    };
+    fetchProfile();
+  }, [shopId]);
+
   // ===== State สำหรับปุ่ม Copy OBS Links =====
   const [copiedImage, setCopiedImage] = useState(false); // สถานะคัดลอกลิงก์ Image Overlay
   const [copiedRanking, setCopiedRanking] = useState(false); // สถานะคัดลอกลิงก์ Ranking Overlay
@@ -85,6 +109,9 @@ function Home() {
   // ===== State สำหรับ QR Code Modal =====
   const [showQrModal, setShowQrModal] = useState(false); // เปิด/ปิด Modal QR Code
   const [qrCodeUrl, setQrCodeUrl] = useState(""); // URL ของ QR Code
+
+  // ===== State สำหรับ OBS Links Modal =====
+  const [showObsModal, setShowObsModal] = useState(false);
 
   // ===== State สำหรับ Perks Modal (สิทธิพิเศษ) =====
   const [showPerksModal, setShowPerksModal] = useState(false); // เปิด/ปิด Modal สิทธิพิเศษ
@@ -97,6 +124,45 @@ function Home() {
   const [editingPerkIndex, setEditingPerkIndex] = useState(null); // Index ของสิทธิพิเศษที่กำลังแก้ไข
   const [perkInputValue, setPerkInputValue] = useState(""); // ค่าที่กรอกในช่อง input
   const [savingPerks, setSavingPerks] = useState(false); // สถานะกำลังบันทึกสิทธิพิเศษ
+
+  // === Income Stats State ===
+  const [showIncomeStats, setShowIncomeStats] = useState(false);
+  const [incomeStartDate, setIncomeStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d.toISOString().split('T')[0];
+  });
+  const [incomeEndDate, setIncomeEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [incomeStats, setIncomeStats] = useState(null);
+  const [incomeLoading, setIncomeLoading] = useState(false);
+  const [incomeError, setIncomeError] = useState("");
+
+  const fetchIncomeStats = async () => {
+    setIncomeLoading(true);
+    setIncomeError("");
+    try {
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(`${API_BASE_URL}/api/admin/income-stats?startDate=${incomeStartDate}&endDate=${incomeEndDate}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIncomeStats(data.data);
+      } else {
+        setIncomeError(data.message || "Failed to fetch stats");
+      }
+    } catch (err) {
+      setIncomeError("Error connecting to server");
+    } finally {
+      setIncomeLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showIncomeStats) {
+      fetchIncomeStats();
+    }
+  }, [showIncomeStats, incomeStartDate, incomeEndDate]);
 
   // ===== State สำหรับ Card Reorder + Hide/Show =====
   const DEFAULT_CARD_ORDER = ['feature', 'package', 'vip'];
@@ -588,9 +654,11 @@ function Home() {
           <a href="/check-history">ประวัติการตรวจสอบ</a>
           <a href="/lucky-wheel">วงล้อเสี่ยงดวง</a>
           <a href="/gift-setting">ตั้งค่าส่งของขวัญ</a>
+          <a href="#" onClick={(e) => { e.preventDefault(); setShowObsModal(true); }}>🎥 OBS Links</a>
         </nav>
         {/* Grouping Avatar and QR Code Generator in upper right */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+
           <button
             onClick={generateQRCode}
             title="QR Code ร้านค้า"
@@ -624,12 +692,15 @@ function Home() {
           {/* Avatar button วงกลมมุมขวาบน */}
           <button
             onClick={() => navigate("/edit-profile")}
-            title={adminUsername}
+            title={shopProfile.name}
             style={{
               width: 40,
               height: 40,
               borderRadius: "50%",
-              background: "linear-gradient(135deg, #667eea, #764ba2)",
+              background: shopProfile.logo ? "transparent" : "linear-gradient(135deg, #667eea, #764ba2)",
+              backgroundImage: shopProfile.logo ? `url(${shopProfile.logo})` : "none",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
               border: "2px solid rgba(255,255,255,0.3)",
               color: "#fff",
               fontWeight: 700,
@@ -641,11 +712,12 @@ function Home() {
               flexShrink: 0,
               boxShadow: "0 2px 8px rgba(102,126,234,0.4)",
               transition: "transform 0.2s, box-shadow 0.2s",
+              overflow: "hidden",
             }}
             onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.1)"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(102,126,234,0.6)"; }}
             onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(102,126,234,0.4)"; }}
           >
-            {adminUsername.slice(0, 2).toUpperCase()}
+            {!shopProfile.logo && shopProfile.name.slice(0, 2).toUpperCase()}
           </button>
         </div>
       </header>
@@ -788,148 +860,150 @@ function Home() {
                         </small>
                       </div>
 
-                      {/* OBS Links Section */}
-                      <div className="toggle-card" style={{ flexDirection: "column", alignItems: "flex-start", gap: "12px", marginTop: "16px", background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)", border: "2px solid #0ea5e9" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "space-between", width: "100%" }}>
-                          <span style={{ fontSize: "16px", fontWeight: "700", color: "#0369a1" }}>🎥 OBS Overlay Links</span>
-                          <span style={{ fontSize: "11px", color: "#64748b", background: "#fff", padding: "4px 8px", borderRadius: "6px", border: "1px solid #cbd5e1" }}>
-                            {adminUsername}
-                          </span>
-                        </div>
-
-                        {/* Image Overlay Link */}
-                        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
-                          <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Image & Text Overlay:</label>
-                          <div style={{ display: "flex", gap: "8px" }}>
-                            <input
-                              type="text"
-                              readOnly
-                              value={`${API_BASE_URL}/obs-image-overlay.html?shopId=${adminId}`}
-                              style={{
-                                flex: 1,
-                                padding: "8px 12px",
-                                border: "1px solid #cbd5e1",
-                                borderRadius: "8px",
-                                fontSize: "13px",
-                                background: "#fff",
-                                color: "#334155"
-                              }}
-                            />
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(`${API_BASE_URL}/obs-image-overlay.html?shopId=${adminId}`);
-                                setCopiedImage(true);
-                                setTimeout(() => setCopiedImage(false), 2000);
-                              }}
-                              style={{
-                                padding: "8px 16px",
-                                background: copiedImage ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
-                                color: "#fff",
-                                border: "none",
-                                borderRadius: "8px",
-                                cursor: "pointer",
-                                fontSize: "13px",
-                                fontWeight: "600",
-                                whiteSpace: "nowrap",
-                                transition: "all 0.3s ease",
-                                transform: copiedImage ? "scale(0.95)" : "scale(1)"
-                              }}
-                            >
-                              {copiedImage ? "✓ Copied!" : "📋 Copy"}
-                            </button>
+                      {/* OBS Links Section (ย้ายไป Modal แล้ว) */}
+                      {false && (
+                        <div className="toggle-card" style={{ flexDirection: "column", alignItems: "flex-start", gap: "12px", marginTop: "16px", background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)", border: "2px solid #0ea5e9" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "space-between", width: "100%" }}>
+                            <span style={{ fontSize: "16px", fontWeight: "700", color: "#0369a1" }}>🎥 OBS Overlay Links</span>
+                            <span style={{ fontSize: "11px", color: "#64748b", background: "#fff", padding: "4px 8px", borderRadius: "6px", border: "1px solid #cbd5e1" }}>
+                              {adminUsername}
+                            </span>
                           </div>
-                        </div>
 
-                        {/* Ranking Overlay Link */}
-                        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
-                          <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Ranking Overlay:</label>
-                          <div style={{ display: "flex", gap: "8px" }}>
-                            <input
-                              type="text"
-                              readOnly
-                              value={`${API_BASE_URL}/obs-ranking-overlay.html?shopId=${adminId}`}
-                              style={{
-                                flex: 1,
-                                padding: "8px 12px",
-                                border: "1px solid #cbd5e1",
-                                borderRadius: "8px",
-                                fontSize: "13px",
-                                background: "#fff",
-                                color: "#334155"
-                              }}
-                            />
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(`${API_BASE_URL}/obs-ranking-overlay.html?shopId=${adminId}`);
-                                setCopiedRanking(true);
-                                setTimeout(() => setCopiedRanking(false), 2000);
-                              }}
-                              style={{
-                                padding: "8px 16px",
-                                background: copiedRanking ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
-                                color: "#fff",
-                                border: "none",
-                                borderRadius: "8px",
-                                cursor: "pointer",
-                                fontSize: "13px",
-                                fontWeight: "600",
-                                whiteSpace: "nowrap",
-                                transition: "all 0.3s ease",
-                                transform: copiedRanking ? "scale(0.95)" : "scale(1)"
-                              }}
-                            >
-                              {copiedRanking ? "✓ Copied!" : "📋 Copy"}
-                            </button>
+                          {/* Image Overlay Link */}
+                          <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
+                            <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Image & Text Overlay:</label>
+                            <div style={{ display: "flex", gap: "8px" }}>
+                              <input
+                                type="text"
+                                readOnly
+                                value={`${API_BASE_URL}/obs-image-overlay.html?shopId=${adminId}`}
+                                style={{
+                                  flex: 1,
+                                  padding: "8px 12px",
+                                  border: "1px solid #cbd5e1",
+                                  borderRadius: "8px",
+                                  fontSize: "13px",
+                                  background: "#fff",
+                                  color: "#334155"
+                                }}
+                              />
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(`${API_BASE_URL}/obs-image-overlay.html?shopId=${adminId}`);
+                                  setCopiedImage(true);
+                                  setTimeout(() => setCopiedImage(false), 2000);
+                                }}
+                                style={{
+                                  padding: "8px 16px",
+                                  background: copiedImage ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
+                                  color: "#fff",
+                                  border: "none",
+                                  borderRadius: "8px",
+                                  cursor: "pointer",
+                                  fontSize: "13px",
+                                  fontWeight: "600",
+                                  whiteSpace: "nowrap",
+                                  transition: "all 0.3s ease",
+                                  transform: copiedImage ? "scale(0.95)" : "scale(1)"
+                                }}
+                              >
+                                {copiedImage ? "✓ Copied!" : "📋 Copy"}
+                              </button>
+                            </div>
                           </div>
-                        </div>
 
-                        {/* Lucky Wheel Overlay Link */}
-                        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
-                          <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Lucky Wheel Overlay:</label>
-                          <div style={{ display: "flex", gap: "8px" }}>
-                            <input
-                              type="text"
-                              readOnly
-                              value={`${API_BASE_URL}/obs-lucky-wheel.html?shopId=${adminId}`}
-                              style={{
-                                flex: 1,
-                                padding: "8px 12px",
-                                border: "1px solid #cbd5e1",
-                                borderRadius: "8px",
-                                fontSize: "13px",
-                                background: "#fff",
-                                color: "#334155"
-                              }}
-                            />
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(`${API_BASE_URL}/obs-lucky-wheel.html?shopId=${adminId}`);
-                                setCopiedWheel(true);
-                                setTimeout(() => setCopiedWheel(false), 2000);
-                              }}
-                              style={{
-                                padding: "8px 16px",
-                                background: copiedWheel ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
-                                color: "#fff",
-                                border: "none",
-                                borderRadius: "8px",
-                                cursor: "pointer",
-                                fontSize: "13px",
-                                fontWeight: "600",
-                                whiteSpace: "nowrap",
-                                transition: "all 0.3s ease",
-                                transform: copiedWheel ? "scale(0.95)" : "scale(1)"
-                              }}
-                            >
-                              {copiedWheel ? "✓ Copied!" : "📋 Copy"}
-                            </button>
+                          {/* Ranking Overlay Link */}
+                          <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
+                            <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Ranking Overlay:</label>
+                            <div style={{ display: "flex", gap: "8px" }}>
+                              <input
+                                type="text"
+                                readOnly
+                                value={`${API_BASE_URL}/obs-ranking-overlay.html?shopId=${adminId}`}
+                                style={{
+                                  flex: 1,
+                                  padding: "8px 12px",
+                                  border: "1px solid #cbd5e1",
+                                  borderRadius: "8px",
+                                  fontSize: "13px",
+                                  background: "#fff",
+                                  color: "#334155"
+                                }}
+                              />
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(`${API_BASE_URL}/obs-ranking-overlay.html?shopId=${adminId}`);
+                                  setCopiedRanking(true);
+                                  setTimeout(() => setCopiedRanking(false), 2000);
+                                }}
+                                style={{
+                                  padding: "8px 16px",
+                                  background: copiedRanking ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
+                                  color: "#fff",
+                                  border: "none",
+                                  borderRadius: "8px",
+                                  cursor: "pointer",
+                                  fontSize: "13px",
+                                  fontWeight: "600",
+                                  whiteSpace: "nowrap",
+                                  transition: "all 0.3s ease",
+                                  transform: copiedRanking ? "scale(0.95)" : "scale(1)"
+                                }}
+                              >
+                                {copiedRanking ? "✓ Copied!" : "📋 Copy"}
+                              </button>
+                            </div>
                           </div>
-                        </div>
 
-                        <small style={{ color: "#64748b", fontSize: "11px", marginTop: "4px" }}>
-                          💡 คัดลอกลิงก์เหล่านี้ไปเพิ่มใน OBS Studio เป็น Browser Source (ลิงก์เฉพาะร้านของคุณ)
-                        </small>
-                      </div>
+                          {/* Lucky Wheel Overlay Link */}
+                          <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
+                            <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Lucky Wheel Overlay:</label>
+                            <div style={{ display: "flex", gap: "8px" }}>
+                              <input
+                                type="text"
+                                readOnly
+                                value={`${API_BASE_URL}/obs-lucky-wheel.html?shopId=${adminId}`}
+                                style={{
+                                  flex: 1,
+                                  padding: "8px 12px",
+                                  border: "1px solid #cbd5e1",
+                                  borderRadius: "8px",
+                                  fontSize: "13px",
+                                  background: "#fff",
+                                  color: "#334155"
+                                }}
+                              />
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(`${API_BASE_URL}/obs-lucky-wheel.html?shopId=${adminId}`);
+                                  setCopiedWheel(true);
+                                  setTimeout(() => setCopiedWheel(false), 2000);
+                                }}
+                                style={{
+                                  padding: "8px 16px",
+                                  background: copiedWheel ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
+                                  color: "#fff",
+                                  border: "none",
+                                  borderRadius: "8px",
+                                  cursor: "pointer",
+                                  fontSize: "13px",
+                                  fontWeight: "600",
+                                  whiteSpace: "nowrap",
+                                  transition: "all 0.3s ease",
+                                  transform: copiedWheel ? "scale(0.95)" : "scale(1)"
+                                }}
+                              >
+                                {copiedWheel ? "✓ Copied!" : "📋 Copy"}
+                              </button>
+                            </div>
+                          </div>
+
+                          <small style={{ color: "#64748b", fontSize: "11px", marginTop: "4px" }}>
+                            💡 คัดลอกลิงก์เหล่านี้ไปเพิ่มใน OBS Studio เป็น Browser Source (ลิงก์เฉพาะร้านของคุณ)
+                          </small>
+                        </div>
+                      )}
                     </div>
                   </>)}
                 </section>
@@ -1021,46 +1095,48 @@ function Home() {
                       บันทึกแพ็คเกจ
                     </button>
 
-                    {/* QR Code Section */}
-                    <div style={{
-                      marginTop: "24px",
-                      padding: "20px",
-                      background: "linear-gradient(135deg, #fef3c7, #fde68a)",
-                      border: "2px solid #f59e0b",
-                      borderRadius: "12px",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: "12px"
-                    }}>
-                      <span style={{ fontSize: "16px", fontWeight: "700", color: "#92400e", textAlign: "center" }}>
-                        📱 QR Code สำหรับลูกค้า
-                      </span>
+                    {/* QR Code Section (ซ่อนไว้เพราะใช้ปุ่มด้านบนแทน) */}
+                    {false && (
+                      <div style={{
+                        marginTop: "24px",
+                        padding: "20px",
+                        background: "linear-gradient(135deg, #fef3c7, #fde68a)",
+                        border: "2px solid #f59e0b",
+                        borderRadius: "12px",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: "12px"
+                      }}>
+                        <span style={{ fontSize: "16px", fontWeight: "700", color: "#92400e", textAlign: "center" }}>
+                          📱 QR Code สำหรับลูกค้า
+                        </span>
 
-                      <button
-                        onClick={generateQRCode}
-                        style={{
-                          padding: "12px 24px",
-                          background: "linear-gradient(135deg, #f59e0b, #d97706)",
-                          color: "#fff",
-                          border: "none",
-                          borderRadius: "8px",
-                          cursor: "pointer",
-                          fontSize: "14px",
-                          fontWeight: "600",
-                          width: "100%",
-                          transition: "transform 0.2s ease"
-                        }}
-                        onMouseEnter={(e) => e.target.style.transform = "scale(1.02)"}
-                        onMouseLeave={(e) => e.target.style.transform = "scale(1)"}
-                      >
-                        🎯 สร้าง QR Code
-                      </button>
+                        <button
+                          onClick={generateQRCode}
+                          style={{
+                            padding: "12px 24px",
+                            background: "linear-gradient(135deg, #f59e0b, #d97706)",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: "8px",
+                            cursor: "pointer",
+                            fontSize: "14px",
+                            fontWeight: "600",
+                            width: "100%",
+                            transition: "transform 0.2s ease"
+                          }}
+                          onMouseEnter={(e) => e.target.style.transform = "scale(1.02)"}
+                          onMouseLeave={(e) => e.target.style.transform = "scale(1)"}
+                        >
+                          🎯 สร้าง QR Code
+                        </button>
 
-                      <small style={{ color: "#92400e", fontSize: "11px", textAlign: "center" }}>
-                        💡 ลูกค้าสแกน QR Code เพื่อเข้าสู่ระบบของร้านคุณ
-                      </small>
-                    </div>
+                        <small style={{ color: "#92400e", fontSize: "11px", textAlign: "center" }}>
+                          💡 ลูกค้าสแกน QR Code เพื่อเข้าสู่ระบบของร้านคุณ
+                        </small>
+                      </div>
+                    )}
                   </>)}
                 </section>
               </div>
@@ -1254,6 +1330,42 @@ function Home() {
                       <span>⚙️</span>
                       <span>จัดการสิทธิพิเศษ</span>
                     </button>
+
+                    {/* ปุ่มเช็คสถิติรายรับแบบใหม่ */}
+                    <button
+                      type="button"
+                      className="manage-perks-btn income-stats-btn"
+                      onClick={() => setShowIncomeStats(true)}
+                      style={{
+                        width: "100%",
+                        marginTop: "12px",
+                        padding: "14px 20px",
+                        background: "linear-gradient(135deg, #0ea5e9, #0284c7)",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "12px",
+                        cursor: "pointer",
+                        fontSize: "15px",
+                        fontWeight: "700",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "8px",
+                        transition: "all 0.3s ease",
+                        boxShadow: "0 4px 12px rgba(14, 165, 233, 0.3)"
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.transform = "translateY(-2px)";
+                        e.target.style.boxShadow = "0 6px 16px rgba(14, 165, 233, 0.4)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.transform = "translateY(0)";
+                        e.target.style.boxShadow = "0 4px 12px rgba(14, 165, 233, 0.3)";
+                      }}
+                    >
+                      <span>📈</span> เช็คสถิติรายรับ
+                    </button>
+
                   </>)}
                 </aside>
               </div>
@@ -1483,6 +1595,129 @@ function Home() {
         </div>
       )
       }
+
+      {/* ===== Modal: แสดงลิงก์ OBS / แผงควบคุม (ย้ายมาจาก Feature Card) ===== */}
+      {showObsModal && (
+        <div className="rank-modal-overlay">
+          <div className="rank-modal" onClick={(e) => e.stopPropagation()} style={{
+            maxWidth: "1050px",
+            width: "95%",
+            maxHeight: "90vh",
+            overflowY: "auto",
+            background: "linear-gradient(135deg, rgba(30,30,40,0.95), rgba(15,20,30,0.98))",
+            boxShadow: "0 25px 50px -12px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.1)",
+            backdropFilter: "blur(20px)",
+            borderRadius: "20px"
+          }}>
+            <div className="rank-modal-header" style={{ marginBottom: "20px", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                <h3 style={{ color: "#38bdf8", fontSize: "24px", fontWeight: "800", letterSpacing: "0.5px", margin: "0 0 8px 0", display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span style={{ fontSize: "28px" }}>🎥</span> OBS Studio Control Panel
+                </h3>
+                <p style={{ color: "#94a3b8", margin: 0, fontSize: "14px" }}>คัดลอกลิงก์ Overlay หรือใช้แผงควบคุมสลับฉาก/คุมเสียงได้ที่นี่</p>
+              </div>
+              <button
+                type="button"
+                className="close-rank-modal"
+                onClick={() => setShowObsModal(false)}
+                style={{ color: "#f8fafc", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "50%", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "16px", transition: "all 0.2s" }}
+                onMouseOver={(e) => e.currentTarget.style.background = "rgba(239,68,68,0.2)"}
+                onMouseOut={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="rank-modal-body" style={{ padding: "0 0 10px 0", display: "flex", flexDirection: "column", gap: "24px" }}>
+
+              {/* Section 1: Browser Source Links */}
+              <div style={{ background: "#1e293b", padding: "20px", borderRadius: "12px", border: "1px solid #334155" }}>
+                <h4 style={{ color: "#f1f5f9", margin: "0 0 16px 0", fontSize: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span>🔗</span> OBS Browser Source Links <span style={{ fontSize: "11px", color: "#64748b", background: "#0f172a", padding: "4px 8px", borderRadius: "6px", marginLeft: "auto" }}>{adminUsername}</span>
+                </h4>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "16px" }}>
+
+                  {/* Image Overlay Link */}
+                  <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
+                    <label style={{ fontSize: "12px", fontWeight: "600", color: "#94a3b8" }}>1. Image & Text</label>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <input
+                        type="text"
+                        readOnly
+                        value={`${API_BASE_URL}/obs-image-overlay.html?shopId=${shopId || adminId}`}
+                        style={{ flex: 1, padding: "8px 12px", border: "1px solid #475569", borderRadius: "6px", fontSize: "12px", background: "#0f172a", color: "#cbd5e1", outline: "none" }}
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(`${API_BASE_URL}/obs-image-overlay.html?shopId=${shopId || adminId}`);
+                          setCopiedImage(true);
+                          setTimeout(() => setCopiedImage(false), 2000);
+                        }}
+                        style={{ padding: "8px 12px", background: copiedImage ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "12px", fontWeight: "600", transition: "all 0.2s" }}
+                      >
+                        {copiedImage ? "✓" : "Copy"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Ranking Overlay Link */}
+                  <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
+                    <label style={{ fontSize: "12px", fontWeight: "600", color: "#94a3b8" }}>2. Ranking</label>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <input
+                        type="text"
+                        readOnly
+                        value={`${API_BASE_URL}/obs-ranking-overlay.html?shopId=${shopId || adminId}`}
+                        style={{ flex: 1, padding: "8px 12px", border: "1px solid #475569", borderRadius: "6px", fontSize: "12px", background: "#0f172a", color: "#cbd5e1", outline: "none" }}
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(`${API_BASE_URL}/obs-ranking-overlay.html?shopId=${shopId || adminId}`);
+                          setCopiedRanking(true);
+                          setTimeout(() => setCopiedRanking(false), 2000);
+                        }}
+                        style={{ padding: "8px 12px", background: copiedRanking ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "12px", fontWeight: "600", transition: "all 0.2s" }}
+                      >
+                        {copiedRanking ? "✓" : "Copy"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Lucky Wheel Overlay Link */}
+                  <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
+                    <label style={{ fontSize: "12px", fontWeight: "600", color: "#94a3b8" }}>3. Lucky Wheel</label>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <input
+                        type="text"
+                        readOnly
+                        value={`${API_BASE_URL}/obs-lucky-wheel.html?shopId=${shopId || adminId}`}
+                        style={{ flex: 1, padding: "8px 12px", border: "1px solid #475569", borderRadius: "6px", fontSize: "12px", background: "#0f172a", color: "#cbd5e1", outline: "none" }}
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(`${API_BASE_URL}/obs-lucky-wheel.html?shopId=${shopId || adminId}`);
+                          setCopiedWheel(true);
+                          setTimeout(() => setCopiedWheel(false), 2000);
+                        }}
+                        style={{ padding: "8px 12px", background: copiedWheel ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "12px", fontWeight: "600", transition: "all 0.2s" }}
+                      >
+                        {copiedWheel ? "✓" : "Copy"}
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Section 2: Interactive Realtime OBS WebSocket Control Component */}
+              <div style={{ marginTop: "10px", width: "100%" }}>
+                <OBSControl API_BASE_URL={API_BASE_URL} adminId={adminId} shopId={shopId || adminId} />
+              </div>
+
+
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ===== Modal: จัดการสิทธิพิเศษสำหรับสมาชิก VIP ===== */}
       {
@@ -1810,6 +2045,102 @@ function Home() {
           </div>
         )
       }
+
+      {/* ===== Modal: Income Stats Analyzer ===== */}
+      {showIncomeStats && (
+        <div className="rank-modal-overlay" onClick={() => setShowIncomeStats(false)}>
+          <div className="rank-modal income-stats-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="rank-modal-header" style={{ marginBottom: "20px", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                <h3 style={{ color: "#38bdf8", fontSize: "24px", fontWeight: "800", letterSpacing: "0.5px", margin: "0 0 8px 0", display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span style={{ fontSize: "28px" }}>📈</span> สถิติรายรับและกิจกรรม
+                </h3>
+                <p style={{ color: "#94a3b8", margin: 0, fontSize: "14px" }}>ตรวจสอบยอดรายรับ จำนวนผู้สนับสนุน และช่วงเวลาที่มีการใช้งานสูงสุด</p>
+              </div>
+              <button
+                type="button"
+                className="close-rank-modal"
+                onClick={() => setShowIncomeStats(false)}
+                style={{ color: "#f8fafc", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "50%", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "16px", transition: "all 0.2s" }}
+                onMouseOver={(e) => e.currentTarget.style.background = "rgba(239,68,68,0.2)"}
+                onMouseOut={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
+              >✕</button>
+            </div>
+
+            <div className="income-stats-body" style={{ padding: "10px 0" }}>
+              <div className="date-filter-group" style={{ display: "flex", gap: "20px", marginBottom: "30px", background: "rgba(15, 23, 42, 0.4)", padding: "20px", borderRadius: "16px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                <div className="date-input-wrapper" style={{ flex: 1, display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <label style={{ color: "#94a3b8", fontSize: "13px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "1px" }}>เริ่มวันที่</label>
+                  <input
+                    type="date"
+                    value={incomeStartDate}
+                    onChange={e => setIncomeStartDate(e.target.value)}
+                    className="glass-date-input"
+                    style={{ padding: "12px 16px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.3)", color: "#fff", outline: "none", fontSize: "15px", cursor: "text" }}
+                  />
+                </div>
+                <div className="date-input-wrapper" style={{ flex: 1, display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <label style={{ color: "#94a3b8", fontSize: "13px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "1px" }}>ถึงวันที่</label>
+                  <input
+                    type="date"
+                    value={incomeEndDate}
+                    onChange={e => setIncomeEndDate(e.target.value)}
+                    className="glass-date-input"
+                    style={{ padding: "12px 16px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.3)", color: "#fff", outline: "none", fontSize: "15px" }}
+                  />
+                </div>
+              </div>
+
+              {incomeLoading ? (
+                <div className="income-loading" style={{ textAlign: "center", padding: "40px", color: "#38bdf8" }}>กำลังโหลดสถิติ...</div>
+              ) : incomeError ? (
+                <div className="income-error" style={{ textAlign: "center", padding: "20px", color: "#ef4444", background: "rgba(239, 68, 68, 0.1)", borderRadius: "12px" }}>{incomeError}</div>
+              ) : incomeStats ? (
+                <div className="income-stats-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+                  <div className="stat-card primary-stat" style={{ gridColumn: "1 / -1", background: "linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(14, 165, 233, 0.2))", padding: "30px", borderRadius: "20px", display: "flex", alignItems: "center", gap: "24px", border: "1px solid rgba(56, 189, 248, 0.2)" }}>
+                    <div className="stat-icon" style={{ fontSize: "48px", background: "rgba(56, 189, 248, 0.2)", width: "80px", height: "80px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "20px" }}>💰</div>
+                    <div className="stat-details" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      <span className="stat-label" style={{ color: "#7dd3fc", fontSize: "16px", fontWeight: "600", letterSpacing: "0.5px" }}>รายรับรวม (ช่วงเวลาที่เลือก)</span>
+                      <strong className="stat-value" style={{ color: "#fff", fontSize: "42px", fontWeight: "800", textShadow: "0 2px 10px rgba(56,189,248,0.4)" }}>฿{formatCurrency(incomeStats.totalIncome)}</strong>
+                    </div>
+                  </div>
+
+                  <div className="stat-card" style={{ background: "rgba(30, 41, 59, 0.6)", padding: "24px", borderRadius: "16px", display: "flex", alignItems: "center", gap: "20px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                    <div className="stat-icon" style={{ fontSize: "36px", background: "rgba(16, 185, 129, 0.15)", width: "64px", height: "64px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "16px" }}>👥</div>
+                    <div className="stat-details" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                      <span className="stat-label" style={{ color: "#94a3b8", fontSize: "14px", fontWeight: "500" }}>จำนวนผู้เปย์แบบไม่ซ้ำ</span>
+                      <strong className="stat-value" style={{ color: "#fff", fontSize: "28px", fontWeight: "700" }}>{incomeStats.totalUsers} <span style={{ fontSize: "16px", color: "#64748b", fontWeight: "500" }}>คน</span></strong>
+                    </div>
+                  </div>
+
+                  <div className="stat-card peak-hours-panel" style={{ background: "rgba(30, 41, 59, 0.6)", padding: "24px", borderRadius: "16px", display: "flex", alignItems: "flex-start", gap: "20px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                    <div className="stat-icon" style={{ fontSize: "36px", background: "rgba(245, 158, 11, 0.15)", width: "64px", height: "64px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "16px", flexShrink: 0 }}>🔥</div>
+                    <div className="stat-details" style={{ width: '100%' }}>
+                      <span className="stat-label" style={{ color: "#94a3b8", fontSize: "14px", fontWeight: "500", display: "block", marginBottom: "12px" }}>เวลาคนเยอะสุด 3 อันดับ</span>
+                      <ul className="peak-hours-list" style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "8px" }}>
+                        {incomeStats.peakHours.length > 0 ? (
+                          incomeStats.peakHours.map((ph, idx) => (
+                            <li key={idx} className="peak-hour-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "rgba(0,0,0,0.2)", borderRadius: "8px" }}>
+                              <span className="ph-time" style={{ color: "#fcd34d", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
+                                <span style={{ width: "20px", height: "20px", background: "rgba(245,158,11,0.2)", color: "#f59e0b", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px" }}>{idx + 1}</span>
+                                {ph.hour}
+                              </span>
+                              <span className="ph-count" style={{ color: "#cbd5e1", fontSize: "13px" }}>{ph.count} บิล</span>
+                            </li>
+                          ))
+                        ) : (
+                          <li className="peak-hour-empty" style={{ color: "#64748b", fontSize: "13px", fontStyle: "italic", paddingTop: "8px" }}>ไม่มีข้อมูลบิลในช่วงเวลานี้</li>
+                        )}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div >
   );
 }

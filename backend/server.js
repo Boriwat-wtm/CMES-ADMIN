@@ -22,7 +22,7 @@ import TimeHistory from './models/TimeHistory.js'; // 🔥 Time History Model
 import ShopSetting from './models/ShopSetting.js'; // 🔥 Shop-specific settings
 import { verifyPassword, hashPassword } from './hashPasswords.js'; // Keep password utilities import
 import { requireShopId, requireAdminAuth } from './middleware/authMiddleware.js'; // Multi-tenant middleware
-
+import { startCleanupJob } from "./cron-cleanup.js";
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -45,6 +45,9 @@ async function connectDB() {
       dbName: 'cmes-admin'
     });
     console.log(`[MongoDB] Connected to ${conn.connection.host} (DB: cmes-admin)`);
+    // เริ่มระบบเคลียร์ไฟล์รูปภาพตกค้าง (และลบข้อความ) ที่เก่าเกิน 2 วันทุกคืน
+    startCleanupJob();
+    // เพิ่มการใช้งาน publicRankingType หรือลบทิ้งถ้าไม่จำเป็น
   } catch (error) {
     console.error('[MongoDB] Connection failed:', error.message);
     process.exit(1);
@@ -208,7 +211,94 @@ const uploadUser = multer({ storage: userStorage }).fields([
   { name: 'qrCode', maxCount: 1 }
 ]);
 
-// หมายเหตุ: ไม่จำเป็นต้องมี Cron cleanup เพราะ Cloudinary จัดการ storage อัตโนมัติ
+// 3. Shop Logo Storage (Cloudinary)
+const logoStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'cmes-admin/shop-logos',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+    transformation: [{ width: 400, height: 400, crop: 'fill', gravity: 'face' }],
+    public_id: (req, file) => `logo-${req.shopId || 'shop'}-${Date.now()}`
+  }
+});
+const uploadLogo = multer({ storage: logoStorage }).single('logo');
+
+// ===== SHOP PROFILE ENDPOINTS =====
+// GET /api/shop/profile — ดึงชื่อและโลโก้ร้าน (public, ต้องการแค่ x-shop-id)
+app.get('/api/shop/profile', requireShopId, async (req, res) => {
+  try {
+    const { shopId } = req;
+    const setting = await ShopSetting.findOne({ shopId }).lean();
+    res.json({
+      success: true,
+      shop: {
+        name: setting?.name || shopId,
+        logo: setting?.logo || null
+      }
+    });
+  } catch (err) {
+    console.error('[ShopProfile] GET error:', err.message);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// POST /api/shop/logo — อัปโหลดโลโก้ร้าน (ต้องการ x-shop-id + x-admin-id)
+app.post('/api/shop/logo', requireShopId, (req, res, next) => {
+  uploadLogo(req, res, (err) => {
+    if (err) {
+      console.error('[ShopLogo] Multer error:', err.message);
+      return res.status(400).json({ success: false, message: 'อัปโหลดรูปภาพล้มเหลว: ' + err.message });
+    }
+    next();
+  });
+}, async (req, res) => {
+  try {
+    const { shopId } = req;
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'กรุณาเลือกรูปภาพ' });
+    }
+
+    const logoUrl = req.file.path; // Cloudinary URL
+
+    // บันทึก logo URL ลง ShopSetting
+    await ShopSetting.findOneAndUpdate(
+      { shopId },
+      { $set: { logo: logoUrl } },
+      { upsert: true, new: true }
+    );
+
+    console.log(`[ShopLogo] Updated logo for shop ${shopId}: ${logoUrl}`);
+    res.json({ success: true, logo: logoUrl });
+  } catch (err) {
+    console.error('[ShopLogo] POST error:', err.message);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// POST /api/shop/name — เปลี่ยนชื่อร้านค้า (ตัวแสดงผล ไม่ใช่ shopId)
+app.post('/api/shop/name', requireShopId, async (req, res) => {
+  try {
+    const { shopId } = req;
+    const { name } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ success: false, message: 'กรุณาระบุชื่อร้านค้า' });
+    }
+
+    await ShopSetting.findOneAndUpdate(
+      { shopId },
+      { $set: { name: name.trim() } },
+      { upsert: true, new: true }
+    );
+
+    console.log(`[ShopName] Updated name for shop ${shopId}: ${name.trim()}`);
+    res.json({ success: true, name: name.trim() });
+  } catch (err) {
+    console.error('[ShopName] POST error:', err.message);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+
 
 // ===== ระบบ Ranking สำหรับคะแนนผู้สนับสนุน =====
 /**
@@ -1495,7 +1585,7 @@ app.post("/api/history/restore/:id", requireAdminAuth, async (req, res) => {
       qrCodePath: historyItem.metadata?.qrCodePath || null,
       type: historyItem.type || 'image',
       status: 'pending',
-      receivedAt: new Date(),
+      receivedAt: historyItem.receivedAt || new Date(), // 🔧 ใช้เวลาเดิม → คืนตำแหน่งในคิวที่ถูกต้อง
       userId: historyItem.userId || null,
       email: historyItem.email || null,
       avatar: historyItem.avatar || null,
@@ -1522,8 +1612,14 @@ app.post("/api/history/restore/:id", requireAdminAuth, async (req, res) => {
 app.get("/api/check-history", requireAdminAuth, async (req, res) => {
   try {
     const { shopId } = req; // ได้จาก middleware
-    // 🔥 filter ด้วย shopId
-    const history = await CheckHistory.find({ shopId }).sort({ approvalDate: -1 });
+    // 🔥 filter ด้วย shopId และดึงเฉพาะของ 2 วันย้อนหลัง
+    const twoDaysAgo = new Date();
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+
+    const history = await CheckHistory.find({
+      shopId,
+      createdAt: { $gte: twoDaysAgo }
+    }).sort({ approvalDate: -1 });
 
     // Map data ให้ตรงกับที่ Frontend ต้องการ (รองรับทั้ง Schema เก่าและใหม่)
     const formattedHistory = history.map(item => {
@@ -1588,6 +1684,71 @@ app.post("/api/delete-history", requireAdminAuth, async (req, res) => {
   } catch (error) {
     console.error('Error deleting history:', error);
     res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// API สำหรับดูสถิติรายรับตามช่วงเวลา
+app.get("/api/admin/income-stats", requireAdminAuth, async (req, res) => {
+  try {
+    const { shopId } = req;
+    const { startDate, endDate } = req.query;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ success: false, message: "Missing startDate or endDate" });
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
+    const records = await CheckHistory.find({
+      shopId,
+      createdAt: { $gte: start, $lte: end },
+      status: "completed" // นับเฉพาะที่ขึ้นจอแล้วหรืออนุมัติแล้ว
+    }).lean();
+
+    let totalIncome = 0;
+    const userSet = new Set();
+    const hourCounts = {}; // { "00": 5, "01": 2 ... }
+
+    records.forEach(r => {
+      totalIncome += (r.price || 0);
+
+      // นับ User (ถ้าไม่มี ID ใช้อะไรแทนได้ ให้ใช้ sender name หรือ ID ของมันเองเพื่อป้องกัน Guest ซ้ำ)
+      if (r.userId && r.userId !== "guest" && r.userId !== "unknown") {
+        userSet.add(r.userId);
+      } else if (r.sender) {
+        // Fallback: ใช้ชื่อผู้ส่งถ้าระบบไม่ได้บังคับล็อกอิน
+        userSet.add(`guest_${r.sender}`);
+      }
+
+      // หาสถิติช่วงเวลา
+      if (r.createdAt) {
+        // แปลงเป็นเวลาไทยคร่าวๆ ถ้าระบบใช้ UTC
+        const localTime = new Date(r.createdAt.getTime() + (7 * 60 * 60 * 1000));
+        const hour = localTime.getUTCHours().toString().padStart(2, '0');
+        hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+      }
+    });
+
+    // เรียงลำดับช่วงเวลายอดฮิต
+    const peakHours = Object.entries(hourCounts)
+      .map(([hour, count]) => ({ hour: `${hour}:00`, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 3); // เอาแค่ 3 อันดับแรก
+
+    res.json({
+      success: true,
+      data: {
+        totalIncome,
+        totalUsers: userSet.size,
+        peakHours
+      }
+    });
+
+  } catch (error) {
+    console.error("Error fetching income stats:", error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 

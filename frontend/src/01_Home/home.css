@@ -1920,3 +1920,34 @@ h.admin-home-container {
     min-width: auto;
   }
 }
+
+/* ===== Income Stats Modal Specific Styles ===== */
+.income-stats-modal {
+  width: min(800px, 95%);
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.98));
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.glass-date-input::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.glass-date-input::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+@media (max-width: 768px) {
+  .income-stats-modal .income-stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .income-stats-modal .date-filter-group {
+    flex-direction: column;
+    gap: 15px !important;
+  }
+}

@@ -7,6 +7,15 @@ const shopSettingSchema = new mongoose.Schema({
     unique: true,
     index: true
   },
+  // Shop Profile
+  name: {
+    type: String,
+    default: ""
+  },
+  logo: {
+    type: String,
+    default: null  // Cloudinary URL
+  },
   // Display Settings
   displayTime: {
     type: Number,
