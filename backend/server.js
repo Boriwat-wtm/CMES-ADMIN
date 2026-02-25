@@ -16,8 +16,10 @@ import AdminReport from "./models/AdminReport.js";
 import CheckHistory from "./models/CheckHistory.js";
 import GiftSetting from "./models/GiftSetting.js";
 import Ranking from './models/Ranking.js'; // Keep Ranking import
+import RankingHistory from './models/RankingHistory.js'; // ประวัติ ranking ทุกรายการ
 import AdminUser from './models/AdminUser.js'; // Keep AdminUser import
 import ImageQueue from './models/ImageQueue.js'; // 🔥 Image Queue Model
+import TimeHistory from './models/TimeHistory.js'; // ⏰ Time/Price Settings History
 import { verifyPassword, hashPassword } from './hashPasswords.js'; // Keep password utilities import
 
 dotenv.config();
@@ -54,9 +56,9 @@ connectDB();
  * กำหนดค่า Cloudinary สำหรับการอัปโหลดและจัดเก็บรูปภาพ
  * รองรับทั้งค่าจาก environment variables และค่าเริ่มต้น
  */
-cloudinary.config({ 
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dfcqbb9pt', 
-  api_key: process.env.CLOUDINARY_API_KEY || '396185692714272', 
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dfcqbb9pt',
+  api_key: process.env.CLOUDINARY_API_KEY || '396185692714272',
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
@@ -193,8 +195,26 @@ async function addRankingPoint(userId, name, amount, email = null, avatar = null
     const userName = (name || "Guest").trim() || "Guest";
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+    const currentYear = new Date().getFullYear().toString(); // YYYY
 
-    // ค้นหา ranking ของผู้ใช้
+    // ===== 1. บันทึกประวัติลง RankingHistory (เก็บทุกรายการ) =====
+    try {
+      await RankingHistory.create({
+        userId,
+        name: userName,
+        email,
+        avatar,
+        amount: points,
+        date: today,
+        month: currentMonth,
+        year: currentYear
+      });
+      console.log(`[Ranking] บันทึกประวัติ: ${userName} +${points} วันที่ ${today}`);
+    } catch (histErr) {
+      console.error("[Ranking] Error saving history:", histErr.message);
+    }
+
+    // ===== 2. อัพเดท Ranking สรุป (เดิม) =====
     let ranking = await Ranking.findOne({ userId });
     if (ranking) {
       // อัปเดตคะแนนทั้งหมด (all-time points)
@@ -551,39 +571,197 @@ app.get("/api/rankings", async (req, res) => {
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
 
-    let query = {};
-    let sortField = { points: -1 };
-
     if (type === "daily") {
-      query = { dailyDate: today };
-      sortField = { dailyPoints: -1 };
+      // ดึงข้อมูลรายวันจาก RankingHistory (aggregate by userId)
+      const targetDate = req.query.date || today;
+      const pipeline = [
+        { $match: { date: targetDate } },
+        {
+          $group: {
+            _id: "$userId",
+            name: { $last: "$name" },
+            email: { $last: "$email" },
+            avatar: { $last: "$avatar" },
+            userId: { $first: "$userId" },
+            dailyPoints: { $sum: "$amount" },
+            updatedAt: { $max: "$createdAt" }
+          }
+        },
+        { $sort: { dailyPoints: -1 } },
+        { $limit: limit }
+      ];
+      const results = await RankingHistory.aggregate(pipeline);
+      const ranksWithPosition = results.map((r, idx) => ({
+        ...r,
+        position: idx + 1
+      }));
+      const totalCount = await RankingHistory.distinct("userId", { date: targetDate });
+      return res.json({
+        success: true,
+        ranks: ranksWithPosition,
+        total: totalCount.length,
+        totalUsers: totalCount.length,
+        type
+      });
+
     } else if (type === "monthly") {
-      query = { monthlyPeriod: currentMonth };
-      sortField = { monthlyPoints: -1 };
+      // ดึงข้อมูลรายเดือนจาก RankingHistory (aggregate by userId)
+      const targetMonth = req.query.month || currentMonth;
+      const pipeline = [
+        { $match: { month: targetMonth } },
+        {
+          $group: {
+            _id: "$userId",
+            name: { $last: "$name" },
+            email: { $last: "$email" },
+            avatar: { $last: "$avatar" },
+            userId: { $first: "$userId" },
+            monthlyPoints: { $sum: "$amount" },
+            updatedAt: { $max: "$createdAt" }
+          }
+        },
+        { $sort: { monthlyPoints: -1 } },
+        { $limit: limit }
+      ];
+      const results = await RankingHistory.aggregate(pipeline);
+      const ranksWithPosition = results.map((r, idx) => ({
+        ...r,
+        position: idx + 1
+      }));
+      const totalCount = await RankingHistory.distinct("userId", { month: targetMonth });
+      return res.json({
+        success: true,
+        ranks: ranksWithPosition,
+        total: totalCount.length,
+        totalUsers: totalCount.length,
+        type
+      });
+
+    } else {
+      // alltime - ใช้ Ranking collection เดิม (หรือ filter ตามปี)
+      let query = {};
+      if (req.query.year) {
+        const year = req.query.year;
+        // ใช้ RankingHistory aggregate ตามปี
+        const pipeline = [
+          { $match: { year: year } },
+          {
+            $group: {
+              _id: "$userId",
+              name: { $last: "$name" },
+              email: { $last: "$email" },
+              avatar: { $last: "$avatar" },
+              userId: { $first: "$userId" },
+              points: { $sum: "$amount" },
+              updatedAt: { $max: "$createdAt" }
+            }
+          },
+          { $sort: { points: -1 } },
+          { $limit: limit }
+        ];
+        const results = await RankingHistory.aggregate(pipeline);
+        const ranksWithPosition = results.map((r, idx) => ({
+          ...r,
+          position: idx + 1
+        }));
+        const totalCount = await RankingHistory.distinct("userId", { year: year });
+        return res.json({
+          success: true,
+          ranks: ranksWithPosition,
+          total: totalCount.length,
+          totalUsers: totalCount.length,
+          type
+        });
+      }
+
+      // ไม่มี filter ปี → ใช้ Ranking collection เดิม
+      const rankings = await Ranking.find(query)
+        .sort({ points: -1 })
+        .limit(limit)
+        .lean();
+
+      const ranksWithPosition = rankings.map((r, idx) => ({
+        ...r,
+        position: idx + 1
+      }));
+
+      res.json({
+        success: true,
+        ranks: ranksWithPosition,
+        total: await Ranking.countDocuments(query),
+        totalUsers: await Ranking.countDocuments(query),
+        type: type
+      });
     }
-
-    // ค้นหาและเรียงข้อมูลตามประเภท
-    const rankings = await Ranking.find(query)
-      .sort(sortField)
-      .limit(limit)
-      .lean();
-
-    // เพิ่มฟิลด์ position ให้กับแต่ละรายการ
-    const ranksWithPosition = rankings.map((r, idx) => ({
-      ...r,
-      position: idx + 1
-    }));
-
-    res.json({
-      success: true,
-      ranks: ranksWithPosition,
-      total: await Ranking.countDocuments(query),
-      totalUsers: await Ranking.countDocuments(query),
-      type: type
-    });
   } catch (error) {
     console.error("Error fetching rankings:", error);
     res.status(500).json({ success: false, message: "Failed to fetch rankings" });
+  }
+});
+
+/**
+ * API สรุปยอดรวมคะแนน (Summary)
+ * ดึงจาก RankingHistory เพื่อคำนวณยอดรวมตาม filter
+ */
+app.get("/api/rankings/summary", async (req, res) => {
+  try {
+    const type = req.query.type || "alltime";
+    const today = new Date().toISOString().split('T')[0];
+    const currentMonth = new Date().toISOString().slice(0, 7);
+
+    let matchQuery = {};
+
+    if (type === "daily") {
+      matchQuery = { date: req.query.date || today };
+    } else if (type === "monthly") {
+      matchQuery = { month: req.query.month || currentMonth };
+    } else if (type === "alltime" && req.query.year) {
+      matchQuery = { year: req.query.year };
+    }
+
+    // ใช้ RankingHistory aggregate ถ้ามี filter
+    if (Object.keys(matchQuery).length > 0) {
+      const result = await RankingHistory.aggregate([
+        { $match: matchQuery },
+        {
+          $group: {
+            _id: null,
+            totalSum: { $sum: "$amount" },
+            totalUsers: { $addToSet: "$userId" }
+          }
+        }
+      ]);
+
+      const summary = result[0] || { totalSum: 0, totalUsers: [] };
+      return res.json({
+        success: true,
+        totalSum: summary.totalSum,
+        totalUsers: Array.isArray(summary.totalUsers) ? summary.totalUsers.length : 0,
+        type
+      });
+    }
+
+    // alltime ไม่มี filter → ใช้ Ranking collection เดิม
+    const result = await Ranking.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalSum: { $sum: "$points" },
+          totalUsers: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const summary = result[0] || { totalSum: 0, totalUsers: 0 };
+    res.json({
+      success: true,
+      totalSum: summary.totalSum,
+      totalUsers: summary.totalUsers,
+      type
+    });
+  } catch (error) {
+    console.error("Error fetching rankings summary:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch summary" });
   }
 });
 
@@ -653,10 +831,10 @@ app.put("/api/rankings/update-avatar", async (req, res) => {
       // อัปเดต avatar และชื่อถ้ามี
       if (avatar !== undefined) ranking.avatar = avatar;
       if (username) ranking.name = username;
-      
+
       await ranking.save();
       console.log(`[Ranking] Avatar updated for user ${ranking.name} (${ranking.userId})`);
-      
+
       return res.json({
         success: true,
         message: "Avatar updated successfully"
@@ -1061,10 +1239,21 @@ app.post("/api/upload", uploadUser, async (req, res) => {
     io.emit("new-upload", queueItem);
 
     // บันทึก ranking เฉพาะ user ที่ login แล้ว (ไม่บันทึกสำหรับ birthday เพราะฟรี)
-    // ย้ายไปทำหลังชำระเงินแล้ว
-    // if (userId && type !== "birthday") {
-    //   addRankingPoint(userId, sender, Number(price) || 0, email, avatar);
-    // }
+    // สำหรับ upload ที่ status เป็น pending ตั้งแต่แรก (ไม่ต้องรอ confirm payment)
+    const uploadStatus = req.body.status || "pending";
+    console.log("[Admin] === RANKING DEBUG ===");
+    console.log("[Admin] userId:", userId);
+    console.log("[Admin] type:", type);
+    console.log("[Admin] price:", price);
+    console.log("[Admin] sender:", sender);
+    console.log("[Admin] uploadStatus:", uploadStatus);
+    console.log("[Admin] condition: userId=", !!userId, "type!='birthday'=", type !== "birthday", "status='pending'=", uploadStatus === "pending");
+    if (userId && type !== "birthday" && uploadStatus === "pending") {
+      console.log("[Admin] >>> CALLING addRankingPoint <<<");
+      addRankingPoint(userId, sender, Number(price) || 0, email, avatar);
+    } else {
+      console.log("[Admin] >>> SKIPPING addRankingPoint - condition not met <<<");
+    }
     console.log("[Admin] Upload item created and queued:", queueItem._id, "type:", queueItem.type);
     res.json({ success: true, uploadId: queueItem._id.toString() });
   } catch (e) {
@@ -1863,13 +2052,180 @@ app.patch("/api/reports/:id", async (req, res) => {
 let publicRankingType = 'alltime'; // Default public display mode
 
 // ==========================================
+// REALTIME CONFIG STATE (merged from realtime-server.js)
+// ==========================================
+const settingsJsonPath = path.join(__dirname, "settings.json");
+
+let realtimeConfig = {
+  systemOn: true,
+  enableImage: true,
+  enableText: true,
+  enableGift: true,
+  enableBirthday: true,
+  birthdaySpendingRequirement: 100,
+  price: 100,
+  time: 10,
+  settings: [],
+  publicRankingType: 'alltime'
+};
+
+// โหลด config เริ่มต้นจาก DB (TimeHistory) + settings.json
+async function loadInitialConfig() {
+  try {
+    // โหลดประวัติจาก DB
+    const history = await TimeHistory.find({}).sort({ createdAt: -1 });
+    console.log("[Realtime] โหลดประวัติจาก DB:", history.length, "รายการ");
+
+    // ซ่อมแซมอัตโนมัติ: แก้ไขฟิลด์ 'time' ที่หายไป
+    for (const h of history) {
+      if (!h.time && h.duration) {
+        let seconds = 0;
+        const minMatch = h.duration.match(/(\d+)\s*นาที/);
+        const secMatch = h.duration.match(/(\d+)\s*วินาที/);
+        if (minMatch) seconds += parseInt(minMatch[1]) * 60;
+        if (secMatch) seconds += parseInt(secMatch[1]);
+        if (seconds > 0) {
+          console.log(`[Realtime] กำลังซ่อมแซม time สำหรับ ${h.id}: ${h.duration} -> ${seconds}s`);
+          h.time = seconds;
+          await h.save();
+        }
+      }
+    }
+
+    // แปลงข้อมูลประวัติเป็นรูปแบบที่ใช้ใน config
+    realtimeConfig.settings = history.map(h => ({
+      id: h.id,
+      mode: h.mode,
+      date: h.date,
+      duration: h.duration,
+      time: h.time,
+      price: h.price
+    }));
+
+    // โหลด runtime config จากไฟล์ (switches เปิด/ปิด)
+    if (fs.existsSync(settingsJsonPath)) {
+      const savedFile = JSON.parse(fs.readFileSync(settingsJsonPath, "utf8"));
+      const { settings, ...rest } = savedFile;
+      realtimeConfig = { ...realtimeConfig, ...rest };
+    }
+
+    // sync publicRankingType
+    realtimeConfig.publicRankingType = publicRankingType;
+    console.log("[Realtime] Config loaded successfully");
+  } catch (error) {
+    console.error("[Realtime] เกิดข้อผิดพลาดในการโหลด config:", error);
+  }
+}
+
+// บันทึก runtime config (switches) ลงไฟล์ JSON
+function saveRuntimeConfig() {
+  try {
+    const { settings, ...runtimeConfig } = realtimeConfig;
+    fs.writeFileSync(settingsJsonPath, JSON.stringify(runtimeConfig, null, 2));
+  } catch (err) {
+    console.error("[Realtime] Error saving runtime config:", err);
+  }
+}
+
+// โหลด config เมื่อ MongoDB พร้อม (เรียกหลัง connectDB)
+mongoose.connection.once('open', () => {
+  loadInitialConfig();
+});
+
+// === REST API สำรอง: /api/status ===
+app.get("/api/status", (req, res) => {
+  res.json(realtimeConfig);
+});
+
+// API สำหรับดึง settings history จาก DB (สำหรับ realtime config)
+app.get("/api/settings-history", async (req, res) => {
+  try {
+    const history = await TimeHistory.find({}).sort({ createdAt: -1 });
+    const formatted = history.map(h => ({
+      id: h.id,
+      mode: h.mode,
+      date: h.date,
+      duration: h.duration,
+      time: h.time,
+      price: h.price
+    }));
+    res.json(formatted);
+  } catch (err) {
+    console.error("เกิดข้อผิดพลาดในการดึงประวัติ:", err);
+    res.status(500).json([]);
+  }
+});
+
+// ==========================================
 // SOCKET.IO CONNECTION HANDLER
 // ==========================================
 io.on('connection', (socket) => {
   console.log('[Socket.IO] Client connected:', socket.id);
 
+  // Send current config to newly connected client (realtime features)
+  socket.emit('status', realtimeConfig);
+
   // Send current public ranking type to newly connected client
   socket.emit('publicRankingTypeUpdated', { type: publicRankingType });
+
+  // === Realtime Config Events (merged from realtime-server.js) ===
+
+  // รับสถานะ config ใหม่จาก admin (Switches เปิด/ปิดฟีเจอร์)
+  socket.on('updateStatus', (newStatus) => {
+    realtimeConfig = { ...realtimeConfig, ...newStatus };
+    io.emit('status', realtimeConfig);
+    saveRuntimeConfig();
+  });
+
+  // ส่ง config ปัจจุบันเมื่อมีการร้องขอ
+  socket.on('getConfig', () => {
+    socket.emit('status', realtimeConfig);
+  });
+
+  // อัพเดท config จาก admin และแจ้งเตือนทุก client
+  socket.on('adminUpdateConfig', (newConfig) => {
+    realtimeConfig = { ...realtimeConfig, ...newConfig };
+    io.emit('configUpdate', realtimeConfig);
+    saveRuntimeConfig();
+  });
+
+  // เพิ่มประวัติการตั้งค่า -> บันทึกลง Database
+  socket.on('addSetting', async (setting) => {
+    try {
+      await TimeHistory.create({
+        id: setting.id,
+        mode: setting.mode,
+        date: setting.date,
+        duration: setting.duration,
+        time: setting.time,
+        price: setting.price
+      });
+      realtimeConfig.settings.unshift(setting);
+      io.emit('status', realtimeConfig);
+    } catch (err) {
+      console.error("เกิดข้อผิดพลาดในการเพิ่มการตั้งค่าลง DB:", err);
+    }
+  });
+
+  // ลบประวัติการตั้งค่า -> ลบจาก Database
+  socket.on('removeSetting', async (id) => {
+    try {
+      await TimeHistory.findOneAndDelete({ id });
+      realtimeConfig.settings = realtimeConfig.settings.filter(item => String(item.id) !== String(id));
+      io.emit('status', realtimeConfig);
+    } catch (err) {
+      console.error("เกิดข้อผิดพลาดในการลบการตั้งค่าจาก DB:", err);
+    }
+  });
+
+  // Broadcast การอัพเดตสิทธิพิเศษ (Perks) จาก Admin
+  socket.on('adminUpdatePerks', (data) => {
+    const { perks } = data;
+    if (perks && Array.isArray(perks)) {
+      console.log(`[Realtime] อัพเดตสิทธิพิเศษ, broadcast จำนวน: ${perks.length}`);
+      io.emit('perksUpdated', { perks });
+    }
+  });
 
   // รับสัญญาณหยุดชั่วคราวจาก Admin Panel
   socket.on('pause-display', (data) => {

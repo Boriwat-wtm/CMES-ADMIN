@@ -1728,6 +1728,141 @@ h.admin-home-container {
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
+/* ===== Rank Limit Input Row ===== */
+.rank-limit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.rank-limit-row label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.rank-limit-input {
+  width: 70px;
+  padding: 6px 10px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  text-align: center;
+  font-weight: 600;
+  color: #334155;
+  transition: border-color 0.2s ease;
+  font-family: 'Prompt', 'Kanit', sans-serif;
+}
+
+.rank-limit-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+
+.rank-limit-label {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+/* ===== Date/Month/Year Filter ===== */
+.rank-date-filter {
+  margin-bottom: 12px;
+}
+
+.date-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+  border-radius: 10px;
+  border: 1px solid #bae6fd;
+}
+
+.date-picker-row label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #0369a1;
+  white-space: nowrap;
+}
+
+.date-picker-input {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1.5px solid #7dd3fc;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #0c4a6e;
+  background: white;
+  transition: border-color 0.2s ease;
+  font-family: 'Prompt', 'Kanit', sans-serif;
+}
+
+.date-picker-input:focus {
+  outline: none;
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
+.clear-filter-btn {
+  padding: 5px 10px;
+  border: none;
+  background: #fecdd3;
+  color: #be123c;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  font-family: 'Prompt', 'Kanit', sans-serif;
+}
+
+.clear-filter-btn:hover {
+  background: #fda4af;
+}
+
+/* ===== Ranking Summary Box ===== */
+.rank-summary-box {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.summary-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 10px;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border-radius: 12px;
+  border: 1px solid #fbbf24;
+}
+
+.summary-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #92400e;
+  text-align: center;
+}
+
+.summary-value {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #78350f;
+  letter-spacing: 0.5px;
+}
+
 .vip-card .rank-list {
   list-style: none;
   padding: 0;

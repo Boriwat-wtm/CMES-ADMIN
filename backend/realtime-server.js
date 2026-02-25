@@ -270,17 +270,17 @@ io.on("connection", (socket) => {
 // API สำหรับแสดงภาพตัวอย่างวงล้อบน OBS
 app.post('/api/lucky-wheel/preview', (req, res) => {
   const { segments } = req.body;
-  
+
   // ตรวจสอบว่ามีข้อมูล segments และเป็น array หรือไม่
   if (!segments || !Array.isArray(segments)) {
     return res.status(400).json({ error: 'ข้อมูล segments หายไปหรือไม่ถูกต้อง' });
   }
 
   console.log('[Realtime] ตัวอย่างวงล้อ Lucky Wheel:', segments.length, 'ส่วน');
-  
+
   // Broadcast ไปยัง OBS ที่เชื่อมต่ออยู่
   io.emit('lucky-wheel-preview', { segments });
-  
+
   return res.json({ success: true, message: 'ส่ง broadcast ตัวอย่างไปยัง OBS สำเร็จ' });
 });
 
@@ -309,15 +309,15 @@ app.post('/api/lucky-wheel/spin', (req, res) => {
 // API สำหรับซ่อนวงล้อบน OBS
 app.post('/api/lucky-wheel/hide', (req, res) => {
   console.log('[Realtime] เหตุการณ์ซ่อนวงล้อ Lucky Wheel');
-  
+
   // Broadcast ไปยัง OBS ที่เชื่อมต่ออยู่
   io.emit('lucky-wheel-hide');
-  
+
   return res.json({ success: true, message: 'ส่ง broadcast การซ่อนไปยัง OBS สำเร็จ' });
 });
 
 // กำหนดพอร์ตสำหรับ Realtime Server
-const REALTIME_PORT = process.env.PORT || 4005;
+const REALTIME_PORT = process.env.REALTIME_PORT || 4005;
 server.listen(REALTIME_PORT, () => {
   const baseUrl = process.env.REALTIME_URL || 'https://cmes-admin-realtime.onrender.com';
   console.log(`[Realtime] เซิร์ฟเวอร์ทำงานที่พอร์ต ${REALTIME_PORT}`);
