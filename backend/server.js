@@ -24,6 +24,18 @@ import { verifyPassword, hashPassword } from './hashPasswords.js'; // Keep passw
 
 dotenv.config();
 
+// ===== Helper Functions สำหรับ Thai Timezone (UTC+7) =====
+// ใช้แทน toISOString() ที่เป็น UTC เพื่อให้วันที่ตรงกับเวลาไทย
+function getThaiDateStr(date = new Date()) {
+  return date.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }); // YYYY-MM-DD
+}
+function getThaiMonthStr(date = new Date()) {
+  return getThaiDateStr(date).slice(0, 7); // YYYY-MM
+}
+function getThaiYearStr(date = new Date()) {
+  return getThaiDateStr(date).slice(0, 4); // YYYY
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -193,9 +205,9 @@ async function addRankingPoint(userId, name, amount, email = null, avatar = null
     }
 
     const userName = (name || "Guest").trim() || "Guest";
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
-    const currentYear = new Date().getFullYear().toString(); // YYYY
+    const today = getThaiDateStr(); // YYYY-MM-DD (เวลาไทย)
+    const currentMonth = getThaiMonthStr(); // YYYY-MM (เวลาไทย)
+    const currentYear = getThaiYearStr(); // YYYY (เวลาไทย)
 
     // ===== 1. บันทึกประวัติลง RankingHistory (เก็บทุกรายการ) =====
     try {
@@ -568,8 +580,8 @@ app.get("/api/rankings", async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const type = req.query.type || "alltime"; // daily, monthly, alltime
 
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+    const today = getThaiDateStr(); // YYYY-MM-DD (เวลาไทย)
+    const currentMonth = getThaiMonthStr(); // YYYY-MM (เวลาไทย)
 
     if (type === "daily") {
       // ดึงข้อมูลรายวันจาก RankingHistory (aggregate by userId)
@@ -706,8 +718,8 @@ app.get("/api/rankings", async (req, res) => {
 app.get("/api/rankings/summary", async (req, res) => {
   try {
     const type = req.query.type || "alltime";
-    const today = new Date().toISOString().split('T')[0];
-    const currentMonth = new Date().toISOString().slice(0, 7);
+    const today = getThaiDateStr(); // YYYY-MM-DD (เวลาไทย)
+    const currentMonth = getThaiMonthStr(); // YYYY-MM (เวลาไทย)
 
     let matchQuery = {};
 
@@ -771,8 +783,8 @@ app.get("/api/rankings/summary", async (req, res) => {
 app.get("/api/rankings/top", async (req, res) => {
   try {
     const type = req.query.type || "alltime";
-    const today = new Date().toISOString().split('T')[0];
-    const currentMonth = new Date().toISOString().slice(0, 7);
+    const today = getThaiDateStr(); // YYYY-MM-DD (เวลาไทย)
+    const currentMonth = getThaiMonthStr(); // YYYY-MM (เวลาไทย)
 
     let query = {};
     let sortField = { points: -1 };
