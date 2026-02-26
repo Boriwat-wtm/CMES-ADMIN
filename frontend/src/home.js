@@ -23,10 +23,10 @@ const formatUpdatedAt = (value) => {
   });
 };
 
-// Helper: วันที่ปัจจุบันในรูปแบบต่างๆ
-const getTodayStr = () => new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-const getCurrentMonthStr = () => new Date().toISOString().slice(0, 7); // YYYY-MM
-const getCurrentYearStr = () => new Date().getFullYear().toString(); // YYYY
+// Helper: วันที่ปัจจุบันในรูปแบบต่างๆ (ใช้ timezone ไทย UTC+7)
+const getTodayStr = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }); // YYYY-MM-DD (เวลาไทย)
+const getCurrentMonthStr = () => getTodayStr().slice(0, 7); // YYYY-MM (เวลาไทย)
+const getCurrentYearStr = () => getTodayStr().slice(0, 4); // YYYY (เวลาไทย)
 
 function Home() {
   // ===== State สำหรับการควบคุมระบบ =====
