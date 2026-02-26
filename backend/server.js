@@ -1069,14 +1069,30 @@ app.post("/api/gifts/order", async (req, res) => {
 
     // เติมข้อมูล image จาก GiftSetting ถ้าไม่มี
     const enrichedItems = await Promise.all(items.map(async (item) => {
-      if (!item.image && item.id) {
+      // ถ้ามี imageUrl อยู่แล้ว (ส่งมาจาก User backend) ใช้ได้เลย
+      if (item.imageUrl && !item.image) {
+        item.image = item.imageUrl;
+      }
+
+      if (!item.image) {
         try {
-          const giftSetting = await GiftSetting.findById(item.id);
+          let giftSetting = null;
+          // 1. ค้นหาด้วย id
+          if (item.id) {
+            giftSetting = await GiftSetting.findById(item.id);
+          }
+          // 2. ถ้าไม่เจอ ลองค้นหาด้วยชื่อ
+          if (!giftSetting && item.name) {
+            giftSetting = await GiftSetting.findOne({ giftName: item.name });
+          }
           if (giftSetting && giftSetting.image) {
+            console.log(`[Admin] Enriched item "${item.name}" with image:`, giftSetting.image);
             return { ...item, image: giftSetting.image };
+          } else {
+            console.warn(`[Admin] No image found for item:`, item.id, item.name);
           }
         } catch (err) {
-          console.warn("[Admin] Could not find gift setting for:", item.id);
+          console.warn("[Admin] Could not find gift setting for:", item.id, item.name, err.message);
         }
       }
       return item;
@@ -2254,10 +2270,26 @@ io.on('connection', (socket) => {
   });
 
   // รับสัญญาณข้ามคิวจาก Admin Panel
-  socket.on('skip-current', () => {
+  socket.on('skip-current', async () => {
     console.log('[Socket.IO] Skip current event received');
     // ส่งต่อไป OBS ให้ซ่อนการแสดงทันที
     io.emit('skip-current');
+
+    // ล้างสถานะ playing items ทั้งหมด → กลับเป็น approved เพื่อเข้าคิวใหม่
+    try {
+      const result = await ImageQueue.updateMany(
+        { status: 'playing' },
+        { $set: { status: 'approved' }, $unset: { playingAt: '' } }
+      );
+      if (result.modifiedCount > 0) {
+        console.log(`[Socket.IO] Reset ${result.modifiedCount} playing items back to approved`);
+        io.emit('admin-update-queue');
+      }
+      // รีเซ็ต delay เพื่อให้ QueueWorker เล่น item ถัดไปทันที
+      nextPlayTime = 0;
+    } catch (err) {
+      console.error('[Socket.IO] Error resetting playing items:', err);
+    }
   });
 
   // Complete playing (from OBS)

@@ -88,7 +88,7 @@ function ImageQueue() {
     // ฟังเหตุการณ์เมื่อรูปภาพแสดงครบ - ล้างการแสดงเมื่อ Server ยืนยัน
     socket.on('item-completed', (data) => {
       console.log("[Socket] Item completed:", data);
-      
+
       // ยืนยันว่าเป็นรูปภาพปัจจุบันจริง (ป้องกัน race condition)
       const savedPreview = localStorage.getItem("currentPreview");
       if (savedPreview) {
@@ -96,7 +96,7 @@ function ImageQueue() {
           const preview = JSON.parse(savedPreview);
           const previewId = preview._id || preview.id;
           const completedId = data.id || data._id;
-          
+
           // ลบการแสดงเฉพาะเมื่อ ID ตรงกัน
           if (previewId !== completedId) {
             console.log("[Socket] ID mismatch - ignoring. Expected:", previewId, "Got:", completedId);
@@ -106,13 +106,13 @@ function ImageQueue() {
           console.error("[Socket] Error parsing preview:", err);
         }
       }
-      
+
       // ป้องกันการจัดการ event ซ้ำ
       if (!currentPreview && !localStorage.getItem("currentPreview")) {
         console.log("[Socket] Already cleared - ignoring duplicate event");
         return;
       }
-      
+
       // ล้างการแสดงรูปภาพปัจจุบัน
       setCurrentPreview(null);
       setIsActive(false);
@@ -120,13 +120,13 @@ function ImageQueue() {
       setIsPaused(false);
       setPauseTimeLeft(0);
       isCompletingRef.current = false;
-      
+
       // ล้าง localStorage
       localStorage.removeItem("currentPreview");
       localStorage.removeItem("isActive");
       localStorage.removeItem("startTimestamp");
       localStorage.removeItem("duration");
-      
+
       // โหลดคิวใหม่
       fetchImages();
     });
@@ -419,10 +419,10 @@ function ImageQueue() {
   const handleSkipCurrent = async () => {
     if (!currentPreview) return; // ถ้าไม่มีรูบที่กำลังแสดง ไม่ต้องทำอะไร
     const imageId = currentPreview._id || currentPreview.id;
-    
+
     console.log("[Skip] Current Queue Length:", previewQueue.length);
     console.log("[Skip] Queue Items:", previewQueue.map(q => q._id || q.id));
-    
+
     // แจ้ง Backend ว่ารูปนี้เสร็จสิ้นแล้ว
     try {
       await fetch(`${API_BASE_URL}/api/complete/${imageId}`, { method: "POST" });
@@ -442,7 +442,7 @@ function ImageQueue() {
     setCurrentPreview(null);
     setTimeLeft(0);
     setPauseTimeLeft(0);
-    
+
     // ล้าง localStorage (แต่จะคืนค่า queueOrder กลับ)
     localStorage.removeItem("currentPreview");
     localStorage.removeItem("startTimestamp");
@@ -719,13 +719,13 @@ function ImageQueue() {
     const savedIsActive = localStorage.getItem("isActive");
     const startTimestamp = Number(localStorage.getItem("startTimestamp"));
     const duration = Number(localStorage.getItem("duration"));
-    
+
     // ถ้ามีข้อมูลบันทึกไว้ ให้กู้คืน state
     if (savedPreview && savedIsActive === "true" && startTimestamp && duration) {
       const now = Date.now();
       const elapsed = Math.floor((now - startTimestamp) / 1000);
       const left = duration - elapsed;
-      
+
       if (left > 0) {
         // ยังคงเหลือเวลา - กู้คืน state
         setCurrentPreview(JSON.parse(savedPreview));
@@ -893,10 +893,15 @@ function ImageQueue() {
             console.log('[Gift Card] All giftSettings:', giftSettings);
 
             // Try to get image from item first, then lookup in giftSettings
-            let itemImage = giftItem.image;
+            let itemImage = giftItem.image || giftItem.imageUrl;
             if (!itemImage && giftSettings.length > 0) {
-              console.log('[Gift Card] Looking for id:', giftItem.id);
-              const setting = giftSettings.find(s => s.id === giftItem.id);
+              console.log('[Gift Card] Looking for id:', giftItem.id, 'name:', giftItem.name);
+              // 1. ค้นหาด้วย id
+              let setting = giftSettings.find(s => s.id === giftItem.id);
+              // 2. ถ้าไม่เจอ ลองค้นหาด้วยชื่อ
+              if (!setting) {
+                setting = giftSettings.find(s => s.name === giftItem.name);
+              }
               console.log('[Gift Card] Found setting:', setting);
               if (setting && setting.imageUrl) {
                 itemImage = setting.imageUrl;
@@ -1242,7 +1247,7 @@ function ImageQueue() {
                             fontWeight: "700",
                             flexShrink: 0
                           }}>#{index + 1}</span>
-                          
+
                           {/* Avatar + Sender */}
                           <div style={{
                             display: "flex",
@@ -1292,7 +1297,7 @@ function ImageQueue() {
                                 </span>
                               )}
                             </div>
-                            
+
                             {/* Sender Name */}
                             <span className="sender" style={{
                               fontSize: "14px",
@@ -2343,7 +2348,7 @@ function ImageQueue() {
                             (() => {
                               const firstGiftItem = item.metadata?.giftItems?.[0];
                               let giftImage = null;
-                              
+
                               if (firstGiftItem) {
                                 // ลองหารูปจาก giftSettings
                                 giftImage = firstGiftItem.image;
