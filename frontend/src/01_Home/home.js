@@ -285,7 +285,6 @@ function Home() {
 
     try {
       setRankError("");
-<<<<<<< HEAD:frontend/src/home.js
       // สร้าง query params ตาม filter ที่เลือก
       const params = new URLSearchParams({
         limit: String(rankLimit),
@@ -295,10 +294,7 @@ function Home() {
       if (rankingType === "monthly" && selectedMonth) params.set("month", selectedMonth);
       if (rankingType === "alltime" && selectedYear) params.set("year", selectedYear);
 
-      const res = await fetch(`${API_BASE_URL}/api/rankings?${params}`);
-=======
-      const res = await authFetch(`${API_BASE_URL}/api/rankings?limit=${RANK_LIMIT}&type=${rankingType}`);
->>>>>>> Mutilink_OBS:frontend/src/01_Home/home.js
+      const res = await authFetch(`${API_BASE_URL}/api/rankings?${params}`);
       if (!res.ok) throw new Error("FAILED");
       const data = await res.json();
       if (!data.success) throw new Error("FAILED");

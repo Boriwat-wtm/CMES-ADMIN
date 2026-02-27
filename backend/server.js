@@ -354,6 +354,25 @@ async function addRankingPoint(userId, name, amount, email = null, avatar = null
     const currentMonth = getThaiMonthStr(); // YYYY-MM (เวลาไทย)
     const currentYear = getThaiYearStr(); // YYYY (เวลาไทย)
 
+    // ===== 1. บันทึกประวัติลง RankingHistory (เก็บทุกรายการ) =====
+    try {
+      await RankingHistory.create({
+        shopId,
+        userId,
+        name: userName,
+        email,
+        avatar,
+        amount: points,
+        date: today,
+        month: currentMonth,
+        year: currentYear
+      });
+      console.log(`[Ranking] บันทึกประวัติ: ${userName} +${points} วันที่ ${today}`);
+    } catch (histErr) {
+      console.error("[Ranking] Error saving history:", histErr.message);
+    }
+
+    // ===== 2. อัพเดท Ranking สรุป (เดิม) =====
     // 🔥 ค้นหา ranking ของผู้ใช้แยกตาม shopId
     let ranking = await Ranking.findOne({ userId, shopId });
     if (ranking) {
@@ -738,19 +757,63 @@ app.get("/api/rankings", requireAdminAuth, async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const type = req.query.type || "alltime"; // daily, monthly, alltime
 
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+    const today = getThaiDateStr(); // YYYY-MM-DD (เวลาไทย)
+    const currentMonth = getThaiMonthStr(); // YYYY-MM (เวลาไทย)
 
     let query = { shopId }; // 🔥 filter ด้วย shopId
     let sortField = { points: -1 };
 
     if (type === "daily") {
-      query = { shopId, dailyDate: today };
+      query = { shopId, dailyDate: req.query.date || today };
       sortField = { dailyPoints: -1 };
     } else if (type === "monthly") {
-      query = { shopId, monthlyPeriod: currentMonth };
+      query = { shopId, monthlyPeriod: req.query.month || currentMonth };
       sortField = { monthlyPoints: -1 };
+    } else if (type === "alltime" && req.query.year) {
+      // กรณีมี filter ปี → ใช้ RankingHistory aggregate
+      const pipeline = [
+        { $match: { shopId, year: req.query.year } },
+        {
+          $group: {
+            _id: "$userId",
+            name: { $last: "$name" },
+            email: { $last: "$email" },
+            avatar: { $last: "$avatar" },
+            userId: { $first: "$userId" },
+            points: { $sum: "$amount" },
+            updatedAt: { $max: "$createdAt" }
+          }
+        },
+        { $sort: { points: -1 } },
+        { $limit: limit }
+      ];
+      const results = await RankingHistory.aggregate(pipeline);
+      const ranksWithPosition = results.map((r, idx) => ({ ...r, position: idx + 1 }));
+      const totalCount = await RankingHistory.distinct("userId", { shopId, year: req.query.year });
+      return res.json({
+        success: true,
+        ranks: ranksWithPosition,
+        total: totalCount.length,
+        totalUsers: totalCount.length,
+        type
+      });
     }
+
+    // ดึงข้อมูลจาก Ranking collection
+    const rankings = await Ranking.find(query)
+      .sort(sortField)
+      .limit(limit)
+      .lean();
+
+    const ranksWithPosition = rankings.map((r, idx) => ({ ...r, position: idx + 1 }));
+
+    res.json({
+      success: true,
+      ranks: ranksWithPosition,
+      total: await Ranking.countDocuments(query),
+      totalUsers: await Ranking.countDocuments(query),
+      type
+    });
   } catch (error) {
     console.error("Error fetching rankings:", error);
     res.status(500).json({ success: false, message: "Failed to fetch rankings" });
@@ -767,14 +830,15 @@ app.get("/api/rankings/summary", async (req, res) => {
     const today = getThaiDateStr(); // YYYY-MM-DD (เวลาไทย)
     const currentMonth = getThaiMonthStr(); // YYYY-MM (เวลาไทย)
 
-    let matchQuery = {};
+    const shopId = req.query.shopId || req.headers['x-shop-id'] || '';
+    let matchQuery = shopId ? { shopId } : {};
 
     if (type === "daily") {
-      matchQuery = { date: req.query.date || today };
+      matchQuery = { ...matchQuery, date: req.query.date || today };
     } else if (type === "monthly") {
-      matchQuery = { month: req.query.month || currentMonth };
+      matchQuery = { ...matchQuery, month: req.query.month || currentMonth };
     } else if (type === "alltime" && req.query.year) {
-      matchQuery = { year: req.query.year };
+      matchQuery = { ...matchQuery, year: req.query.year };
     }
 
     // ใช้ RankingHistory aggregate ถ้ามี filter
@@ -2683,64 +2747,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // === Realtime Config Events (merged from realtime-server.js) ===
-
-  // รับสถานะ config ใหม่จาก admin (Switches เปิด/ปิดฟีเจอร์)
-  socket.on('updateStatus', (newStatus) => {
-    realtimeConfig = { ...realtimeConfig, ...newStatus };
-    io.emit('status', realtimeConfig);
-    saveRuntimeConfig();
-  });
-
-  // ส่ง config ปัจจุบันเมื่อมีการร้องขอ
-  socket.on('getConfig', () => {
-    socket.emit('status', realtimeConfig);
-  });
-
-  // อัพเดท config จาก admin และแจ้งเตือนทุก client
-  socket.on('adminUpdateConfig', (newConfig) => {
-    realtimeConfig = { ...realtimeConfig, ...newConfig };
-    io.emit('configUpdate', realtimeConfig);
-    saveRuntimeConfig();
-  });
-
-  // เพิ่มประวัติการตั้งค่า -> บันทึกลง Database
-  socket.on('addSetting', async (setting) => {
-    try {
-      await TimeHistory.create({
-        id: setting.id,
-        mode: setting.mode,
-        date: setting.date,
-        duration: setting.duration,
-        time: setting.time,
-        price: setting.price
-      });
-      realtimeConfig.settings.unshift(setting);
-      io.emit('status', realtimeConfig);
-    } catch (err) {
-      console.error("เกิดข้อผิดพลาดในการเพิ่มการตั้งค่าลง DB:", err);
-    }
-  });
-
-  // ลบประวัติการตั้งค่า -> ลบจาก Database
-  socket.on('removeSetting', async (id) => {
-    try {
-      await TimeHistory.findOneAndDelete({ id });
-      realtimeConfig.settings = realtimeConfig.settings.filter(item => String(item.id) !== String(id));
-      io.emit('status', realtimeConfig);
-    } catch (err) {
-      console.error("เกิดข้อผิดพลาดในการลบการตั้งค่าจาก DB:", err);
-    }
-  });
-
-  // Broadcast การอัพเดตสิทธิพิเศษ (Perks) จาก Admin
-  socket.on('adminUpdatePerks', (data) => {
-    const { perks } = data;
-    if (perks && Array.isArray(perks)) {
-      console.log(`[Realtime] อัพเดตสิทธิพิเศษ, broadcast จำนวน: ${perks.length}`);
-      io.emit('perksUpdated', { perks });
-    }
-  });
 
   // รับสัญญาณหยุดชั่วคราวจาก Admin Panel
   socket.on('pause-display', (data) => {
@@ -2767,6 +2773,25 @@ io.on('connection', (socket) => {
     if (socket.shopId) {
       io.to(socket.shopId).emit('skip-current');
     }
+
+    // ล้างสถานะ playing items ทั้งหมด → กลับเป็น approved เพื่อเข้าคิวใหม่
+    try {
+      const shopFilter = socket.shopId ? { shopId: socket.shopId, status: 'playing' } : { status: 'playing' };
+      const result = await ImageQueue.updateMany(
+        shopFilter,
+        { $set: { status: 'approved' }, $unset: { playingAt: '' } }
+      );
+      if (result.modifiedCount > 0) {
+        console.log(`[Socket.IO] Reset ${result.modifiedCount} playing items back to approved`);
+        if (socket.shopId) {
+          io.to(socket.shopId).emit('admin-update-queue');
+        }
+      }
+      // รีเซ็ต delay เพื่อให้ QueueWorker เล่น item ถัดไปทันที
+      nextPlayTime = 0;
+    } catch (err) {
+      console.error('[Socket.IO] Error resetting playing items:', err);
+    }
   });
 
   // Complete playing (from OBS)
@@ -2777,9 +2802,14 @@ io.on('connection', (socket) => {
       if (item) {
         await completeItem(item);
         console.log('[Socket.IO] Completed via completeItem:', imageId);
-        // Start 15s delay for next item
+        // Start 15s delay for next item — emit only to the correct shop room
         nextPlayTime = Date.now() + 15000;
-        io.emit('pause-display', { remaining: 15, isCountingDown: true });
+        const targetRoom = socket.shopId || item.shopId;
+        if (targetRoom) {
+          io.to(targetRoom).emit('pause-display', { remaining: 15, isCountingDown: true });
+        } else {
+          io.emit('pause-display', { remaining: 15, isCountingDown: true });
+        }
       } else {
         console.log('[Socket.IO] Item not found (already completed):', imageId);
       }
