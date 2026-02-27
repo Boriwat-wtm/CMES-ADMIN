@@ -32,6 +32,8 @@ const checkHistorySchema = new mongoose.Schema(
       giftItems: [Object], // รายการของขวัญ
       note: String,
       theme: String, // textColor or theme
+      socialColor: { type: String, default: '#ffffff' },
+      textLayout: { type: String, default: 'right' },
       social: {
         type: { type: String, default: null },
         name: { type: String, default: null }

@@ -1437,10 +1437,33 @@ function ImageQueue() {
                           background: "#f8fafc",
                           borderTop: "1px solid #f1f5f9"
                         }}>
-                          <div className="time-price" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                          <div className="time-price" style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
                             <span className="time" style={{ fontSize: "12px", color: "#64748b", display: "flex", alignItems: "center", gap: "4px" }}>
                               ⏱️ {image.time}s
                             </span>
+                            {image.textLayout && image.textLayout !== 'right' && (
+                              <span style={{
+                                fontSize: "11px",
+                                color: "#6366f1",
+                                background: "#eef2ff",
+                                padding: "2px 8px",
+                                borderRadius: "6px",
+                                fontWeight: "600"
+                              }}>
+                                📐 {image.textLayout === 'left' ? 'ซ้าย' : image.textLayout === 'top' ? 'บน' : image.textLayout === 'bottom' ? 'ล่าง' : image.textLayout === 'center' ? 'กลาง' : image.textLayout}
+                              </span>
+                            )}
+                            {image.socialColor && image.socialColor !== '#ffffff' && image.socialColor !== 'white' && (
+                              <span style={{
+                                display: "inline-block",
+                                width: "14px",
+                                height: "14px",
+                                background: image.socialColor,
+                                borderRadius: "50%",
+                                border: "2px solid #e2e8f0",
+                                verticalAlign: "middle"
+                              }} title={`สี Social: ${image.socialColor}`}></span>
+                            )}
                           </div>
                           <div className="price" style={{ fontWeight: "700", color: "#10b981", fontSize: "14px" }}>
                             {image.price === 0 ? 'ฟรี' : `฿${image.price}`}
@@ -1850,8 +1873,9 @@ function ImageQueue() {
                   /* แสดง Preview แบบเดียวกับ Upload User */
                   <div style={{
                     display: "flex",
+                    flexDirection: selectedImage.textLayout === 'left' ? 'row-reverse' : selectedImage.textLayout === 'top' ? 'column-reverse' : selectedImage.textLayout === 'bottom' ? 'column' : 'row',
                     gap: "20px",
-                    alignItems: "stretch",
+                    alignItems: selectedImage.textLayout === 'top' || selectedImage.textLayout === 'bottom' ? 'center' : 'stretch',
                     background: "#929292",
                     padding: "20px",
                     borderRadius: "12px",
@@ -2098,6 +2122,41 @@ function ImageQueue() {
                             borderRadius: '6px'
                           }}></span>
                           {selectedImage.textColor}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Social Color */}
+                    {selectedImage.socialColor && selectedImage.socialColor !== '#ffffff' && selectedImage.socialColor !== 'white' && (
+                      <div className="detail-row">
+                        <span className="label">สี Social:</span>
+                        <span className="value" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{
+                            display: 'inline-block',
+                            width: '24px',
+                            height: '24px',
+                            background: selectedImage.socialColor,
+                            border: '2px solid #e2e8f0',
+                            borderRadius: '6px'
+                          }}></span>
+                          {selectedImage.socialColor}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Text Layout */}
+                    {selectedImage.textLayout && (
+                      <div className="detail-row">
+                        <span className="label">Layout:</span>
+                        <span className="value" style={{
+                          background: '#eef2ff',
+                          color: '#6366f1',
+                          padding: '4px 12px',
+                          borderRadius: '12px',
+                          fontSize: '13px',
+                          fontWeight: '600'
+                        }}>
+                          📐 {selectedImage.textLayout === 'left' ? 'ซ้าย' : selectedImage.textLayout === 'right' ? 'ขวา' : selectedImage.textLayout === 'top' ? 'บน' : selectedImage.textLayout === 'bottom' ? 'ล่าง' : selectedImage.textLayout === 'center' ? 'กลาง' : selectedImage.textLayout}
                         </span>
                       </div>
                     )}
