@@ -763,7 +763,7 @@ function ImageQueue() {
   }, [currentPreview, timeLeft, isActive, isPaused, pauseTimeLeft]);
 
   // ===== ฟังก์ชัน Render: แสดง Logo Social Media พร้อมชื่อ =====
-  function renderSocialOnImage(socialType, socialName) {
+  function renderSocialOnImage(socialType, socialName, socialColor) {
     // Map ระหว่างประเภท social กับ logo ที่นำเข้า
     const logoMap = {
       ig: igLogo,
@@ -785,6 +785,7 @@ function ImageQueue() {
         <span style={{
           fontWeight: "700",
           fontSize: "20px",
+          color: socialColor || "#fff",
           textShadow: "0 2px 6px rgba(0,0,0,0.8)"
         }}>{socialName}</span>
       </span>
@@ -1357,7 +1358,7 @@ function ImageQueue() {
                                       alignItems: "center",
                                       gap: "6px"
                                     }}>
-                                      {renderSocialOnImage(image.socialType, image.socialName)}
+                                      {renderSocialOnImage(image.socialType, image.socialName, image.socialColor)}
                                     </div>
                                   )}
                                   {image.text && (
@@ -1409,7 +1410,7 @@ function ImageQueue() {
                                     gap: "8px"
                                   }}
                                 >
-                                  {renderSocialOnImage(image.socialType, image.socialName)}
+                                  {renderSocialOnImage(image.socialType, image.socialName, image.socialColor)}
                                 </div>
                               )}
                               <div
@@ -1605,7 +1606,7 @@ function ImageQueue() {
                             alignItems: "center"
                           }}
                         >
-                          {renderSocialOnImage(currentPreview.socialType, currentPreview.socialName)}
+                          {renderSocialOnImage(currentPreview.socialType, currentPreview.socialName, currentPreview.socialColor)}
                         </div>
                       )}
                       <div
@@ -1916,7 +1917,7 @@ function ImageQueue() {
                             textAlign: "center",
                             wordBreak: "break-word"
                           }}>
-                            {renderSocialOnImage(selectedImage.socialType, selectedImage.socialName)}
+                            {renderSocialOnImage(selectedImage.socialType, selectedImage.socialName, selectedImage.socialColor)}
                           </div>
                         )}
 
@@ -2005,7 +2006,7 @@ function ImageQueue() {
                           alignItems: "center"
                         }}
                       >
-                        {renderSocialOnImage(selectedImage.socialType, selectedImage.socialName)}
+                        {renderSocialOnImage(selectedImage.socialType, selectedImage.socialName, selectedImage.socialColor)}
                       </div>
                     )}
                     <div

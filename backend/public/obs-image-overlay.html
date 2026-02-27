@@ -35,6 +35,46 @@
       transform: translateX(-50%) translateY(0);
     }
 
+    /* === Layout Variants === */
+    #container.layout-left {
+      flex-direction: row-reverse;
+    }
+
+    #container.layout-top {
+      flex-direction: column-reverse;
+    }
+
+    #container.layout-top #info-section {
+      flex-direction: row;
+      min-width: auto;
+    }
+
+    #container.layout-bottom {
+      flex-direction: column;
+    }
+
+    #container.layout-bottom #info-section {
+      flex-direction: row;
+      min-width: auto;
+    }
+
+    #container.layout-center {
+      position: fixed;
+      bottom: 10%;
+      left: 50%;
+    }
+
+    #container.layout-center #info-section {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: 12px;
+      z-index: 2;
+    }
+
     /* ส่วนรูปภาพ */
     #image-section {
       flex-shrink: 0;
@@ -697,6 +737,7 @@
 
       const {
         sender, price, time, filePath, text, textColor,
+        socialColor, textLayout,
         socialType, socialName: socName, qrCodePath,
         width, height, duration, seconds, remainingSeconds, timeLeft,
         playingAt // ใช้เพื่อ Sync เวลากับ Server
@@ -748,9 +789,15 @@
         if (logoSrc) {
           socialLogo.src = logoSrc;
           socialName.textContent = socName;
+          // ใช้ socialColor ถ้ามี
+          if (socialColor && socialColor !== '#ffffff' && socialColor !== 'white') {
+            socialName.style.color = socialColor;
+          } else {
+            socialName.style.color = '';
+          }
           socialContainer.style.display = 'flex';
           hasContent = true;
-          console.log('[Debug] Social displayed');
+          console.log('[Debug] Social displayed with color:', socialColor);
         } else {
           console.warn('[Debug] No logo found for:', socialType);
         }
@@ -762,11 +809,24 @@
       // แสดงข้อความ
       if (text) {
         textEl.textContent = text;
-        textEl.className = textColor === 'black' ? 'black' : '';
+        // ใช้ textColor เป็น hex color โดยตรง
+        if (textColor && textColor.startsWith('#')) {
+          textEl.className = '';
+          textEl.style.color = textColor;
+        } else {
+          textEl.className = textColor === 'black' ? 'black' : '';
+          textEl.style.color = '';
+        }
         textEl.style.display = 'block';
         hasContent = true;
       } else {
         textEl.style.display = 'none';
+      }
+
+      // ใช้ textLayout เปลี่ยน layout ของ container
+      container.className = '';
+      if (textLayout && textLayout !== 'right') {
+        container.classList.add('layout-' + textLayout);
       }
 
       // แสดง QR Code

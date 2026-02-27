@@ -1184,6 +1184,8 @@ app.post("/api/upload", uploadUser, async (req, res) => {
       email,
       avatar,
       textColor,
+      socialColor,
+      textLayout,
       socialType,
       socialName,
       composed
@@ -1248,7 +1250,9 @@ app.post("/api/upload", uploadUser, async (req, res) => {
       time: Number(time) || 0,
       price: Number(price) || 0,
       sender: sender || "Unknown",
-      textColor: textColor || "white",
+      textColor: textColor || "#ffffff",
+      socialColor: socialColor || "#ffffff",
+      textLayout: textLayout || "right",
       socialType: socialType || null,
       socialName: socialName || null,
       filePath: imageUrl || (mainFile ? mainFile.path : null), // ใช้ Cloudinary URL หรือ path จาก multer
@@ -1412,6 +1416,7 @@ app.post("/api/playing/:id", async (req, res) => {
       });
     } else {
       console.log('[Playing] ส่ง now-playing-image event (ไม่ใช่ gift)');
+      console.log('[Playing] socialColor:', updated.socialColor, 'textLayout:', updated.textLayout, 'textColor:', updated.textColor);
       io.emit("now-playing-image", {
         id: updated._id?.toString(),
         sender: updated.sender,
@@ -1419,7 +1424,9 @@ app.post("/api/playing/:id", async (req, res) => {
         time: updated.time,
         filePath: updated.filePath,
         text: updated.text,
-        textColor: updated.textColor,
+        textColor: updated.textColor || '#ffffff',
+        socialColor: updated.socialColor || '#ffffff',
+        textLayout: updated.textLayout || 'right',
         socialType: updated.socialType,
         socialName: updated.socialName,
         qrCodePath: updated.qrCodePath,
@@ -1506,6 +1513,8 @@ app.post("/api/reject/:id", async (req, res) => {
         giftItems: item.giftOrder?.items || [],
         note: item.giftOrder?.note || '',
         theme: item.textColor || 'white',
+        socialColor: item.socialColor || '#ffffff',
+        textLayout: item.textLayout || 'right',
         qrCodePath: item.qrCodePath || null,
         social: {
           type: item.socialType || null,
@@ -1585,6 +1594,8 @@ app.post("/api/history/restore/:id", async (req, res) => {
       filePath: historyItem.mediaUrl || null,
       text: historyItem.content || '',
       textColor: historyItem.metadata?.theme || 'white',
+      socialColor: historyItem.metadata?.socialColor || '#ffffff',
+      textLayout: historyItem.metadata?.textLayout || 'right',
       socialType: historyItem.metadata?.social?.type || null,
       socialName: historyItem.metadata?.social?.name || null,
       qrCodePath: historyItem.metadata?.qrCodePath || null,
@@ -2420,6 +2431,8 @@ async function completeItem(item) {
         giftItems: item.giftOrder?.items || [],
         note: item.giftOrder?.note || '',
         theme: item.textColor || 'white',
+        socialColor: item.socialColor || '#ffffff',
+        textLayout: item.textLayout || 'right',
         social: {
           type: item.socialType || null,
           name: item.socialName || null
@@ -2507,6 +2520,7 @@ async function playNextItem() {
         });
       } else {
         console.log('[QueueWorker] Sending now-playing-image event');
+        console.log('[QueueWorker] socialColor:', updated.socialColor, 'textLayout:', updated.textLayout, 'textColor:', updated.textColor);
         io.emit("now-playing-image", {
           id: updated._id.toString(),
           sender: updated.sender,
@@ -2514,7 +2528,9 @@ async function playNextItem() {
           time: updated.time,
           filePath: updated.filePath,
           text: updated.text,
-          textColor: updated.textColor,
+          textColor: updated.textColor || '#ffffff',
+          socialColor: updated.socialColor || '#ffffff',
+          textLayout: updated.textLayout || 'right',
           socialType: updated.socialType,
           socialName: updated.socialName,
           qrCodePath: updated.qrCodePath,

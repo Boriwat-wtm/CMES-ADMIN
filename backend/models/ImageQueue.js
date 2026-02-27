@@ -32,6 +32,15 @@ const imageQueueSchema = new mongoose.Schema({
     type: String,
     default: 'white'
   },
+  socialColor: {
+    type: String,
+    default: '#ffffff'
+  },
+  textLayout: {
+    type: String,
+    enum: ['right', 'left', 'top', 'bottom', 'center'],
+    default: 'right'
+  },
 
   // Social Media Info
   socialType: {
