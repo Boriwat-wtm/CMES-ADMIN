@@ -104,8 +104,8 @@ loadSystemConfig();
  * รองรับทั้งค่าจาก environment variables และค่าเริ่มต้น
  */
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dfcqbb9pt',
-  api_key: process.env.CLOUDINARY_API_KEY || '396185692714272',
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
@@ -440,11 +440,19 @@ async function loadUsers() {
     const data = await fs.promises.readFile("users.json", "utf8");
     return JSON.parse(data);
   } catch (error) {
-    // สร้างผู้ใช้เริ่มต้นถ้าไม่มีไฟล์
+    // สร้างผู้ใช้เริ่มต้นถ้าไม่มีไฟล์ โดยใช้รหัสผ่านจาก .env
+    const adminPass = process.env.DEFAULT_ADMIN_PASSWORD;
+    const cms1Pass = process.env.DEFAULT_CMS1_PASSWORD;
+    const cms2Pass = process.env.DEFAULT_CMS2_PASSWORD;
+
+    if (!adminPass) {
+      console.warn("⚠️ DEFAULT_ADMIN_PASSWORD is not set in .env! Using a random password for security.");
+    }
+
     const defaultUsers = [
-      { username: "admin", password: await hashPassword("admin123") },
-      { username: "cms1", password: await hashPassword("dfhy1785") },
-      { username: "cms2", password: await hashPassword("sdgsd5996") },
+      { username: "admin", password: await hashPassword(adminPass || Math.random().toString(36).slice(-10)) },
+      { username: "cms1", password: await hashPassword(cms1Pass || Math.random().toString(36).slice(-10)) },
+      { username: "cms2", password: await hashPassword(cms2Pass || Math.random().toString(36).slice(-10)) },
     ];
 
     await fs.promises.writeFile("users.json", JSON.stringify(defaultUsers, null, 2));
