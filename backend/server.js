@@ -2307,8 +2307,16 @@ io.on('connection', (socket) => {
   socket.on('complete-playing', async (imageId) => {
     console.log('[Socket.IO] Complete playing event received for:', imageId);
     try {
-      await ImageQueue.findByIdAndUpdate(imageId, { status: 'completed' });
-      console.log('[Socket.IO] Marked as completed:', imageId);
+      const item = await ImageQueue.findById(imageId);
+      if (item) {
+        await completeItem(item);
+        console.log('[Socket.IO] Completed via completeItem:', imageId);
+        // Start 15s delay for next item
+        nextPlayTime = Date.now() + 15000;
+        io.emit('pause-display', { remaining: 15, isCountingDown: true });
+      } else {
+        console.log('[Socket.IO] Item not found (already completed):', imageId);
+      }
     } catch (err) {
       console.error('[Socket.IO] Error completing:', err);
     }
@@ -2661,7 +2669,29 @@ server.listen(PORT, async () => {
     console.error("Error loading users:", error);
   }
 
-  // Start Server-Side Queue Worker
-  console.log("[QueueWorker] Starting 1s interval loop...");
-  setInterval(processAutoQueue, 1000);
+  // Start Server-Side Queue Worker with startup delay
+  // รอ 10 วินาทีก่อนเริ่ม QueueWorker เพื่อให้ OBS/clients reconnect ก่อน
+  console.log("[QueueWorker] Waiting 10s for clients to reconnect...");
+
+  // Cleanup items ที่ค้าง status ผิดจากบั๊กเก่า
+  try {
+    const stuckItems = await ImageQueue.find({ status: { $nin: ['pending', 'approved', 'playing'] } });
+    if (stuckItems.length > 0) {
+      console.log(`[QueueWorker] Found ${stuckItems.length} stuck items, cleaning up...`);
+      for (const item of stuckItems) {
+        await completeItem(item);
+      }
+      console.log('[QueueWorker] Cleanup done.');
+    }
+  } catch (err) {
+    console.error('[QueueWorker] Cleanup error:', err);
+  }
+
+  // ตั้ง nextPlayTime เป็น 10 วินาทีหลัง boot เพื่อให้ OBS reconnect ก่อน
+  nextPlayTime = Date.now() + 10000;
+
+  setTimeout(() => {
+    console.log("[QueueWorker] Starting 1s interval loop...");
+    setInterval(processAutoQueue, 1000);
+  }, 10000);
 });
