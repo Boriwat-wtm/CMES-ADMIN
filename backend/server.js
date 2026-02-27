@@ -1069,14 +1069,30 @@ app.post("/api/gifts/order", async (req, res) => {
 
     // เติมข้อมูล image จาก GiftSetting ถ้าไม่มี
     const enrichedItems = await Promise.all(items.map(async (item) => {
-      if (!item.image && item.id) {
+      // ถ้ามี imageUrl อยู่แล้ว (ส่งมาจาก User backend) ใช้ได้เลย
+      if (item.imageUrl && !item.image) {
+        item.image = item.imageUrl;
+      }
+
+      if (!item.image) {
         try {
-          const giftSetting = await GiftSetting.findById(item.id);
+          let giftSetting = null;
+          // 1. ค้นหาด้วย id
+          if (item.id) {
+            giftSetting = await GiftSetting.findById(item.id);
+          }
+          // 2. ถ้าไม่เจอ ลองค้นหาด้วยชื่อ
+          if (!giftSetting && item.name) {
+            giftSetting = await GiftSetting.findOne({ giftName: item.name });
+          }
           if (giftSetting && giftSetting.image) {
+            console.log(`[Admin] Enriched item "${item.name}" with image:`, giftSetting.image);
             return { ...item, image: giftSetting.image };
+          } else {
+            console.warn(`[Admin] No image found for item:`, item.id, item.name);
           }
         } catch (err) {
-          console.warn("[Admin] Could not find gift setting for:", item.id);
+          console.warn("[Admin] Could not find gift setting for:", item.id, item.name, err.message);
         }
       }
       return item;
@@ -1168,6 +1184,8 @@ app.post("/api/upload", uploadUser, async (req, res) => {
       email,
       avatar,
       textColor,
+      socialColor,
+      textLayout,
       socialType,
       socialName,
       composed
@@ -1232,7 +1250,9 @@ app.post("/api/upload", uploadUser, async (req, res) => {
       time: Number(time) || 0,
       price: Number(price) || 0,
       sender: sender || "Unknown",
-      textColor: textColor || "white",
+      textColor: textColor || "#ffffff",
+      socialColor: socialColor || "#ffffff",
+      textLayout: textLayout || "right",
       socialType: socialType || null,
       socialName: socialName || null,
       filePath: imageUrl || (mainFile ? mainFile.path : null), // ใช้ Cloudinary URL หรือ path จาก multer
@@ -1396,6 +1416,7 @@ app.post("/api/playing/:id", async (req, res) => {
       });
     } else {
       console.log('[Playing] ส่ง now-playing-image event (ไม่ใช่ gift)');
+      console.log('[Playing] socialColor:', updated.socialColor, 'textLayout:', updated.textLayout, 'textColor:', updated.textColor);
       io.emit("now-playing-image", {
         id: updated._id?.toString(),
         sender: updated.sender,
@@ -1403,7 +1424,9 @@ app.post("/api/playing/:id", async (req, res) => {
         time: updated.time,
         filePath: updated.filePath,
         text: updated.text,
-        textColor: updated.textColor,
+        textColor: updated.textColor || '#ffffff',
+        socialColor: updated.socialColor || '#ffffff',
+        textLayout: updated.textLayout || 'right',
         socialType: updated.socialType,
         socialName: updated.socialName,
         qrCodePath: updated.qrCodePath,
@@ -1490,6 +1513,8 @@ app.post("/api/reject/:id", async (req, res) => {
         giftItems: item.giftOrder?.items || [],
         note: item.giftOrder?.note || '',
         theme: item.textColor || 'white',
+        socialColor: item.socialColor || '#ffffff',
+        textLayout: item.textLayout || 'right',
         qrCodePath: item.qrCodePath || null,
         social: {
           type: item.socialType || null,
@@ -1569,6 +1594,8 @@ app.post("/api/history/restore/:id", async (req, res) => {
       filePath: historyItem.mediaUrl || null,
       text: historyItem.content || '',
       textColor: historyItem.metadata?.theme || 'white',
+      socialColor: historyItem.metadata?.socialColor || '#ffffff',
+      textLayout: historyItem.metadata?.textLayout || 'right',
       socialType: historyItem.metadata?.social?.type || null,
       socialName: historyItem.metadata?.social?.name || null,
       qrCodePath: historyItem.metadata?.qrCodePath || null,
@@ -2254,10 +2281,26 @@ io.on('connection', (socket) => {
   });
 
   // รับสัญญาณข้ามคิวจาก Admin Panel
-  socket.on('skip-current', () => {
+  socket.on('skip-current', async () => {
     console.log('[Socket.IO] Skip current event received');
     // ส่งต่อไป OBS ให้ซ่อนการแสดงทันที
     io.emit('skip-current');
+
+    // ล้างสถานะ playing items ทั้งหมด → กลับเป็น approved เพื่อเข้าคิวใหม่
+    try {
+      const result = await ImageQueue.updateMany(
+        { status: 'playing' },
+        { $set: { status: 'approved' }, $unset: { playingAt: '' } }
+      );
+      if (result.modifiedCount > 0) {
+        console.log(`[Socket.IO] Reset ${result.modifiedCount} playing items back to approved`);
+        io.emit('admin-update-queue');
+      }
+      // รีเซ็ต delay เพื่อให้ QueueWorker เล่น item ถัดไปทันที
+      nextPlayTime = 0;
+    } catch (err) {
+      console.error('[Socket.IO] Error resetting playing items:', err);
+    }
   });
 
   // Complete playing (from OBS)
@@ -2388,6 +2431,8 @@ async function completeItem(item) {
         giftItems: item.giftOrder?.items || [],
         note: item.giftOrder?.note || '',
         theme: item.textColor || 'white',
+        socialColor: item.socialColor || '#ffffff',
+        textLayout: item.textLayout || 'right',
         social: {
           type: item.socialType || null,
           name: item.socialName || null
@@ -2475,6 +2520,7 @@ async function playNextItem() {
         });
       } else {
         console.log('[QueueWorker] Sending now-playing-image event');
+        console.log('[QueueWorker] socialColor:', updated.socialColor, 'textLayout:', updated.textLayout, 'textColor:', updated.textColor);
         io.emit("now-playing-image", {
           id: updated._id.toString(),
           sender: updated.sender,
@@ -2482,7 +2528,9 @@ async function playNextItem() {
           time: updated.time,
           filePath: updated.filePath,
           text: updated.text,
-          textColor: updated.textColor,
+          textColor: updated.textColor || '#ffffff',
+          socialColor: updated.socialColor || '#ffffff',
+          textLayout: updated.textLayout || 'right',
           socialType: updated.socialType,
           socialName: updated.socialName,
           qrCodePath: updated.qrCodePath,

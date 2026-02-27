@@ -35,6 +35,46 @@
       transform: translateX(-50%) translateY(0);
     }
 
+    /* === Layout Variants === */
+    #container.layout-left {
+      flex-direction: row-reverse;
+    }
+
+    #container.layout-top {
+      flex-direction: column-reverse;
+    }
+
+    #container.layout-top #info-section {
+      flex-direction: row;
+      min-width: auto;
+    }
+
+    #container.layout-bottom {
+      flex-direction: column;
+    }
+
+    #container.layout-bottom #info-section {
+      flex-direction: row;
+      min-width: auto;
+    }
+
+    #container.layout-center {
+      position: fixed;
+      bottom: 10%;
+      left: 50%;
+    }
+
+    #container.layout-center #info-section {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: 12px;
+      z-index: 2;
+    }
+
     /* ส่วนรูปภาพ */
     #image-section {
       flex-shrink: 0;
@@ -157,7 +197,7 @@
       border: 3px solid #ffd700;
       border-radius: 24px;
       padding: 1.5rem;
-      box-shadow: 
+      box-shadow:
         0 0 60px rgba(255, 215, 0, 0.5),
         0 15px 80px rgba(0, 0, 0, 0.7);
       position: relative;
@@ -166,8 +206,15 @@
     }
 
     @keyframes cardPulse {
-      0%, 100% { box-shadow: 0 0 60px rgba(255, 215, 0, 0.5), 0 20px 80px rgba(0, 0, 0, 0.7); }
-      50% { box-shadow: 0 0 80px rgba(255, 215, 0, 0.7), 0 20px 80px rgba(0, 0, 0, 0.7); }
+
+      0%,
+      100% {
+        box-shadow: 0 0 60px rgba(255, 215, 0, 0.5), 0 20px 80px rgba(0, 0, 0, 0.7);
+      }
+
+      50% {
+        box-shadow: 0 0 80px rgba(255, 215, 0, 0.7), 0 20px 80px rgba(0, 0, 0, 0.7);
+      }
     }
 
     .gift-header {
@@ -180,8 +227,15 @@
     }
 
     @keyframes flash {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.8; }
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.8;
+      }
     }
 
     .gift-header-title {
@@ -199,8 +253,13 @@
     }
 
     @keyframes shimmer {
-      0% { background-position: 0% 50%; }
-      100% { background-position: 200% 50%; }
+      0% {
+        background-position: 0% 50%;
+      }
+
+      100% {
+        background-position: 200% 50%;
+      }
     }
 
     .gift-sparkle {
@@ -209,13 +268,28 @@
       display: inline-block;
     }
 
-    .gift-sparkle:nth-child(1) { animation-delay: 0s; }
-    .gift-sparkle:nth-child(4) { animation-delay: 1s; }
+    .gift-sparkle:nth-child(1) {
+      animation-delay: 0s;
+    }
+
+    .gift-sparkle:nth-child(4) {
+      animation-delay: 1s;
+    }
 
     @keyframes sparkle {
-      0%, 100% { transform: rotate(0deg) scale(1); }
-      25% { transform: rotate(20deg) scale(1.3); }
-      75% { transform: rotate(-20deg) scale(1.3); }
+
+      0%,
+      100% {
+        transform: rotate(0deg) scale(1);
+      }
+
+      25% {
+        transform: rotate(20deg) scale(1.3);
+      }
+
+      75% {
+        transform: rotate(-20deg) scale(1.3);
+      }
     }
 
     .gift-sender {
@@ -236,9 +310,17 @@
     }
 
     @keyframes rotateRing {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
+      0% {
+        background-position: 0% 50%;
+      }
+
+      50% {
+        background-position: 100% 50%;
+      }
+
+      100% {
+        background-position: 0% 50%;
+      }
     }
 
     .gift-avatar {
@@ -276,8 +358,15 @@
     }
 
     @keyframes namePulse {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.05); }
+
+      0%,
+      100% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.05);
+      }
     }
 
     .gift-arrow {
@@ -291,8 +380,15 @@
     }
 
     @keyframes arrowBounce {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-12px); }
+
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+
+      50% {
+        transform: translateY(-12px);
+      }
     }
 
     .gift-table {
@@ -309,21 +405,24 @@
       border-radius: 60px;
       font-size: 3.5rem;
       font-weight: 900;
-      text-shadow: 
+      text-shadow:
         0 0 25px rgba(0, 255, 255, 1),
         0 0 50px rgba(0, 255, 255, 0.8);
-      box-shadow: 
+      box-shadow:
         0 0 40px rgba(0, 255, 255, 0.6),
         inset 0 0 30px rgba(0, 255, 255, 0.2);
       animation: tablePulse 2s ease-in-out infinite;
     }
 
     @keyframes tablePulse {
-      0%, 100% { 
+
+      0%,
+      100% {
         box-shadow: 0 0 40px rgba(0, 255, 255, 0.6), inset 0 0 30px rgba(0, 255, 255, 0.2);
         transform: scale(1);
       }
-      50% { 
+
+      50% {
         box-shadow: 0 0 60px rgba(0, 255, 255, 0.9), inset 0 0 40px rgba(0, 255, 255, 0.4);
         transform: scale(1.08);
       }
@@ -336,12 +435,33 @@
       box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
     }
 
+    .gift-items-wrapper {
+      overflow: hidden;
+      margin: 1.5rem 0;
+      position: relative;
+    }
+
     .gift-items {
       display: flex;
       gap: 1.5rem;
       justify-content: center;
-      flex-wrap: wrap;
-      margin: 1.5rem 0;
+      flex-wrap: nowrap;
+    }
+
+    /* Marquee animation เมื่อมีสินค้ามากกว่า 2 ชิ้น */
+    .gift-items.marquee {
+      justify-content: flex-start;
+      animation: marqueeScroll var(--marquee-duration, 12s) linear infinite;
+    }
+
+    @keyframes marqueeScroll {
+      0% {
+        transform: translateX(0);
+      }
+
+      100% {
+        transform: translateX(-50%);
+      }
     }
 
     .gift-item {
@@ -351,6 +471,7 @@
       border-radius: 18px;
       padding: 1.2rem;
       width: 140px;
+      flex-shrink: 0;
       text-align: center;
       position: relative;
       transition: all 0.3s ease;
@@ -365,7 +486,8 @@
     .gift-item img {
       width: 100px;
       height: 100px;
-      object-fit: contain; /* เปลี่ยนจาก cover เป็น contain */
+      object-fit: contain;
+      /* เปลี่ยนจาก cover เป็น contain */
       border-radius: 12px;
       background: rgba(255, 255, 255, 0.95);
       padding: 0.2rem;
@@ -387,8 +509,15 @@
     }
 
     @keyframes qtyPulse {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.15); }
+
+      0%,
+      100% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.15);
+      }
     }
 
     .gift-item-name {
@@ -437,15 +566,22 @@
       font-size: 2.8rem;
       font-weight: 900;
       color: #00ffff;
-      text-shadow: 
+      text-shadow:
         0 0 20px rgba(0, 255, 255, 1),
         0 0 40px rgba(0, 255, 255, 0.7);
       animation: priceGlow 2s ease-in-out infinite;
     }
 
     @keyframes priceGlow {
-      0%, 100% { text-shadow: 0 0 20px rgba(0, 255, 255, 1), 0 0 40px rgba(0, 255, 255, 0.7); }
-      50% { text-shadow: 0 0 30px rgba(0, 255, 255, 1), 0 0 60px rgba(0, 255, 255, 0.9); }
+
+      0%,
+      100% {
+        text-shadow: 0 0 20px rgba(0, 255, 255, 1), 0 0 40px rgba(0, 255, 255, 0.7);
+      }
+
+      50% {
+        text-shadow: 0 0 30px rgba(0, 255, 255, 1), 0 0 60px rgba(0, 255, 255, 0.9);
+      }
     }
   </style>
 </head>
@@ -510,7 +646,9 @@
       <div class="gift-divider"></div>
 
       <!-- รายการสินค้า -->
-      <div class="gift-items" id="gift-items"></div>
+      <div class="gift-items-wrapper">
+        <div class="gift-items" id="gift-items"></div>
+      </div>
 
       <!-- เส้นแบ่ง -->
       <div class="gift-divider"></div>
@@ -569,6 +707,7 @@
     let countdownInterval = null; // เก็บ interval สำหรับ countdown
     let isPaused = false; // สถานะหยุดชั่วคราว
     let remainingTime = 0; // เวลาที่เหลืออยู่เมื่อหยุด
+    let currentId = null; // ID ของ item ที่กำลังเล่นอยู่
 
     const logoMap = {
       ig: `${API_BASE_URL}/data-icon/ig-logo.png`,
@@ -593,8 +732,12 @@
       }
       isPaused = false;
 
+      // Track current playing item ID
+      currentId = payload.id || null;
+
       const {
         sender, price, time, filePath, text, textColor,
+        socialColor, textLayout,
         socialType, socialName: socName, qrCodePath,
         width, height, duration, seconds, remainingSeconds, timeLeft,
         playingAt // ใช้เพื่อ Sync เวลากับ Server
@@ -646,9 +789,15 @@
         if (logoSrc) {
           socialLogo.src = logoSrc;
           socialName.textContent = socName;
+          // ใช้ socialColor ถ้ามี
+          if (socialColor && socialColor !== '#ffffff' && socialColor !== 'white') {
+            socialName.style.color = socialColor;
+          } else {
+            socialName.style.color = '';
+          }
           socialContainer.style.display = 'flex';
           hasContent = true;
-          console.log('[Debug] Social displayed');
+          console.log('[Debug] Social displayed with color:', socialColor);
         } else {
           console.warn('[Debug] No logo found for:', socialType);
         }
@@ -660,11 +809,24 @@
       // แสดงข้อความ
       if (text) {
         textEl.textContent = text;
-        textEl.className = textColor === 'black' ? 'black' : '';
+        // ใช้ textColor เป็น hex color โดยตรง
+        if (textColor && textColor.startsWith('#')) {
+          textEl.className = '';
+          textEl.style.color = textColor;
+        } else {
+          textEl.className = textColor === 'black' ? 'black' : '';
+          textEl.style.color = '';
+        }
         textEl.style.display = 'block';
         hasContent = true;
       } else {
         textEl.style.display = 'none';
+      }
+
+      // ใช้ textLayout เปลี่ยน layout ของ container
+      container.className = '';
+      if (textLayout && textLayout !== 'right') {
+        container.classList.add('layout-' + textLayout);
       }
 
       // แสดง QR Code
@@ -697,7 +859,7 @@
         // ใช้ playingAt จาก server ถ้ามี เพื่อความแม่นยำ Sync กัน
         const timeCandidate = [time, duration, seconds, remainingSeconds, timeLeft].find(v => v != null && !isNaN(v));
         const durationSec = Number(timeCandidate || 10);
-        
+
         let startTime = Date.now();
         if (playingAt) {
           startTime = new Date(playingAt).getTime();
@@ -724,13 +886,13 @@
             timerEl.textContent = "0:00";
             // Check Expiry (allow 2s buffer for network latency)
             if (leftSec < -2) {
-               clearInterval(countdownInterval);
-               container.classList.remove('show');
-               timerEl.classList.remove('show');
-               if (payload.id) {
-                 // แจ้ง server ว่าจบแล้ว (แม้ server จะ auto-complete เองก็ตาม)
-                 // socket.emit('complete-playing', payload.id); 
-               }
+              clearInterval(countdownInterval);
+              container.classList.remove('show');
+              timerEl.classList.remove('show');
+              if (payload.id) {
+                // แจ้ง server ว่าจบแล้ว (แม้ server จะ auto-complete เองก็ตาม)
+                // socket.emit('complete-playing', payload.id); 
+              }
             }
           }
         };
@@ -748,19 +910,19 @@
     socket.on('pause-display', (data) => {
       console.log('[OBS] Pause display received:', data);
       isPaused = true;
-      
+
       // อัปเดตการนับถอยหลัง
       const timerEl = document.getElementById('countdown-timer');
-      
+
       // ถ้าเป็นโหมดนับถอยหลังรอคิว (Auto Delay) ให้ซ่อนการแสดงผลทั้งหมด
       if (data && data.isCountingDown) {
-         container.classList.remove('show');
-         if (timerEl) timerEl.classList.remove('show');
-      } 
+        container.classList.remove('show');
+        if (timerEl) timerEl.classList.remove('show');
+      }
       // ถ้าเป็นการหยุด manual (active pause) อาจจะแสดง timer หรือไม่ก็ได้ (ตามเดิมคือไม่แสดงอะไร แค่หยุด)
       else if (timerEl && data && data.remaining !== undefined) {
-         // timerEl.textContent = ...; // User requested NO countdown on OBS
-         // So we do nothing visual here, just keep state paused
+        // timerEl.textContent = ...; // User requested NO countdown on OBS
+        // So we do nothing visual here, just keep state paused
       }
     });
 
@@ -778,12 +940,20 @@
       // ซ่อนการแสดงทันที
       clearTimeout(hideTimer);
       clearInterval(countdownInterval);
+      clearTimeout(giftHideTimer);
       container.classList.remove('show');
       giftContainer.classList.remove('show');
       const timerEl = document.getElementById('countdown-timer');
       timerEl.classList.remove('show');
       isPaused = false;
       remainingTime = 0;
+
+      // แจ้ง server ให้เปลี่ยนสถานะ item เป็น completed เพื่อไม่ให้ค้างใน queue
+      if (currentId) {
+        console.log('[OBS] Sending complete-playing for skipped item:', currentId);
+        socket.emit('complete-playing', currentId);
+        currentId = null;
+      }
     });
 
 
@@ -801,6 +971,9 @@
 
     function showGift(payload = {}) {
       console.log('[Gift Overlay] Received:', payload);
+
+      // Track current playing item ID
+      currentId = payload.id || null;
 
       // ซ่อน container เก่า (รูปภาพ/ข้อความ)
       container.classList.remove('show');
@@ -825,7 +998,7 @@
 
       // ตั้งค่าข้อมูลผู้ส่ง
       giftSenderName.textContent = `⭐ คุณ ${sender} ⭐`;
-      
+
       // ตั้งค่ารูปโปรไฟล์
       if (avatar) {
         // รูปโปรไฟล์มาจาก User Backend (port 4000)
@@ -839,7 +1012,7 @@
         avatarImg.style.width = '100%';
         avatarImg.style.height = '100%';
         avatarImg.style.objectFit = 'cover';
-        
+
         avatarImg.onerror = () => {
           console.warn('[OBS] Avatar load failed, falling back to initial.');
           giftAvatar.innerHTML = `<span class="gift-avatar-initial">${sender.charAt(0).toUpperCase()}</span>`;
@@ -863,25 +1036,32 @@
             ไม่มีรายการสินค้า
           </div>
         `;
+        giftItems.classList.remove('marquee');
       } else {
         console.log('[Gift] Rendering', items.length, 'items');
-        giftItems.innerHTML = items.map((item, idx) => {
+
+        const renderItem = (item, idx) => {
           console.log(`[Gift] Item ${idx}:`, item);
-          
-          // Logic ค้นหารูปภาพเหมือนใน Admin
-          let itemImage = item.image;
+
+          // Logic ค้นหารูปภาพ: ลองหลายวิธี
+          let itemImage = item.image || item.imageUrl;
           if (!itemImage && giftSettingsItems.length > 0) {
-            const setting = giftSettingsItems.find(s => s.id === item.id);
-            console.log(`[Gift] Looking for id ${item.id}, found setting:`, setting);
+            // 1. ค้นหาด้วย id
+            let setting = giftSettingsItems.find(s => s.id === item.id);
+            // 2. ถ้าไม่เจอ ลองค้นหาด้วยชื่อ
+            if (!setting) {
+              setting = giftSettingsItems.find(s => s.name === item.name);
+            }
+            console.log(`[Gift] Looking for id=${item.id} name=${item.name}, found setting:`, setting);
             if (setting && setting.imageUrl) {
               itemImage = setting.imageUrl;
               console.log('[Gift] Using image from settings:', itemImage);
             }
           }
-          
-          // ถ้ามีรูป
-          const imgHtml = itemImage 
-            ? `<img src="${(itemImage.startsWith && itemImage.startsWith('http')) ? itemImage : API_BASE_URL + itemImage}" alt="${item.name}" />` 
+
+          // สร้าง HTML รูปภาพ
+          const imgHtml = itemImage
+            ? `<img src="${(itemImage.startsWith && itemImage.startsWith('http')) ? itemImage : API_BASE_URL + itemImage}" alt="${item.name}" onerror="this.outerHTML='<div style=\'width:100px;height:100px;background:rgba(255,255,255,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 0.5rem;font-size:2rem;color:#777;\'>?</div>'" />`
             : `<div style="width:100px;height:100px;background:rgba(255,255,255,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 0.5rem;font-size:2rem;color:#777;">?</div>`;
 
           return `
@@ -889,8 +1069,24 @@
             ${imgHtml}
             <span class="gift-item-qty">x${item.quantity}</span>
             <div class="gift-item-name">${item.name}</div>
-          </div>
-        `}).join('');
+          </div>`;
+        };
+
+        // ถ้ามากกว่า 2 items → ใช้ marquee (แสดงแถวเดียวเลื่อนซ้าย)
+        if (items.length > 2) {
+          // Duplicate items เพื่อให้ marquee ต่อเนื่อง
+          const itemsHtml = items.map(renderItem).join('');
+          giftItems.innerHTML = itemsHtml + itemsHtml; // ซ้ำ 2 ชุดเพื่อให้วนต่อเนื่อง
+          giftItems.classList.add('marquee');
+          // ปรับความเร็วตามจำนวน items (ยิ่งเยอะยิ่งนาน)
+          const duration = Math.max(8, items.length * 4);
+          giftItems.style.setProperty('--marquee-duration', duration + 's');
+        } else {
+          // 1-2 items → แสดงปกติตรงกลาง
+          giftItems.innerHTML = items.map(renderItem).join('');
+          giftItems.classList.remove('marquee');
+          giftItems.style.removeProperty('--marquee-duration');
+        }
       }
 
       // ตั้งค่าหมายเหตุ
@@ -922,9 +1118,11 @@
   <style>
     #wheel-overlay {
       position: fixed;
-      top: 0; left: 0;
-      width: 100vw; height: 100vh;
-      background: rgba(0,0,0,0.8);
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.8);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -934,24 +1132,28 @@
       pointer-events: none;
       transition: opacity 0.5s;
     }
+
     #wheel-overlay.show {
       opacity: 1;
       pointer-events: auto;
     }
+
     .wheel-main-container {
       position: relative;
       width: 600px;
       height: 600px;
     }
+
     .obs-wheel-svg {
       width: 100%;
       height: 100%;
       border-radius: 50%;
-      box-shadow: 0 0 50px rgba(0,0,0,0.5);
+      box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
       border: 10px solid white;
       background: white;
-      transition: transform 4s cubic-bezier(.17,.67,.83,.67);
+      transition: transform 4s cubic-bezier(.17, .67, .83, .67);
     }
+
     .wheel-arrow {
       position: absolute;
       top: -20px;
@@ -960,18 +1162,24 @@
       width: 60px;
       height: 60px;
       z-index: 10;
-      filter: drop-shadow(0 4px 4px rgba(0,0,0,0.3));
+      filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.3));
     }
-    
+
     /* Countdown Overlay */
     #wheel-countdown-container {
       position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
-      display: flex; align-items: center; justify-content: center;
-      background: rgba(0,0,0,0.5);
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.5);
       z-index: 20;
       backdrop-filter: blur(5px);
     }
+
     .countdown-number {
       font-size: 15rem;
       font-weight: 900;
@@ -979,37 +1187,53 @@
       text-shadow: 0 0 30px #f59e0b, 0 0 60px #f59e0b;
       animation: pulse-count 1s infinite;
     }
+
     @keyframes pulse-count {
-      0% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.2); opacity: 0.8; }
-      100% { transform: scale(1); opacity: 1; }
+      0% {
+        transform: scale(1);
+        opacity: 1;
+      }
+
+      50% {
+        transform: scale(1.2);
+        opacity: 0.8;
+      }
+
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
     }
 
     /* Winner Popup */
     #wheel-winner-modal {
       position: fixed;
-      top: 50%; left: 50%;
+      top: 50%;
+      left: 50%;
       transform: translate(-50%, -50%) scale(0.5);
       background: white;
       padding: 40px 60px;
       border-radius: 30px;
       text-align: center;
-      box-shadow: 0 0 100px rgba(255,215,0,0.8);
+      box-shadow: 0 0 100px rgba(255, 215, 0, 0.8);
       z-index: 100;
       opacity: 0;
       transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       border: 8px solid #f59e0b;
       min-width: 500px;
     }
+
     #wheel-winner-modal.show {
       transform: translate(-50%, -50%) scale(1);
       opacity: 1;
     }
+
     .winner-title {
       font-size: 3rem;
       color: #333;
       margin-bottom: 20px;
     }
+
     .winner-name {
       font-size: 5rem;
       font-weight: 800;
@@ -1017,16 +1241,22 @@
       text-shadow: 2px 2px 0px #fff, 0 0 20px rgba(245, 158, 11, 0.5);
       margin-bottom: 20px;
     }
+
     .winner-reward {
       font-size: 2.5rem;
       color: #10b981;
       font-weight: bold;
     }
-    
+
     /* Auto Hide Animation */
     @keyframes fadeOutWheel {
-      0% { opacity: 1; }
-      100% { opacity: 0; }
+      0% {
+        opacity: 1;
+      }
+
+      100% {
+        opacity: 0;
+      }
     }
   </style>
 
@@ -1035,11 +1265,11 @@
     <div class="wheel-main-container">
       <!-- ลูกศร -->
       <svg class="wheel-arrow" viewBox="0 0 36 36">
-        <polygon points="18,24 28,0 18,6 8,0" fill="#fbbf24" stroke="#eab308" stroke-width="2"/>
+        <polygon points="18,24 28,0 18,6 8,0" fill="#fbbf24" stroke="#eab308" stroke-width="2" />
       </svg>
       <!-- ส่วนแสดงวงล้อ SVG -->
       <div id="obs-wheel-svg-container" class="obs-wheel-svg"></div>
-      
+
       <!-- นับถอยหลัง -->
       <div id="wheel-countdown-container" style="display:none;">
         <div id="wheel-countdown-text" class="countdown-number">10</div>
@@ -1072,10 +1302,10 @@
     function generateWheelSVG(segments) {
       const segs = segments.length;
       const arc = 2 * Math.PI / segs;
-      const radius = 160; 
+      const radius = 160;
       const viewBox = 360;
       const center = viewBox / 2;
-      
+
       let paths = segments.map((seg, i) => {
         const startAngle = i * arc - Math.PI / 2;
         const endAngle = (i + 1) * arc - Math.PI / 2;
@@ -1085,7 +1315,7 @@
         const y2 = radius * Math.sin(endAngle);
         const largeArc = arc > Math.PI ? 1 : 0;
         const pathData = `M 0 0 L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`;
-        
+
         // หมุนข้อความ
         const angle = startAngle + arc / 2;
         const textRadius = radius * 0.65;
