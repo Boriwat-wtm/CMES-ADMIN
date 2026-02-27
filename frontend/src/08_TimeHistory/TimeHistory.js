@@ -1,22 +1,30 @@
-// นำเข้า React hooks และ libraries ที่จำเป็น
-import React, { useEffect, useState, useRef } from "react";
-import { io } from "socket.io-client"; // สำหรับเชื่อมต่อ Real-time กับ Server
+import React, { useEffect, useState, useContext } from "react";
 import { Link } from "react-router-dom"; // สำหรับการนำทางกลับหน้า Home
-import { REALTIME_URL } from "./config/apiConfig"; // URL ของ Realtime Server
+import { API_BASE_URL } from "../config/apiConfig"; // ใช้ API_BASE_URL จาก config
+import { ShopContext } from "../contexts/ShopContext"; // 🔧 Multi-tenant: นำเข้า ShopContext สำหรับจัดการ socket และ shopId
 import "./TimeHistory.css"; // ไฟล์ CSS สำหรับตกแต่งหน้านี้
 
 // Component หน้าประวัติการตั้งเวลา - แสดงประวัติการตั้งค่าทั้งหมด (ข้อความ, รูปภาพ, วันเกิด)
 function TimeHistory() {
   // ===== State Management =====
   const [history, setHistory] = useState([]); // เก็บข้อมูลประวัติการตั้งค่าทั้งหมด
-  const socketRef = useRef(null); // Reference สำหรับ Socket.IO connection
+  // 🔧 Multi-tenant: ใช้ socket จาก ShopContext แทนการสร้าง connection เอง
+  const { socket, isSocketConnected } = useContext(ShopContext);
 
   // ===== Effect Hook: ดึงข้อมูลประวัติและตั้งค่า Real-time Connection =====
   useEffect(() => {
     // ฟังก์ชันดึงข้อมูลประวัติจาก API
     const fetchHistory = async () => {
       try {
-        const response = await fetch(`${REALTIME_URL}/api/settings-history`);
+        const storedShopId = localStorage.getItem('shopId') || '';
+        const adminId = localStorage.getItem('adminId') || '';
+        const response = await fetch(`${API_BASE_URL}/api/time-history`, {
+          headers: {
+            'Content-Type': 'application/json',
+            'x-shop-id': storedShopId,
+            'x-admin-id': adminId,
+          }
+        });
         if (response.ok) {
           const data = await response.json();
           console.log("[TimeHistory] Fetched history:", data);
@@ -32,20 +40,28 @@ function TimeHistory() {
     // ตั้งเวลาดึงข้อมูลใหม่ทุกๆ 5 วินาที
     const interval = setInterval(fetchHistory, 5000);
 
-    // เชื่อมต่อกับ Realtime Server ผ่าน Socket.IO
-    socketRef.current = io(REALTIME_URL);
+    // 🔧 Multi-tenant: ตรวจสอบว่า socket จาก Context พร้อมใช้งาน
+    if (!socket) {
+      console.log("[TimeHistory] Socket not available yet");
+      return () => clearInterval(interval);
+    }
+
     // รับฟัง event "status" จาก Server เพื่ออัปเดตข้อมูลทันที
-    socketRef.current.on("status", (data) => {
+    socket.on("status", (data) => {
       console.log("[TimeHistory] Received status event, refetching...");
       fetchHistory(); // ดึงข้อมูลใหม่เมื่อมีการเปลี่ยนแปลง
     });
 
-    // Cleanup function: ยกเลิก interval และตัดการเชื่อมต่อ Socket เมื่อ Component ถูก unmount
+    // Cleanup function: ยกเลิก interval และ socket listeners
     return () => {
       clearInterval(interval);
-      socketRef.current.disconnect();
+      // 🔧 Multi-tenant: ตรวจสอบว่า socket ยังมีอยู่ก่อน cleanup (Context จัดการ disconnect)
+      if (socket) {
+        socket.off("status");
+      }
     };
-  }, []);
+    // 🔧 Multi-tenant: เพิ่ม socket ใน dependencies เพื่อ re-subscribe เมื่อ socket เปลี่ยน
+  }, [socket]);
 
   // ===== กรองข้อมูลประวัติตามประเภท (Mode) =====
   const textHistory = history.filter((item) => item.mode === "text"); // ประวัติการตั้งค่าข้อความ
@@ -54,8 +70,13 @@ function TimeHistory() {
 
   // ===== ฟังก์ชัน: ลบประวัติตาม ID =====
   const handleRemove = (id) => {
-    // ส่ง event removeStart ไปยัง Realtime Server เพื่อลบข้อมูล
-    socketRef.current.emit("removeSetting", id);
+    // ส่ง event removeSetting ไปยัง Realtime Server เพื่อลบข้อมูล
+    // 🔧 Multi-tenant: ตรวจสอบว่า socket พร้อมใช้งานก่อน emit
+    if (socket) {
+      socket.emit("removeSetting", id);
+    } else {
+      console.warn("[TimeHistory] Cannot remove - socket not connected");
+    }
   };
 
   // ===== Render UI =====

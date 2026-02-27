@@ -2,9 +2,13 @@ import mongoose from "mongoose";
 
 const giftSettingSchema = new mongoose.Schema(
   {
+    shopId: {
+      type: String,
+      required: true,
+      index: true
+    },
     giftId: {
       type: String,
-      unique: true,
       required: true,
     },
     giftName: {
@@ -33,6 +37,9 @@ const giftSettingSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Compound unique index: giftId ต้องไม่ซ้ำภายใน shop เดียวกัน
+giftSettingSchema.index({ shopId: 1, giftId: 1 }, { unique: true });
 
 const GiftSetting = mongoose.model("GiftSetting", giftSettingSchema);
 

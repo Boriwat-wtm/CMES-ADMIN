@@ -1,10 +1,14 @@
 import mongoose from "mongoose";
 
 const timeHistorySchema = new mongoose.Schema({
-    id: {
+    shopId: {
         type: String,
         required: true,
-        unique: true
+        index: true
+    },
+    id: {
+        type: String,
+        required: true
     },
     mode: {
         type: String, // 'text', 'image', 'birthday'
@@ -19,6 +23,9 @@ const timeHistorySchema = new mongoose.Schema({
         default: Date.now
     }
 });
+
+// Compound unique index: แต่ละ shop มี id ไม่ซ้ำกัน
+timeHistorySchema.index({ shopId: 1, id: 1 }, { unique: true });
 
 const TimeHistory = mongoose.model("TimeHistory", timeHistorySchema);
 

@@ -4,7 +4,7 @@
  */
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { API_BASE_URL, REALTIME_URL } from "./config/apiConfig";
+import { API_BASE_URL, REALTIME_URL } from "../config/apiConfig";
 import "./Giftsetting.css";
 
 const API_BASE = API_BASE_URL;
@@ -300,10 +300,10 @@ function Giftsetting() {
 								<label>ราคา (บาท)</label>
 								<input
 									type="number"
-								min="0"
-								value={form.price}
-								onChange={(e) => handleInputChange("price", e.target.value)}
-								placeholder="เช่น 150 (ใส่ 0 สำหรับแจกฟรี)"
+									min="0"
+									value={form.price}
+									onChange={(e) => handleInputChange("price", e.target.value)}
+									placeholder="เช่น 150 (ใส่ 0 สำหรับแจกฟรี)"
 								/>
 							</div>
 							<div className="form-field file-field">
@@ -367,7 +367,7 @@ function Giftsetting() {
 										</div>
 									</div>
 									<div className="gift-row-actions">
-									<span className="price">{item.price === 0 ? 'ฟรี' : `฿${item.price}`}</span>
+										<span className="price">{item.price === 0 ? 'ฟรี' : `฿${item.price}`}</span>
 										<button className="ghost-button" onClick={() => handleDelete(item.id)}>
 											ลบ
 										</button>

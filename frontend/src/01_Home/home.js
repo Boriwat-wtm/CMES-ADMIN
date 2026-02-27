@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import { io } from "socket.io-client";
-import { API_BASE_URL, REALTIME_URL } from "./config/apiConfig";
+import React, { useState, useEffect, useCallback, useRef, useContext } from "react";
+import { useNavigate } from "react-router-dom";
+import { ShopContext } from "../contexts/ShopContext"; // 🔥 Multi-tenant Context
+import { API_BASE_URL, REALTIME_URL } from "../config/apiConfig";
 import "./home.css";
+import OBSControl from "../10_OBSControl/OBSControl";
 
-// เชื่อมต่อกับ Realtime Server สำหรับการอัพเดทแบบ Real-time
-const socket = io(REALTIME_URL);
+// 🔥 ไม่สร้าง socket ที่นี่แล้ว - จะใช้จาก Context
+// const socket = io(REALTIME_URL); // ❌ ลบบรรทัดนี้
 
 // จำนวนอันดับเริ่มต้นที่จะแสดงในหน้าหลัก
 const DEFAULT_RANK_LIMIT = 10;
@@ -29,6 +31,10 @@ const getCurrentMonthStr = () => getTodayStr().slice(0, 7); // YYYY-MM (เว�
 const getCurrentYearStr = () => getTodayStr().slice(0, 4); // YYYY (เวลาไทย)
 
 function Home() {
+  // 🔥 ดึง socket และ shopId จาก Context
+  const { socket, shopId, isSocketConnected, logout } = useContext(ShopContext);
+  const navigate = useNavigate();
+
   // ===== State สำหรับการควบคุมระบบ =====
   const [systemOn, setSystemOn] = useState(true); // สถานะเปิด/ปิดระบบทั้งหมด
   const [enableImage, setEnableImage] = useState(true); // เปิด/ปิดฟังก์ชันส่งรูปภาพ
@@ -70,6 +76,43 @@ function Home() {
   const adminId = localStorage.getItem("adminId") || "default-admin"; // รหัสร้านของ Admin
   const adminUsername = localStorage.getItem("adminUsername") || "Admin"; // ชื่อผู้ใช้ Admin
 
+  // ===== Helper: fetch พร้อม auth headers =====
+  const authFetch = (url, options = {}) => {
+    const storedShopId = shopId || localStorage.getItem("shopId") || "shop1";
+    return fetch(url, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        "x-shop-id": storedShopId,
+        "x-admin-id": adminId,
+        ...(options.headers || {}),
+      },
+    });
+  };
+
+  // ===== Fetch Shop Profile =====
+  const [shopProfile, setShopProfile] = useState({ name: adminUsername, logo: null });
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await authFetch(`${API_BASE_URL}/api/shop/profile`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.shop) {
+            setShopProfile({
+              name: data.shop.name || adminUsername,
+              logo: data.shop.logo || null
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("[Home] Failed to load shop profile:", err.message);
+      }
+    };
+    fetchProfile();
+  }, [shopId]);
+
   // ===== State สำหรับปุ่ม Copy OBS Links =====
   const [copiedImage, setCopiedImage] = useState(false); // สถานะคัดลอกลิงก์ Image Overlay
   const [copiedRanking, setCopiedRanking] = useState(false); // สถานะคัดลอกลิงก์ Ranking Overlay
@@ -78,6 +121,9 @@ function Home() {
   // ===== State สำหรับ QR Code Modal =====
   const [showQrModal, setShowQrModal] = useState(false); // เปิด/ปิด Modal QR Code
   const [qrCodeUrl, setQrCodeUrl] = useState(""); // URL ของ QR Code
+
+  // ===== State สำหรับ OBS Links Modal =====
+  const [showObsModal, setShowObsModal] = useState(false);
 
   // ===== State สำหรับ Perks Modal (สิทธิพิเศษ) =====
   const [showPerksModal, setShowPerksModal] = useState(false); // เปิด/ปิด Modal สิทธิพิเศษ
@@ -90,6 +136,45 @@ function Home() {
   const [editingPerkIndex, setEditingPerkIndex] = useState(null); // Index ของสิทธิพิเศษที่กำลังแก้ไข
   const [perkInputValue, setPerkInputValue] = useState(""); // ค่าที่กรอกในช่อง input
   const [savingPerks, setSavingPerks] = useState(false); // สถานะกำลังบันทึกสิทธิพิเศษ
+
+  // === Income Stats State ===
+  const [showIncomeStats, setShowIncomeStats] = useState(false);
+  const [incomeStartDate, setIncomeStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d.toISOString().split('T')[0];
+  });
+  const [incomeEndDate, setIncomeEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [incomeStats, setIncomeStats] = useState(null);
+  const [incomeLoading, setIncomeLoading] = useState(false);
+  const [incomeError, setIncomeError] = useState("");
+
+  const fetchIncomeStats = async () => {
+    setIncomeLoading(true);
+    setIncomeError("");
+    try {
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(`${API_BASE_URL}/api/admin/income-stats?startDate=${incomeStartDate}&endDate=${incomeEndDate}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIncomeStats(data.data);
+      } else {
+        setIncomeError(data.message || "Failed to fetch stats");
+      }
+    } catch (err) {
+      setIncomeError("Error connecting to server");
+    } finally {
+      setIncomeLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showIncomeStats) {
+      fetchIncomeStats();
+    }
+  }, [showIncomeStats, incomeStartDate, incomeEndDate]);
 
   // ===== State สำหรับ Card Reorder + Hide/Show =====
   const DEFAULT_CARD_ORDER = ['feature', 'package', 'vip'];
@@ -157,7 +242,13 @@ function Home() {
 
   // ===== useEffect: โหลดการตั้งค่าระบบจาก Socket.IO =====
   // รับการตั้งค่าระบบแบบ Real-time และอัพเดท state
+  // 🔥 เพิ่ม condition check socket
   useEffect(() => {
+    if (!socket) {
+      console.log('[Home] Socket not ready, skipping config setup');
+      return;
+    }
+
     socket.on("status", (config) => {
       setSystemOn(config.systemOn);
       setEnableImage(config.enableImage);
@@ -167,18 +258,24 @@ function Home() {
     });
     socket.emit("getConfig");
     return () => socket.off("status");
-  }, []);
+  }, [socket]); // 🔥 เพิ่ม socket เป็น dependency
 
   // ===== useEffect: รับฟังการเปลี่ยนแปลงประเภทอันดับที่แสดงต่อสาธารณะ =====
   // เมื่อ Admin เปลี่ยนประเภทอันดับที่แสดงบนหน้าจอผู้ใช้
+  // 🔥 เพิ่ม condition check socket
   useEffect(() => {
+    if (!socket) {
+      console.log('[Home] Socket not ready, skipping ranking type setup');
+      return;
+    }
+
     socket.on("publicRankingTypeUpdated", (data) => {
       console.log("[Admin] Public ranking type updated:", data.type);
       setPublicRankingType(data.type);
     });
 
     return () => socket.off("publicRankingTypeUpdated");
-  }, []);
+  }, [socket]); // 🔥 เพิ่ม socket เป็น dependency
 
   // ===== ฟังก์ชัน: โหลดข้อมูลอันดับ Top 10 =====
   // silent = true จะไม่แสดง loading indicator (ใช้เวลารีเฟรช)
@@ -188,6 +285,7 @@ function Home() {
 
     try {
       setRankError("");
+<<<<<<< HEAD:frontend/src/home.js
       // สร้าง query params ตาม filter ที่เลือก
       const params = new URLSearchParams({
         limit: String(rankLimit),
@@ -198,6 +296,9 @@ function Home() {
       if (rankingType === "alltime" && selectedYear) params.set("year", selectedYear);
 
       const res = await fetch(`${API_BASE_URL}/api/rankings?${params}`);
+=======
+      const res = await authFetch(`${API_BASE_URL}/api/rankings?limit=${RANK_LIMIT}&type=${rankingType}`);
+>>>>>>> Mutilink_OBS:frontend/src/01_Home/home.js
       if (!res.ok) throw new Error("FAILED");
       const data = await res.json();
       if (!data.success) throw new Error("FAILED");
@@ -253,7 +354,7 @@ function Home() {
   // ===== ฟังก์ชัน: โหลดยอดใช้จ่ายขั้นต่ำสำหรับวันเกิด =====
   const loadBirthdayRequirement = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/config/birthday-requirement`);
+      const res = await authFetch(`${API_BASE_URL}/api/config/birthday-requirement`);
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
@@ -268,6 +369,8 @@ function Home() {
   // ===== ฟังก์ชัน: เปิด/ปิดระบบทั้งหมด =====
   // เมื่อปิดระบบ จะปิดฟังก์ชันทั้งหมด / เมื่อเปิดจะเปิดฟังก์ชันทั้งหมด
   const handleToggleSystem = () => {
+    if (!socket) return; // 🔥 Check socket
+
     const newStatus = !systemOn;
     setSystemOn(newStatus);
 
@@ -300,6 +403,8 @@ function Home() {
 
   // ===== ฟังก์ชัน: เปิด/ปิดฟังก์ชันส่งรูปภาพ =====
   const handleToggleImage = () => {
+    if (!socket) return; // 🔥 Check socket
+
     const newStatus = !enableImage;
     setEnableImage(newStatus);
     socket.emit("adminUpdateConfig", {
@@ -313,6 +418,8 @@ function Home() {
 
   // ===== ฟังก์ชัน: เปิด/ปิดฟังก์ชันข้อความ =====
   const handleToggleText = () => {
+    if (!socket) return; // 🔥 Check socket
+
     const newStatus = !enableText;
     setEnableText(newStatus);
     socket.emit("adminUpdateConfig", {
@@ -326,6 +433,8 @@ function Home() {
 
   // ===== ฟังก์ชัน: เปิด/ปิดฟังก์ชันส่งของขวัญ =====
   const handleToggleGift = () => {
+    if (!socket) return; // 🔥 Check socket
+
     const newStatus = !enableGift;
     setEnableGift(newStatus);
     socket.emit("adminUpdateConfig", {
@@ -339,6 +448,8 @@ function Home() {
 
   // ===== ฟังก์ชัน: เปิด/ปิดฟังก์ชันอวยพรวันเกิด =====
   const handleToggleBirthday = () => {
+    if (!socket) return; // 🔥 Check socket
+
     const newStatus = !enableBirthday;
     setEnableBirthday(newStatus);
     socket.emit("adminUpdateConfig", {
@@ -359,9 +470,8 @@ function Home() {
     }
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/config/birthday-requirement`, {
+      const res = await authFetch(`${API_BASE_URL}/api/config/birthday-requirement`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ birthdaySpendingRequirement: requirement })
       });
 
@@ -380,7 +490,7 @@ function Home() {
   useEffect(() => {
     const loadPerks = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/config/perks`);
+        const res = await authFetch(`${API_BASE_URL}/api/config/perks`);
         if (res.ok) {
           const data = await res.json();
           if (data.success && data.perks && data.perks.length > 0) {
@@ -460,17 +570,19 @@ function Home() {
 
     setSavingPerks(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/config/perks`, {
+      const res = await authFetch(`${API_BASE_URL}/api/config/perks`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ perks })
       });
 
       if (res.ok) {
         // Broadcast perks update to all users via Socket.IO
-        console.log("[Admin] 🔥 Broadcasting perks update via Socket.IO:", perks.length, "items");
-        socket.emit("adminUpdatePerks", { perks });
-        console.log("[Admin] ✅ Socket emitted: adminUpdatePerks");
+        // 🔥 Check socket before emit
+        if (socket) {
+          console.log("[Admin] 🔥 Broadcasting perks update via Socket.IO:", perks.length, "items");
+          socket.emit("adminUpdatePerks", { perks });
+          console.log("[Admin] ✅ Socket emitted: adminUpdatePerks");
+        }
         alert("✅ บันทึกสิทธิพิเศษสำเร็จ\n\nการเปลี่ยนแปลงจะแสดงแบบ Real-time บนหน้า User ทันที");
         handleClosePerksModal();
       } else {
@@ -508,7 +620,10 @@ function Home() {
       price: mode === "birthday" ? 0 : price,
     };
 
-    socket.emit("addSetting", packageData);
+    // 🔥 Check socket before emit
+    if (socket) {
+      socket.emit("addSetting", packageData);
+    }
     setMinute("");
     setSecond("");
     setPrice("");
@@ -518,13 +633,16 @@ function Home() {
   // ===== ฟังก์ชัน: กำหนดประเภทอันดับที่จะแสดงบนหน้าจอผู้ใช้ =====
   // Broadcast ไปยังทุกผู้ใช้แบบ Real-time
   const handleSetPublicRankingType = (type) => {
+    if (!socket) return; // 🔥 Check socket
     console.log("[Admin] Broadcasting public ranking type:", type);
     socket.emit("setPublicRankingType", { type });
   };
 
   // ===== ฟังก์ชัน: สร้าง QR Code สำหรับลูกค้าสแกนเข้าระบบ =====
   const generateQRCode = () => {
-    const userAppUrl = `https://cmesuserfrontend.vercel.app/?shopId=${adminId}`;
+    // 🔥 ใช้ shopId แทน adminId สำหรับ Multi-tenant
+    const shopParam = shopId || localStorage.getItem('shopId') || 'CMES ADMIN';
+    const userAppUrl = `${window.location.origin.replace(':3001', ':3000')}/?shopId=${shopParam}`;
     const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(userAppUrl)}&format=png&ecc=H`;
     setQrCodeUrl(qrApiUrl);
     setShowQrModal(true);
@@ -539,7 +657,7 @@ function Home() {
     setAllRankError("");
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/rankings?limit=500&type=${rankingType}`);
+      const res = await authFetch(`${API_BASE_URL}/api/rankings?limit=500&type=${rankingType}`);
       if (!res.ok) throw new Error("FAILED");
       const data = await res.json();
       if (!data.success) throw new Error("FAILED");
@@ -568,7 +686,12 @@ function Home() {
       {/* ===== Header - แสดงชื่อระบบและเมนูนำทาง ===== */}
       <header className="admin-header-minimal">
         <div className="brand-minimal">
-          <span className="brand-title">CMES ADMIN</span>
+          <div className="brand-title-container" title={shopId || "CMES ADMIN"}>
+            <div className={`brand-title-content ${(shopId || "CMES ADMIN").length > 15 ? 'marquee' : ''}`}>
+              <span className="brand-title">{shopId || "CMES ADMIN"}</span>
+              {(shopId || "CMES ADMIN").length > 15 && <span className="brand-title">{shopId || "CMES ADMIN"}</span>}
+            </div>
+          </div>
         </div>
         <nav className="nav-minimal">
           <a href="/TimeHistory">ประวัติการตั้งเวลา</a>
@@ -577,7 +700,72 @@ function Home() {
           <a href="/check-history">ประวัติการตรวจสอบ</a>
           <a href="/lucky-wheel">วงล้อเสี่ยงดวง</a>
           <a href="/gift-setting">ตั้งค่าส่งของขวัญ</a>
+          <a href="#" onClick={(e) => { e.preventDefault(); setShowObsModal(true); }}>🎥 OBS Links</a>
         </nav>
+        {/* Grouping Avatar and QR Code Generator in upper right */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+
+          <button
+            onClick={generateQRCode}
+            title="QR Code ร้านค้า"
+            style={{
+              padding: "8px 16px",
+              backgroundColor: "#f8f9fa",
+              color: "#333",
+              border: "1px solid #ddd",
+              borderRadius: "20px",
+              cursor: "pointer",
+              fontWeight: "600",
+              fontSize: "14px",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              transition: "all 0.2s"
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#e2e8f0"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#f8f9fa"; }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <rect x="7" y="7" width="3" height="3"></rect>
+              <rect x="14" y="7" width="3" height="3"></rect>
+              <rect x="7" y="14" width="3" height="3"></rect>
+              <rect x="14" y="14" width="3" height="3"></rect>
+            </svg>
+            ลิงก์ & QR Code
+          </button>
+
+          {/* Avatar button วงกลมมุมขวาบน */}
+          <button
+            onClick={() => navigate("/edit-profile")}
+            title={shopProfile.name}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: "50%",
+              background: shopProfile.logo ? "transparent" : "linear-gradient(135deg, #667eea, #764ba2)",
+              backgroundImage: shopProfile.logo ? `url(${shopProfile.logo})` : "none",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              border: "2px solid rgba(255,255,255,0.3)",
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: 15,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              boxShadow: "0 2px 8px rgba(102,126,234,0.4)",
+              transition: "transform 0.2s, box-shadow 0.2s",
+              overflow: "hidden",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.1)"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(102,126,234,0.6)"; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(102,126,234,0.4)"; }}
+          >
+            {!shopProfile.logo && shopProfile.name.slice(0, 2).toUpperCase()}
+          </button>
+        </div>
       </header>
 
       <main className="admin-main-minimal">
@@ -602,6 +790,7 @@ function Home() {
             ระบบถูกปิด ฝั่งผู้ใช้จะไม่สามารถใช้งานได้
           </div>
         )}
+
 
         {/* ===== คอนเทนเนอร์หลัก 3 กล่อง (ลำดับตาม cardOrder) ===== */}
         <div className="three-box-container">
@@ -717,148 +906,150 @@ function Home() {
                         </small>
                       </div>
 
-                      {/* OBS Links Section */}
-                      <div className="toggle-card" style={{ flexDirection: "column", alignItems: "flex-start", gap: "12px", marginTop: "16px", background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)", border: "2px solid #0ea5e9" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "space-between", width: "100%" }}>
-                          <span style={{ fontSize: "16px", fontWeight: "700", color: "#0369a1" }}>🎥 OBS Overlay Links</span>
-                          <span style={{ fontSize: "11px", color: "#64748b", background: "#fff", padding: "4px 8px", borderRadius: "6px", border: "1px solid #cbd5e1" }}>
-                            {adminUsername}
-                          </span>
-                        </div>
-
-                        {/* Image Overlay Link */}
-                        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
-                          <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Image & Text Overlay:</label>
-                          <div style={{ display: "flex", gap: "8px" }}>
-                            <input
-                              type="text"
-                              readOnly
-                              value={`${API_BASE_URL}/obs-image-overlay.html?shopId=${adminId}`}
-                              style={{
-                                flex: 1,
-                                padding: "8px 12px",
-                                border: "1px solid #cbd5e1",
-                                borderRadius: "8px",
-                                fontSize: "13px",
-                                background: "#fff",
-                                color: "#334155"
-                              }}
-                            />
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(`${API_BASE_URL}/obs-image-overlay.html?shopId=${adminId}`);
-                                setCopiedImage(true);
-                                setTimeout(() => setCopiedImage(false), 2000);
-                              }}
-                              style={{
-                                padding: "8px 16px",
-                                background: copiedImage ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
-                                color: "#fff",
-                                border: "none",
-                                borderRadius: "8px",
-                                cursor: "pointer",
-                                fontSize: "13px",
-                                fontWeight: "600",
-                                whiteSpace: "nowrap",
-                                transition: "all 0.3s ease",
-                                transform: copiedImage ? "scale(0.95)" : "scale(1)"
-                              }}
-                            >
-                              {copiedImage ? "✓ Copied!" : "📋 Copy"}
-                            </button>
+                      {/* OBS Links Section (ย้ายไป Modal แล้ว) */}
+                      {false && (
+                        <div className="toggle-card" style={{ flexDirection: "column", alignItems: "flex-start", gap: "12px", marginTop: "16px", background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)", border: "2px solid #0ea5e9" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "space-between", width: "100%" }}>
+                            <span style={{ fontSize: "16px", fontWeight: "700", color: "#0369a1" }}>🎥 OBS Overlay Links</span>
+                            <span style={{ fontSize: "11px", color: "#64748b", background: "#fff", padding: "4px 8px", borderRadius: "6px", border: "1px solid #cbd5e1" }}>
+                              {adminUsername}
+                            </span>
                           </div>
-                        </div>
 
-                        {/* Ranking Overlay Link */}
-                        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
-                          <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Ranking Overlay:</label>
-                          <div style={{ display: "flex", gap: "8px" }}>
-                            <input
-                              type="text"
-                              readOnly
-                              value={`${API_BASE_URL}/obs-ranking-overlay.html?shopId=${adminId}`}
-                              style={{
-                                flex: 1,
-                                padding: "8px 12px",
-                                border: "1px solid #cbd5e1",
-                                borderRadius: "8px",
-                                fontSize: "13px",
-                                background: "#fff",
-                                color: "#334155"
-                              }}
-                            />
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(`${API_BASE_URL}/obs-ranking-overlay.html?shopId=${adminId}`);
-                                setCopiedRanking(true);
-                                setTimeout(() => setCopiedRanking(false), 2000);
-                              }}
-                              style={{
-                                padding: "8px 16px",
-                                background: copiedRanking ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
-                                color: "#fff",
-                                border: "none",
-                                borderRadius: "8px",
-                                cursor: "pointer",
-                                fontSize: "13px",
-                                fontWeight: "600",
-                                whiteSpace: "nowrap",
-                                transition: "all 0.3s ease",
-                                transform: copiedRanking ? "scale(0.95)" : "scale(1)"
-                              }}
-                            >
-                              {copiedRanking ? "✓ Copied!" : "📋 Copy"}
-                            </button>
+                          {/* Image Overlay Link */}
+                          <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
+                            <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Image & Text Overlay:</label>
+                            <div style={{ display: "flex", gap: "8px" }}>
+                              <input
+                                type="text"
+                                readOnly
+                                value={`${API_BASE_URL}/obs-image-overlay.html?shopId=${adminId}`}
+                                style={{
+                                  flex: 1,
+                                  padding: "8px 12px",
+                                  border: "1px solid #cbd5e1",
+                                  borderRadius: "8px",
+                                  fontSize: "13px",
+                                  background: "#fff",
+                                  color: "#334155"
+                                }}
+                              />
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(`${API_BASE_URL}/obs-image-overlay.html?shopId=${adminId}`);
+                                  setCopiedImage(true);
+                                  setTimeout(() => setCopiedImage(false), 2000);
+                                }}
+                                style={{
+                                  padding: "8px 16px",
+                                  background: copiedImage ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
+                                  color: "#fff",
+                                  border: "none",
+                                  borderRadius: "8px",
+                                  cursor: "pointer",
+                                  fontSize: "13px",
+                                  fontWeight: "600",
+                                  whiteSpace: "nowrap",
+                                  transition: "all 0.3s ease",
+                                  transform: copiedImage ? "scale(0.95)" : "scale(1)"
+                                }}
+                              >
+                                {copiedImage ? "✓ Copied!" : "📋 Copy"}
+                              </button>
+                            </div>
                           </div>
-                        </div>
 
-                        {/* Lucky Wheel Overlay Link */}
-                        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
-                          <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Lucky Wheel Overlay:</label>
-                          <div style={{ display: "flex", gap: "8px" }}>
-                            <input
-                              type="text"
-                              readOnly
-                              value={`${API_BASE_URL}/obs-lucky-wheel.html?shopId=${adminId}`}
-                              style={{
-                                flex: 1,
-                                padding: "8px 12px",
-                                border: "1px solid #cbd5e1",
-                                borderRadius: "8px",
-                                fontSize: "13px",
-                                background: "#fff",
-                                color: "#334155"
-                              }}
-                            />
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(`${API_BASE_URL}/obs-lucky-wheel.html?shopId=${adminId}`);
-                                setCopiedWheel(true);
-                                setTimeout(() => setCopiedWheel(false), 2000);
-                              }}
-                              style={{
-                                padding: "8px 16px",
-                                background: copiedWheel ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
-                                color: "#fff",
-                                border: "none",
-                                borderRadius: "8px",
-                                cursor: "pointer",
-                                fontSize: "13px",
-                                fontWeight: "600",
-                                whiteSpace: "nowrap",
-                                transition: "all 0.3s ease",
-                                transform: copiedWheel ? "scale(0.95)" : "scale(1)"
-                              }}
-                            >
-                              {copiedWheel ? "✓ Copied!" : "📋 Copy"}
-                            </button>
+                          {/* Ranking Overlay Link */}
+                          <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
+                            <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Ranking Overlay:</label>
+                            <div style={{ display: "flex", gap: "8px" }}>
+                              <input
+                                type="text"
+                                readOnly
+                                value={`${API_BASE_URL}/obs-ranking-overlay.html?shopId=${adminId}`}
+                                style={{
+                                  flex: 1,
+                                  padding: "8px 12px",
+                                  border: "1px solid #cbd5e1",
+                                  borderRadius: "8px",
+                                  fontSize: "13px",
+                                  background: "#fff",
+                                  color: "#334155"
+                                }}
+                              />
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(`${API_BASE_URL}/obs-ranking-overlay.html?shopId=${adminId}`);
+                                  setCopiedRanking(true);
+                                  setTimeout(() => setCopiedRanking(false), 2000);
+                                }}
+                                style={{
+                                  padding: "8px 16px",
+                                  background: copiedRanking ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
+                                  color: "#fff",
+                                  border: "none",
+                                  borderRadius: "8px",
+                                  cursor: "pointer",
+                                  fontSize: "13px",
+                                  fontWeight: "600",
+                                  whiteSpace: "nowrap",
+                                  transition: "all 0.3s ease",
+                                  transform: copiedRanking ? "scale(0.95)" : "scale(1)"
+                                }}
+                              >
+                                {copiedRanking ? "✓ Copied!" : "📋 Copy"}
+                              </button>
+                            </div>
                           </div>
-                        </div>
 
-                        <small style={{ color: "#64748b", fontSize: "11px", marginTop: "4px" }}>
-                          💡 คัดลอกลิงก์เหล่านี้ไปเพิ่มใน OBS Studio เป็น Browser Source (ลิงก์เฉพาะร้านของคุณ)
-                        </small>
-                      </div>
+                          {/* Lucky Wheel Overlay Link */}
+                          <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
+                            <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Lucky Wheel Overlay:</label>
+                            <div style={{ display: "flex", gap: "8px" }}>
+                              <input
+                                type="text"
+                                readOnly
+                                value={`${API_BASE_URL}/obs-lucky-wheel.html?shopId=${adminId}`}
+                                style={{
+                                  flex: 1,
+                                  padding: "8px 12px",
+                                  border: "1px solid #cbd5e1",
+                                  borderRadius: "8px",
+                                  fontSize: "13px",
+                                  background: "#fff",
+                                  color: "#334155"
+                                }}
+                              />
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(`${API_BASE_URL}/obs-lucky-wheel.html?shopId=${adminId}`);
+                                  setCopiedWheel(true);
+                                  setTimeout(() => setCopiedWheel(false), 2000);
+                                }}
+                                style={{
+                                  padding: "8px 16px",
+                                  background: copiedWheel ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
+                                  color: "#fff",
+                                  border: "none",
+                                  borderRadius: "8px",
+                                  cursor: "pointer",
+                                  fontSize: "13px",
+                                  fontWeight: "600",
+                                  whiteSpace: "nowrap",
+                                  transition: "all 0.3s ease",
+                                  transform: copiedWheel ? "scale(0.95)" : "scale(1)"
+                                }}
+                              >
+                                {copiedWheel ? "✓ Copied!" : "📋 Copy"}
+                              </button>
+                            </div>
+                          </div>
+
+                          <small style={{ color: "#64748b", fontSize: "11px", marginTop: "4px" }}>
+                            💡 คัดลอกลิงก์เหล่านี้ไปเพิ่มใน OBS Studio เป็น Browser Source (ลิงก์เฉพาะร้านของคุณ)
+                          </small>
+                        </div>
+                      )}
                     </div>
                   </>)}
                 </section>
@@ -950,46 +1141,48 @@ function Home() {
                       บันทึกแพ็คเกจ
                     </button>
 
-                    {/* QR Code Section */}
-                    <div style={{
-                      marginTop: "24px",
-                      padding: "20px",
-                      background: "linear-gradient(135deg, #fef3c7, #fde68a)",
-                      border: "2px solid #f59e0b",
-                      borderRadius: "12px",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: "12px"
-                    }}>
-                      <span style={{ fontSize: "16px", fontWeight: "700", color: "#92400e", textAlign: "center" }}>
-                        📱 QR Code สำหรับลูกค้า
-                      </span>
+                    {/* QR Code Section (ซ่อนไว้เพราะใช้ปุ่มด้านบนแทน) */}
+                    {false && (
+                      <div style={{
+                        marginTop: "24px",
+                        padding: "20px",
+                        background: "linear-gradient(135deg, #fef3c7, #fde68a)",
+                        border: "2px solid #f59e0b",
+                        borderRadius: "12px",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: "12px"
+                      }}>
+                        <span style={{ fontSize: "16px", fontWeight: "700", color: "#92400e", textAlign: "center" }}>
+                          📱 QR Code สำหรับลูกค้า
+                        </span>
 
-                      <button
-                        onClick={generateQRCode}
-                        style={{
-                          padding: "12px 24px",
-                          background: "linear-gradient(135deg, #f59e0b, #d97706)",
-                          color: "#fff",
-                          border: "none",
-                          borderRadius: "8px",
-                          cursor: "pointer",
-                          fontSize: "14px",
-                          fontWeight: "600",
-                          width: "100%",
-                          transition: "transform 0.2s ease"
-                        }}
-                        onMouseEnter={(e) => e.target.style.transform = "scale(1.02)"}
-                        onMouseLeave={(e) => e.target.style.transform = "scale(1)"}
-                      >
-                        🎯 สร้าง QR Code
-                      </button>
+                        <button
+                          onClick={generateQRCode}
+                          style={{
+                            padding: "12px 24px",
+                            background: "linear-gradient(135deg, #f59e0b, #d97706)",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: "8px",
+                            cursor: "pointer",
+                            fontSize: "14px",
+                            fontWeight: "600",
+                            width: "100%",
+                            transition: "transform 0.2s ease"
+                          }}
+                          onMouseEnter={(e) => e.target.style.transform = "scale(1.02)"}
+                          onMouseLeave={(e) => e.target.style.transform = "scale(1)"}
+                        >
+                          🎯 สร้าง QR Code
+                        </button>
 
-                      <small style={{ color: "#92400e", fontSize: "11px", textAlign: "center" }}>
-                        💡 ลูกค้าสแกน QR Code เพื่อเข้าสู่ระบบของร้านคุณ
-                      </small>
-                    </div>
+                        <small style={{ color: "#92400e", fontSize: "11px", textAlign: "center" }}>
+                          💡 ลูกค้าสแกน QR Code เพื่อเข้าสู่ระบบของร้านคุณ
+                        </small>
+                      </div>
+                    )}
                   </>)}
                 </section>
               </div>
@@ -1270,6 +1463,42 @@ function Home() {
                       <span>⚙️</span>
                       <span>จัดการสิทธิพิเศษ</span>
                     </button>
+
+                    {/* ปุ่มเช็คสถิติรายรับแบบใหม่ */}
+                    <button
+                      type="button"
+                      className="manage-perks-btn income-stats-btn"
+                      onClick={() => setShowIncomeStats(true)}
+                      style={{
+                        width: "100%",
+                        marginTop: "12px",
+                        padding: "14px 20px",
+                        background: "linear-gradient(135deg, #0ea5e9, #0284c7)",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "12px",
+                        cursor: "pointer",
+                        fontSize: "15px",
+                        fontWeight: "700",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "8px",
+                        transition: "all 0.3s ease",
+                        boxShadow: "0 4px 12px rgba(14, 165, 233, 0.3)"
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.transform = "translateY(-2px)";
+                        e.target.style.boxShadow = "0 6px 16px rgba(14, 165, 233, 0.4)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.transform = "translateY(0)";
+                        e.target.style.boxShadow = "0 4px 12px rgba(14, 165, 233, 0.3)";
+                      }}
+                    >
+                      <span>📈</span> เช็คสถิติรายรับ
+                    </button>
+
                   </>)}
                 </aside>
               </div>
@@ -1403,7 +1632,8 @@ function Home() {
 
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(`https://cmesuserfrontend.vercel.app/?shopId=${adminId}`);
+                        const url = `${window.location.origin.replace(':3001', ':3000')}/?shopId=${shopId || localStorage.getItem('shopId') || 'CMES ADMIN'}`;
+                        navigator.clipboard.writeText(url);
                         alert("✅ คัดลอกลิงก์สำเร็จ!");
                       }}
                       style={{
@@ -1420,7 +1650,29 @@ function Home() {
                       onMouseEnter={(e) => e.target.style.transform = "scale(1.02)"}
                       onMouseLeave={(e) => e.target.style.transform = "scale(1)"}
                     >
-                      📋 คัดลอกลิงก์
+                      📋 คัดลอกลิงก์ให้ลูกค้าสแกน/กดเข้า
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const url = `${window.location.origin.replace(':3001', ':3000')}/?shopId=${shopId || localStorage.getItem('shopId') || 'CMES ADMIN'}`;
+                        window.open(url, '_blank');
+                      }}
+                      style={{
+                        padding: "14px 24px",
+                        background: "linear-gradient(135deg, #a855f7, #9333ea)",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "10px",
+                        cursor: "pointer",
+                        fontWeight: "600",
+                        fontSize: "15px",
+                        transition: "transform 0.2s ease"
+                      }}
+                      onMouseEnter={(e) => e.target.style.transform = "scale(1.02)"}
+                      onMouseLeave={(e) => e.target.style.transform = "scale(1)"}
+                    >
+                      🌐 ทดสอบเปิดหน้าต่างผู้ใช้งาน
                     </button>
                   </div>
 
@@ -1447,7 +1699,7 @@ function Home() {
                       wordBreak: "break-all",
                       fontFamily: "monospace"
                     }}>
-                      https://cmesuserfrontend.vercel.app/?shopId={adminId}
+                      {`${window.location.origin.replace(':3001', ':3000')}/?shopId=${shopId || 'CMES ADMIN'}`}
                     </small>
                   </div>
 
@@ -1474,333 +1726,555 @@ function Home() {
             </div>
           </div>
         </div>
-      )}
+      )
+      }
 
-      {/* ===== Modal: จัดการสิทธิพิเศษสำหรับสมาชิก VIP ===== */}
-      {showPerksModal && (
-        <div className="rank-modal-overlay" onClick={handleClosePerksModal}>
-          <div
-            className="rank-modal"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: "650px", maxHeight: "90vh", display: "flex", flexDirection: "column" }}
-          >
-            <div className="rank-modal-header">
+      {/* ===== Modal: แสดงลิงก์ OBS / แผงควบคุม (ย้ายมาจาก Feature Card) ===== */}
+      {showObsModal && (
+        <div className="rank-modal-overlay">
+          <div className="rank-modal" onClick={(e) => e.stopPropagation()} style={{
+            maxWidth: "1050px",
+            width: "95%",
+            maxHeight: "90vh",
+            overflowY: "auto",
+            background: "linear-gradient(135deg, rgba(30,30,40,0.95), rgba(15,20,30,0.98))",
+            boxShadow: "0 25px 50px -12px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.1)",
+            backdropFilter: "blur(20px)",
+            borderRadius: "20px"
+          }}>
+            <div className="rank-modal-header" style={{ marginBottom: "20px", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
-                <h3>⚙️ จัดการสิทธิพิเศษสำหรับสมาชิกพรีเมียม</h3>
-                <p>แก้ไขสิทธิพิเศษที่จะแสดงให้กับสมาชิก Top Rank</p>
+                <h3 style={{ color: "#38bdf8", fontSize: "24px", fontWeight: "800", letterSpacing: "0.5px", margin: "0 0 8px 0", display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span style={{ fontSize: "28px" }}>🎥</span> OBS Studio Control Panel
+                </h3>
+                <p style={{ color: "#94a3b8", margin: 0, fontSize: "14px" }}>คัดลอกลิงก์ Overlay หรือใช้แผงควบคุมสลับฉาก/คุมเสียงได้ที่นี่</p>
               </div>
               <button
                 type="button"
                 className="close-rank-modal"
-                onClick={handleClosePerksModal}
+                onClick={() => setShowObsModal(false)}
+                style={{ color: "#f8fafc", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "50%", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "16px", transition: "all 0.2s" }}
+                onMouseOver={(e) => e.currentTarget.style.background = "rgba(239,68,68,0.2)"}
+                onMouseOut={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
               >
                 ✕
               </button>
             </div>
+            <div className="rank-modal-body" style={{ padding: "0 0 10px 0", display: "flex", flexDirection: "column", gap: "24px" }}>
 
-            <div className="rank-modal-body" style={{ padding: "24px", overflowY: "auto", flex: 1 }}>
-              <div style={{ marginBottom: "20px" }}>
-                <h4 style={{ fontSize: "16px", fontWeight: "700", color: "#1e293b", marginBottom: "12px" }}>
-                  📋 รายการสิทธิพิเศษปัจจุบัน
+              {/* Section 1: Browser Source Links */}
+              <div style={{ background: "#1e293b", padding: "20px", borderRadius: "12px", border: "1px solid #334155" }}>
+                <h4 style={{ color: "#f1f5f9", margin: "0 0 16px 0", fontSize: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span>🔗</span> OBS Browser Source Links <span style={{ fontSize: "11px", color: "#64748b", background: "#0f172a", padding: "4px 8px", borderRadius: "6px", marginLeft: "auto" }}>{adminUsername}</span>
                 </h4>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "16px" }}>
 
-                {perks.length === 0 ? (
-                  <div style={{
-                    padding: "24px",
-                    background: "#f8fafc",
-                    borderRadius: "12px",
-                    textAlign: "center",
-                    color: "#64748b"
-                  }}>
-                    ยังไม่มีสิทธิพิเศษ กรุณาเพิ่มสิทธิพิเศษด้านล่าง
-                  </div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                    {perks.map((perk, index) => (
-                      <div
-                        key={index}
-                        style={{
-                          padding: "16px",
-                          background: editingPerkIndex === index ? "#fff7ed" : "#fff",
-                          borderRadius: "12px",
-                          border: editingPerkIndex === index ? "2px solid #f97316" : "1px solid #e2e8f0",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "16px",
-                          transition: "all 0.2s ease",
-                          boxShadow: "0 2px 4px rgba(0,0,0,0.02)"
+                  {/* Image Overlay Link */}
+                  <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
+                    <label style={{ fontSize: "12px", fontWeight: "600", color: "#94a3b8" }}>1. Image & Text</label>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <input
+                        type="text"
+                        readOnly
+                        value={`${API_BASE_URL}/obs-image-overlay.html?shopId=${shopId || adminId}`}
+                        style={{ flex: 1, padding: "8px 12px", border: "1px solid #475569", borderRadius: "6px", fontSize: "12px", background: "#0f172a", color: "#cbd5e1", outline: "none" }}
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(`${API_BASE_URL}/obs-image-overlay.html?shopId=${shopId || adminId}`);
+                          setCopiedImage(true);
+                          setTimeout(() => setCopiedImage(false), 2000);
                         }}
+                        style={{ padding: "8px 12px", background: copiedImage ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "12px", fontWeight: "600", transition: "all 0.2s" }}
                       >
-                        {editingPerkIndex === index ? (
-                          <div style={{ display: "flex", gap: "10px", width: "100%", alignItems: "center" }}>
-                            <input
-                              type="text"
-                              value={perkInputValue}
-                              onChange={(e) => setPerkInputValue(e.target.value)}
-                              style={{
-                                flex: 1,
-                                padding: "10px 14px",
-                                border: "2px solid #f97316",
-                                borderRadius: "8px",
-                                fontSize: "14px",
-                                outline: "none",
-                                boxShadow: "0 0 0 3px rgba(249, 115, 22, 0.1)"
-                              }}
-                              placeholder="แก้ไขข้อความสิทธิพิเศษ"
-                              autoFocus
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleSavePerk();
-                                if (e.key === 'Escape') handleCancelEditPerk();
-                              }}
-                            />
-                            <div style={{ display: "flex", gap: "8px" }}>
-                              <button
-                                onClick={handleSavePerk}
-                                title="บันทึก"
-                                style={{
-                                  padding: "10px",
-                                  background: "#10b981",
-                                  color: "#fff",
-                                  border: "none",
-                                  borderRadius: "8px",
-                                  cursor: "pointer",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  transition: "background 0.2s"
-                                }}
-                              >
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                              </button>
-                              <button
-                                onClick={handleCancelEditPerk}
-                                title="ยกเลิก"
-                                style={{
-                                  padding: "10px",
-                                  background: "#94a3b8",
-                                  color: "#fff",
-                                  border: "none",
-                                  borderRadius: "8px",
-                                  cursor: "pointer",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  transition: "background 0.2s"
-                                }}
-                              >
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <div style={{
-                              flex: 1,
-                              fontSize: "15px",
-                              color: "#334155",
-                              fontWeight: "500",
-                              lineHeight: "1.5"
-                            }}>
-                              {perk}
-                            </div>
-                            <div style={{ display: "flex", gap: "8px" }}>
-                              <button
-                                onClick={() => handleEditPerk(index)}
-                                style={{
-                                  padding: "8px 12px",
-                                  background: "#eff6ff",
-                                  color: "#3b82f6",
-                                  border: "1px solid #dbeafe",
-                                  borderRadius: "8px",
-                                  cursor: "pointer",
-                                  fontSize: "13px",
-                                  fontWeight: "600",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: "6px",
-                                  transition: "all 0.2s"
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.background = "#dbeafe";
-                                  e.currentTarget.style.borderColor = "#bfdbfe";
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.background = "#eff6ff";
-                                  e.currentTarget.style.borderColor = "#dbeafe";
-                                }}
-                              >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                                <span>แก้ไข</span>
-                              </button>
-                              <button
-                                onClick={() => handleDeletePerk(index)}
-                                style={{
-                                  padding: "8px 12px",
-                                  background: "#fef2f2",
-                                  color: "#ef4444",
-                                  border: "1px solid #fee2e2",
-                                  borderRadius: "8px",
-                                  cursor: "pointer",
-                                  fontSize: "13px",
-                                  fontWeight: "600",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: "6px",
-                                  transition: "all 0.2s"
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.background = "#fee2e2";
-                                  e.currentTarget.style.borderColor = "#fecaca";
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.background = "#fef2f2";
-                                  e.currentTarget.style.borderColor = "#fee2e2";
-                                }}
-                              >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                <span>ลบ</span>
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    ))}
+                        {copiedImage ? "✓" : "Copy"}
+                      </button>
+                    </div>
                   </div>
-                )}
-              </div>
 
-              {/* Add New Perk */}
-              <div style={{
-                marginTop: "24px",
-                padding: "20px",
-                background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)",
-                borderRadius: "12px",
-                border: "2px solid #0ea5e9"
-              }}>
-                <h4 style={{ fontSize: "16px", fontWeight: "700", color: "#0369a1", marginBottom: "12px" }}>
-                  ➕ เพิ่มสิทธิพิเศษใหม่
-                </h4>
-                <div style={{ display: "flex", gap: "10px" }}>
-                  <input
-                    type="text"
-                    value={editingPerkIndex === null ? perkInputValue : ""}
-                    onChange={(e) => setPerkInputValue(e.target.value)}
-                    disabled={editingPerkIndex !== null}
-                    placeholder="เช่น: 🎁 ลดราคาพิเศษ 10% สำหรับสมาชิก VIP"
-                    style={{
-                      flex: 1,
-                      padding: "12px 16px",
-                      border: "2px solid #0ea5e9",
-                      borderRadius: "10px",
-                      fontSize: "14px",
-                      outline: "none",
-                      opacity: editingPerkIndex !== null ? 0.5 : 1
-                    }}
-                    onKeyPress={(e) => {
-                      if (e.key === "Enter" && editingPerkIndex === null) {
-                        handleAddPerk();
-                      }
-                    }}
-                  />
-                  <button
-                    onClick={handleAddPerk}
-                    disabled={editingPerkIndex !== null}
-                    style={{
-                      padding: "12px 24px",
-                      background: editingPerkIndex !== null ? "#cbd5e1" : "linear-gradient(135deg, #10b981, #059669)",
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: "10px",
-                      cursor: editingPerkIndex !== null ? "not-allowed" : "pointer",
-                      fontSize: "14px",
-                      fontWeight: "600",
-                      whiteSpace: "nowrap"
-                    }}
-                  >
-                    ➕ เพิ่ม
-                  </button>
+                  {/* Ranking Overlay Link */}
+                  <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
+                    <label style={{ fontSize: "12px", fontWeight: "600", color: "#94a3b8" }}>2. Ranking</label>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <input
+                        type="text"
+                        readOnly
+                        value={`${API_BASE_URL}/obs-ranking-overlay.html?shopId=${shopId || adminId}`}
+                        style={{ flex: 1, padding: "8px 12px", border: "1px solid #475569", borderRadius: "6px", fontSize: "12px", background: "#0f172a", color: "#cbd5e1", outline: "none" }}
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(`${API_BASE_URL}/obs-ranking-overlay.html?shopId=${shopId || adminId}`);
+                          setCopiedRanking(true);
+                          setTimeout(() => setCopiedRanking(false), 2000);
+                        }}
+                        style={{ padding: "8px 12px", background: copiedRanking ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "12px", fontWeight: "600", transition: "all 0.2s" }}
+                      >
+                        {copiedRanking ? "✓" : "Copy"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Lucky Wheel Overlay Link */}
+                  <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
+                    <label style={{ fontSize: "12px", fontWeight: "600", color: "#94a3b8" }}>3. Lucky Wheel</label>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <input
+                        type="text"
+                        readOnly
+                        value={`${API_BASE_URL}/obs-lucky-wheel.html?shopId=${shopId || adminId}`}
+                        style={{ flex: 1, padding: "8px 12px", border: "1px solid #475569", borderRadius: "6px", fontSize: "12px", background: "#0f172a", color: "#cbd5e1", outline: "none" }}
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(`${API_BASE_URL}/obs-lucky-wheel.html?shopId=${shopId || adminId}`);
+                          setCopiedWheel(true);
+                          setTimeout(() => setCopiedWheel(false), 2000);
+                        }}
+                        style={{ padding: "8px 12px", background: copiedWheel ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #0ea5e9, #0284c7)", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "12px", fontWeight: "600", transition: "all 0.2s" }}
+                      >
+                        {copiedWheel ? "✓" : "Copy"}
+                      </button>
+                    </div>
+                  </div>
+
                 </div>
-                <small style={{ display: "block", marginTop: "8px", color: "#0369a1", fontSize: "12px" }}>
-                  💡 เคล็ดลับ: เริ่มต้นด้วย emoji เพื่อให้ดูน่าสนใจมากขึ้น เช่น 🎁 🌟 💎 📱
-                </small>
               </div>
 
-              {/* Save All Button */}
-              <div style={{ marginTop: "24px", display: "flex", gap: "12px" }}>
-                <button
-                  onClick={handleClosePerksModal}
-                  disabled={savingPerks}
-                  style={{
-                    width: "120px",
-                    padding: "16px 24px",
-                    background: savingPerks ? "#cbd5e1" : "#f1f5f9",
-                    color: savingPerks ? "#94a3b8" : "#64748b",
-                    border: savingPerks ? "none" : "2px solid #e2e8f0",
-                    borderRadius: "12px",
-                    cursor: savingPerks ? "not-allowed" : "pointer",
-                    fontSize: "16px",
-                    fontWeight: "700",
-                    transition: "all 0.2s ease"
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!savingPerks) {
-                      e.target.style.background = "#e2e8f0";
-                      e.target.style.borderColor = "#cbd5e1";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!savingPerks) {
-                      e.target.style.background = "#f1f5f9";
-                      e.target.style.borderColor = "#e2e8f0";
-                    }
-                  }}
-                >
-                  ปิด
-                </button>
-                <button
-                  onClick={handleSaveAllPerks}
-                  disabled={savingPerks || perks.length === 0}
-                  style={{
-                    flex: 1,
-                    padding: "16px 24px",
-                    background: savingPerks || perks.length === 0 ? "#cbd5e1" : "linear-gradient(135deg, #f59e0b, #d97706)",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: "12px",
-                    cursor: savingPerks || perks.length === 0 ? "not-allowed" : "pointer",
-                    fontSize: "16px",
-                    fontWeight: "700",
-                    transition: "all 0.3s ease",
-                    boxShadow: savingPerks || perks.length === 0 ? "none" : "0 4px 12px rgba(245, 158, 11, 0.3)"
-                  }}
-                >
-                  {savingPerks ? "กำลังบันทึก..." : "💾 บันทึกทั้งหมด"}
-                </button>
+              {/* Section 2: Interactive Realtime OBS WebSocket Control Component */}
+              <div style={{ marginTop: "10px", width: "100%" }}>
+                <OBSControl API_BASE_URL={API_BASE_URL} adminId={adminId} shopId={shopId || adminId} />
               </div>
 
-              {/* Note */}
-              <div style={{
-                marginTop: "20px",
-                padding: "16px",
-                background: "#fef3c7",
-                borderRadius: "10px",
-                border: "1px solid #f59e0b"
-              }}>
-                <small style={{
-                  color: "#92400e",
-                  fontSize: "13px",
-                  display: "block",
-                  lineHeight: "1.6"
-                }}>
-                  <strong>📌 หมายเหตุ:</strong> สิทธิพิเศษเหล่านี้จะแสดงบนหน้าแรกของผู้ใช้<br />
-                  เพื่อดึงดูดให้สมาชิกเข้าร่วมการแข่งขัน Top Rank มากขึ้น
-                </small>
-              </div>
+
             </div>
           </div>
         </div>
       )}
-    </div>
+
+      {/* ===== Modal: จัดการสิทธิพิเศษสำหรับสมาชิก VIP ===== */}
+      {
+        showPerksModal && (
+          <div className="rank-modal-overlay" onClick={handleClosePerksModal}>
+            <div
+              className="rank-modal"
+              onClick={(e) => e.stopPropagation()}
+              style={{ maxWidth: "650px", maxHeight: "90vh", display: "flex", flexDirection: "column" }}
+            >
+              <div className="rank-modal-header">
+                <div>
+                  <h3>⚙️ จัดการสิทธิพิเศษสำหรับสมาชิกพรีเมียม</h3>
+                  <p>แก้ไขสิทธิพิเศษที่จะแสดงให้กับสมาชิก Top Rank</p>
+                </div>
+                <button
+                  type="button"
+                  className="close-rank-modal"
+                  onClick={handleClosePerksModal}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="rank-modal-body" style={{ padding: "24px", overflowY: "auto", flex: 1 }}>
+                <div style={{ marginBottom: "20px" }}>
+                  <h4 style={{ fontSize: "16px", fontWeight: "700", color: "#1e293b", marginBottom: "12px" }}>
+                    📋 รายการสิทธิพิเศษปัจจุบัน
+                  </h4>
+
+                  {perks.length === 0 ? (
+                    <div style={{
+                      padding: "24px",
+                      background: "#f8fafc",
+                      borderRadius: "12px",
+                      textAlign: "center",
+                      color: "#64748b"
+                    }}>
+                      ยังไม่มีสิทธิพิเศษ กรุณาเพิ่มสิทธิพิเศษด้านล่าง
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                      {perks.map((perk, index) => (
+                        <div
+                          key={index}
+                          style={{
+                            padding: "16px",
+                            background: editingPerkIndex === index ? "#fff7ed" : "#fff",
+                            borderRadius: "12px",
+                            border: editingPerkIndex === index ? "2px solid #f97316" : "1px solid #e2e8f0",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "16px",
+                            transition: "all 0.2s ease",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.02)"
+                          }}
+                        >
+                          {editingPerkIndex === index ? (
+                            <div style={{ display: "flex", gap: "10px", width: "100%", alignItems: "center" }}>
+                              <input
+                                type="text"
+                                value={perkInputValue}
+                                onChange={(e) => setPerkInputValue(e.target.value)}
+                                style={{
+                                  flex: 1,
+                                  padding: "10px 14px",
+                                  border: "2px solid #f97316",
+                                  borderRadius: "8px",
+                                  fontSize: "14px",
+                                  outline: "none",
+                                  boxShadow: "0 0 0 3px rgba(249, 115, 22, 0.1)"
+                                }}
+                                placeholder="แก้ไขข้อความสิทธิพิเศษ"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSavePerk();
+                                  if (e.key === 'Escape') handleCancelEditPerk();
+                                }}
+                              />
+                              <div style={{ display: "flex", gap: "8px" }}>
+                                <button
+                                  onClick={handleSavePerk}
+                                  title="บันทึก"
+                                  style={{
+                                    padding: "10px",
+                                    background: "#10b981",
+                                    color: "#fff",
+                                    border: "none",
+                                    borderRadius: "8px",
+                                    cursor: "pointer",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    transition: "background 0.2s"
+                                  }}
+                                >
+                                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                </button>
+                                <button
+                                  onClick={handleCancelEditPerk}
+                                  title="ยกเลิก"
+                                  style={{
+                                    padding: "10px",
+                                    background: "#94a3b8",
+                                    color: "#fff",
+                                    border: "none",
+                                    borderRadius: "8px",
+                                    cursor: "pointer",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    transition: "background 0.2s"
+                                  }}
+                                >
+                                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div style={{
+                                flex: 1,
+                                fontSize: "15px",
+                                color: "#334155",
+                                fontWeight: "500",
+                                lineHeight: "1.5"
+                              }}>
+                                {perk}
+                              </div>
+                              <div style={{ display: "flex", gap: "8px" }}>
+                                <button
+                                  onClick={() => handleEditPerk(index)}
+                                  style={{
+                                    padding: "8px 12px",
+                                    background: "#eff6ff",
+                                    color: "#3b82f6",
+                                    border: "1px solid #dbeafe",
+                                    borderRadius: "8px",
+                                    cursor: "pointer",
+                                    fontSize: "13px",
+                                    fontWeight: "600",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "6px",
+                                    transition: "all 0.2s"
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = "#dbeafe";
+                                    e.currentTarget.style.borderColor = "#bfdbfe";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = "#eff6ff";
+                                    e.currentTarget.style.borderColor = "#dbeafe";
+                                  }}
+                                >
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                  <span>แก้ไข</span>
+                                </button>
+                                <button
+                                  onClick={() => handleDeletePerk(index)}
+                                  style={{
+                                    padding: "8px 12px",
+                                    background: "#fef2f2",
+                                    color: "#ef4444",
+                                    border: "1px solid #fee2e2",
+                                    borderRadius: "8px",
+                                    cursor: "pointer",
+                                    fontSize: "13px",
+                                    fontWeight: "600",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "6px",
+                                    transition: "all 0.2s"
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = "#fee2e2";
+                                    e.currentTarget.style.borderColor = "#fecaca";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = "#fef2f2";
+                                    e.currentTarget.style.borderColor = "#fee2e2";
+                                  }}
+                                >
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                  <span>ลบ</span>
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Add New Perk */}
+                <div style={{
+                  marginTop: "24px",
+                  padding: "20px",
+                  background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)",
+                  borderRadius: "12px",
+                  border: "2px solid #0ea5e9"
+                }}>
+                  <h4 style={{ fontSize: "16px", fontWeight: "700", color: "#0369a1", marginBottom: "12px" }}>
+                    ➕ เพิ่มสิทธิพิเศษใหม่
+                  </h4>
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <input
+                      type="text"
+                      value={editingPerkIndex === null ? perkInputValue : ""}
+                      onChange={(e) => setPerkInputValue(e.target.value)}
+                      disabled={editingPerkIndex !== null}
+                      placeholder="เช่น: 🎁 ลดราคาพิเศษ 10% สำหรับสมาชิก VIP"
+                      style={{
+                        flex: 1,
+                        padding: "12px 16px",
+                        border: "2px solid #0ea5e9",
+                        borderRadius: "10px",
+                        fontSize: "14px",
+                        outline: "none",
+                        opacity: editingPerkIndex !== null ? 0.5 : 1
+                      }}
+                      onKeyPress={(e) => {
+                        if (e.key === "Enter" && editingPerkIndex === null) {
+                          handleAddPerk();
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={handleAddPerk}
+                      disabled={editingPerkIndex !== null}
+                      style={{
+                        padding: "12px 24px",
+                        background: editingPerkIndex !== null ? "#cbd5e1" : "linear-gradient(135deg, #10b981, #059669)",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "10px",
+                        cursor: editingPerkIndex !== null ? "not-allowed" : "pointer",
+                        fontSize: "14px",
+                        fontWeight: "600",
+                        whiteSpace: "nowrap"
+                      }}
+                    >
+                      ➕ เพิ่ม
+                    </button>
+                  </div>
+                  <small style={{ display: "block", marginTop: "8px", color: "#0369a1", fontSize: "12px" }}>
+                    💡 เคล็ดลับ: เริ่มต้นด้วย emoji เพื่อให้ดูน่าสนใจมากขึ้น เช่น 🎁 🌟 💎 📱
+                  </small>
+                </div>
+
+                {/* Save All Button */}
+                <div style={{ marginTop: "24px", display: "flex", gap: "12px" }}>
+                  <button
+                    onClick={handleClosePerksModal}
+                    disabled={savingPerks}
+                    style={{
+                      width: "120px",
+                      padding: "16px 24px",
+                      background: savingPerks ? "#cbd5e1" : "#f1f5f9",
+                      color: savingPerks ? "#94a3b8" : "#64748b",
+                      border: savingPerks ? "none" : "2px solid #e2e8f0",
+                      borderRadius: "12px",
+                      cursor: savingPerks ? "not-allowed" : "pointer",
+                      fontSize: "16px",
+                      fontWeight: "700",
+                      transition: "all 0.2s ease"
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!savingPerks) {
+                        e.target.style.background = "#e2e8f0";
+                        e.target.style.borderColor = "#cbd5e1";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!savingPerks) {
+                        e.target.style.background = "#f1f5f9";
+                        e.target.style.borderColor = "#e2e8f0";
+                      }
+                    }}
+                  >
+                    ปิด
+                  </button>
+                  <button
+                    onClick={handleSaveAllPerks}
+                    disabled={savingPerks || perks.length === 0}
+                    style={{
+                      flex: 1,
+                      padding: "16px 24px",
+                      background: savingPerks || perks.length === 0 ? "#cbd5e1" : "linear-gradient(135deg, #f59e0b, #d97706)",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: "12px",
+                      cursor: savingPerks || perks.length === 0 ? "not-allowed" : "pointer",
+                      fontSize: "16px",
+                      fontWeight: "700",
+                      transition: "all 0.3s ease",
+                      boxShadow: savingPerks || perks.length === 0 ? "none" : "0 4px 12px rgba(245, 158, 11, 0.3)"
+                    }}
+                  >
+                    {savingPerks ? "กำลังบันทึก..." : "💾 บันทึกทั้งหมด"}
+                  </button>
+                </div>
+
+                {/* Note */}
+                <div style={{
+                  marginTop: "20px",
+                  padding: "16px",
+                  background: "#fef3c7",
+                  borderRadius: "10px",
+                  border: "1px solid #f59e0b"
+                }}>
+                  <small style={{
+                    color: "#92400e",
+                    fontSize: "13px",
+                    display: "block",
+                    lineHeight: "1.6"
+                  }}>
+                    <strong>📌 หมายเหตุ:</strong> สิทธิพิเศษเหล่านี้จะแสดงบนหน้าแรกของผู้ใช้<br />
+                    เพื่อดึงดูดให้สมาชิกเข้าร่วมการแข่งขัน Top Rank มากขึ้น
+                  </small>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {/* ===== Modal: Income Stats Analyzer ===== */}
+      {showIncomeStats && (
+        <div className="rank-modal-overlay" onClick={() => setShowIncomeStats(false)}>
+          <div className="rank-modal income-stats-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="rank-modal-header" style={{ marginBottom: "20px", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                <h3 style={{ color: "#38bdf8", fontSize: "24px", fontWeight: "800", letterSpacing: "0.5px", margin: "0 0 8px 0", display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span style={{ fontSize: "28px" }}>📈</span> สถิติรายรับและกิจกรรม
+                </h3>
+                <p style={{ color: "#94a3b8", margin: 0, fontSize: "14px" }}>ตรวจสอบยอดรายรับ จำนวนผู้สนับสนุน และช่วงเวลาที่มีการใช้งานสูงสุด</p>
+              </div>
+              <button
+                type="button"
+                className="close-rank-modal"
+                onClick={() => setShowIncomeStats(false)}
+                style={{ color: "#f8fafc", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "50%", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "16px", transition: "all 0.2s" }}
+                onMouseOver={(e) => e.currentTarget.style.background = "rgba(239,68,68,0.2)"}
+                onMouseOut={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
+              >✕</button>
+            </div>
+
+            <div className="income-stats-body" style={{ padding: "10px 0" }}>
+              <div className="date-filter-group" style={{ display: "flex", gap: "20px", marginBottom: "30px", background: "rgba(15, 23, 42, 0.4)", padding: "20px", borderRadius: "16px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                <div className="date-input-wrapper" style={{ flex: 1, display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <label style={{ color: "#94a3b8", fontSize: "13px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "1px" }}>เริ่มวันที่</label>
+                  <input
+                    type="date"
+                    value={incomeStartDate}
+                    onChange={e => setIncomeStartDate(e.target.value)}
+                    className="glass-date-input"
+                    style={{ padding: "12px 16px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.3)", color: "#fff", outline: "none", fontSize: "15px", cursor: "text" }}
+                  />
+                </div>
+                <div className="date-input-wrapper" style={{ flex: 1, display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <label style={{ color: "#94a3b8", fontSize: "13px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "1px" }}>ถึงวันที่</label>
+                  <input
+                    type="date"
+                    value={incomeEndDate}
+                    onChange={e => setIncomeEndDate(e.target.value)}
+                    className="glass-date-input"
+                    style={{ padding: "12px 16px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.3)", color: "#fff", outline: "none", fontSize: "15px" }}
+                  />
+                </div>
+              </div>
+
+              {incomeLoading ? (
+                <div className="income-loading" style={{ textAlign: "center", padding: "40px", color: "#38bdf8" }}>กำลังโหลดสถิติ...</div>
+              ) : incomeError ? (
+                <div className="income-error" style={{ textAlign: "center", padding: "20px", color: "#ef4444", background: "rgba(239, 68, 68, 0.1)", borderRadius: "12px" }}>{incomeError}</div>
+              ) : incomeStats ? (
+                <div className="income-stats-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+                  <div className="stat-card primary-stat" style={{ gridColumn: "1 / -1", background: "linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(14, 165, 233, 0.2))", padding: "30px", borderRadius: "20px", display: "flex", alignItems: "center", gap: "24px", border: "1px solid rgba(56, 189, 248, 0.2)" }}>
+                    <div className="stat-icon" style={{ fontSize: "48px", background: "rgba(56, 189, 248, 0.2)", width: "80px", height: "80px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "20px" }}>💰</div>
+                    <div className="stat-details" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      <span className="stat-label" style={{ color: "#7dd3fc", fontSize: "16px", fontWeight: "600", letterSpacing: "0.5px" }}>รายรับรวม (ช่วงเวลาที่เลือก)</span>
+                      <strong className="stat-value" style={{ color: "#fff", fontSize: "42px", fontWeight: "800", textShadow: "0 2px 10px rgba(56,189,248,0.4)" }}>฿{formatCurrency(incomeStats.totalIncome)}</strong>
+                    </div>
+                  </div>
+
+                  <div className="stat-card" style={{ background: "rgba(30, 41, 59, 0.6)", padding: "24px", borderRadius: "16px", display: "flex", alignItems: "center", gap: "20px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                    <div className="stat-icon" style={{ fontSize: "36px", background: "rgba(16, 185, 129, 0.15)", width: "64px", height: "64px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "16px" }}>👥</div>
+                    <div className="stat-details" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                      <span className="stat-label" style={{ color: "#94a3b8", fontSize: "14px", fontWeight: "500" }}>จำนวนผู้เปย์แบบไม่ซ้ำ</span>
+                      <strong className="stat-value" style={{ color: "#fff", fontSize: "28px", fontWeight: "700" }}>{incomeStats.totalUsers} <span style={{ fontSize: "16px", color: "#64748b", fontWeight: "500" }}>คน</span></strong>
+                    </div>
+                  </div>
+
+                  <div className="stat-card peak-hours-panel" style={{ background: "rgba(30, 41, 59, 0.6)", padding: "24px", borderRadius: "16px", display: "flex", alignItems: "flex-start", gap: "20px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                    <div className="stat-icon" style={{ fontSize: "36px", background: "rgba(245, 158, 11, 0.15)", width: "64px", height: "64px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "16px", flexShrink: 0 }}>🔥</div>
+                    <div className="stat-details" style={{ width: '100%' }}>
+                      <span className="stat-label" style={{ color: "#94a3b8", fontSize: "14px", fontWeight: "500", display: "block", marginBottom: "12px" }}>เวลาคนเยอะสุด 3 อันดับ</span>
+                      <ul className="peak-hours-list" style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "8px" }}>
+                        {incomeStats.peakHours.length > 0 ? (
+                          incomeStats.peakHours.map((ph, idx) => (
+                            <li key={idx} className="peak-hour-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "rgba(0,0,0,0.2)", borderRadius: "8px" }}>
+                              <span className="ph-time" style={{ color: "#fcd34d", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
+                                <span style={{ width: "20px", height: "20px", background: "rgba(245,158,11,0.2)", color: "#f59e0b", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px" }}>{idx + 1}</span>
+                                {ph.hour}
+                              </span>
+                              <span className="ph-count" style={{ color: "#cbd5e1", fontSize: "13px" }}>{ph.count} บิล</span>
+                            </li>
+                          ))
+                        ) : (
+                          <li className="peak-hour-empty" style={{ color: "#64748b", fontSize: "13px", fontStyle: "italic", paddingTop: "8px" }}>ไม่มีข้อมูลบิลในช่วงเวลานี้</li>
+                        )}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div >
   );
 }
 

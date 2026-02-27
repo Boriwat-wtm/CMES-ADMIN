@@ -1,0 +1,765 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Prompt:wght@300;400;500;600;700&display=swap');
+
+.ep-container {
+    min-height: 100vh;
+    margin: 0;
+    padding: 40px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
+    background-size: 400% 400%;
+    animation: gradientShift 15s ease infinite;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    font-family: 'Prompt', 'Inter', sans-serif;
+    box-sizing: border-box;
+}
+
+@keyframes gradientShift {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+/* Decorative Blobs using precise positioning instead of overflow filters */
+.ep-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    z-index: 0;
+    opacity: 0.6;
+}
+
+.ep-blob-1 {
+    width: 500px;
+    height: 500px;
+    background-color: rgba(102, 126, 234, 0.4);
+    top: -100px;
+    left: -150px;
+    animation: blobFloat1 20s infinite alternate cubic-bezier(0.45, 0.05, 0.55, 0.95);
+}
+
+.ep-blob-2 {
+    width: 600px;
+    height: 600px;
+    background-color: rgba(118, 75, 162, 0.3);
+    bottom: -200px;
+    right: -200px;
+    animation: blobFloat2 25s infinite alternate cubic-bezier(0.45, 0.05, 0.55, 0.95);
+}
+
+@keyframes blobFloat1 {
+    0% {
+        transform: translate(0, 0) scale(1);
+    }
+
+    50% {
+        transform: translate(50px, 50px) scale(1.1);
+    }
+
+    100% {
+        transform: translate(-20px, 80px) scale(0.9);
+    }
+}
+
+@keyframes blobFloat2 {
+    0% {
+        transform: translate(0, 0) scale(1);
+    }
+
+    50% {
+        transform: translate(-60px, -40px) scale(0.95);
+    }
+
+    100% {
+        transform: translate(30px, -90px) scale(1.05);
+    }
+}
+
+/* Glass Card Layout */
+.ep-glass-card {
+    position: relative;
+    z-index: 1;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: 32px;
+    width: 100%;
+    max-width: 480px;
+    padding: 40px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15),
+        0 0 0 1px rgba(255, 255, 255, 0.6) inset,
+        0 10px 30px rgba(102, 126, 234, 0.1);
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideUpFade {
+    0% {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Header & Back Button */
+.ep-header {
+    width: 100%;
+    display: flex;
+    margin-bottom: 24px;
+}
+
+.ep-btn-back {
+    background: transparent;
+    border: none;
+    color: #64748b;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    margin-left: -12px;
+    border-radius: 12px;
+    transition: all 0.2s ease;
+}
+
+.ep-btn-back:hover {
+    background: rgba(15, 23, 42, 0.05);
+    color: #0f172a;
+    transform: translateX(-2px);
+}
+
+/* Profile Section */
+.ep-profile-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 36px;
+}
+
+.ep-avatar-wrapper {
+    position: relative;
+    margin-bottom: 16px;
+}
+
+.ep-avatar-circle {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    font-size: 36px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 12px 24px rgba(102, 126, 234, 0.35);
+    border: 4px solid #fff;
+    position: relative;
+    z-index: 1;
+}
+
+.ep-avatar-badge {
+    position: absolute;
+    bottom: 0px;
+    right: 0px;
+    width: 32px;
+    height: 32px;
+    background: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #764ba2;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    z-index: 2;
+    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.ep-avatar-badge:hover {
+    transform: scale(1.15);
+    color: #667eea;
+}
+
+.ep-username {
+    font-size: 24px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 6px 0;
+    letter-spacing: -0.5px;
+}
+
+/* Shop Cards Layout (Stacked Vertically) */
+.ep-shop-cards-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    width: 100%;
+    margin-bottom: 32px;
+}
+
+@media (max-width: 500px) {
+    .ep-shop-cards-container {
+        grid-template-columns: 1fr;
+        /* Stack on mobile */
+    }
+}
+
+.ep-shop-card {
+    display: flex;
+    flex-direction: column;
+    background: white;
+    border-radius: 20px;
+    padding: 16px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+    border: 1px solid rgba(165, 180, 252, 0.3);
+    transition: all 0.3s ease;
+}
+
+.ep-shop-card.warning-card {
+    border: 1px solid rgba(254, 202, 202, 0.5);
+    background: rgba(255, 252, 252, 0.8);
+}
+
+.ep-shop-card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.ep-shop-icon-wrapper {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    background: rgba(241, 245, 249, 1);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: #64748b;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.warning-card .ep-shop-icon-wrapper {
+    background: rgba(254, 242, 242, 1);
+    color: #ef4444;
+}
+
+.ep-shop-card-title-group h4 {
+    margin: 0 0 2px 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: #1e293b;
+    line-height: 1.2;
+}
+
+.ep-shop-card-title-group p {
+    margin: 0;
+    font-size: 11px;
+    color: #64748b;
+    line-height: 1.4;
+}
+
+.ep-warning-text {
+    color: #ef4444 !important;
+}
+
+.ep-warning-icon {
+    font-size: 12px;
+}
+
+/* Dashed Divider */
+.ep-divider-dashed {
+    width: 100%;
+    height: 1px;
+    background-image: linear-gradient(to right, rgba(165, 180, 252, 0.5) 50%, transparent 50%);
+    background-size: 8px 1px;
+    background-repeat: repeat-x;
+    margin: 0 0 16px 0;
+}
+
+.warning-card .ep-divider-dashed {
+    background-image: linear-gradient(to right, rgba(254, 202, 202, 0.6) 50%, transparent 50%);
+}
+
+.ep-shop-card-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+}
+
+/* Pill Display Styles */
+.ep-shop-display-pill {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 6px 6px 6px 16px;
+    border-radius: 24px;
+    background: rgba(241, 245, 249, 0.8);
+}
+
+.blue-pill {
+    background: rgba(238, 242, 255, 0.8);
+}
+
+.red-pill {
+    background: rgba(254, 242, 242, 0.8);
+}
+
+.ep-shop-value-text {
+    font-size: 15px;
+    font-weight: 700;
+    color: #312e81;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+}
+
+.ep-shop-id-badge {
+    color: #b91c1c;
+    background: transparent;
+    font-family: inherit;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+}
+
+/* Circle Edit Button */
+.ep-btn-edit-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: none;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s;
+}
+
+.ep-btn-edit-circle:hover {
+    transform: scale(1.05);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Edit Mode Layout */
+.ep-shop-edit-wrapper {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+    position: relative;
+}
+
+.ep-shop-action-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+}
+
+.ep-shop-input {
+    border: 1.5px solid #c7d2fe;
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: #1e293b;
+    outline: none;
+    width: 100%;
+    text-align: center;
+    background: #fff;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.02);
+    transition: all 0.2s;
+    box-sizing: border-box;
+}
+
+.ep-shop-input:focus {
+    border-color: #818cf8;
+    box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.1);
+}
+
+.ep-btn-emoji {
+    background: rgba(241, 245, 249, 1);
+    border: none;
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s;
+}
+
+.ep-btn-emoji:hover {
+    background: rgba(226, 232, 240, 1);
+}
+
+.ep-emoji-picker-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 8px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 8px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    z-index: 10;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.ep-emoji-btn {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.ep-emoji-btn:hover {
+    background: rgba(241, 245, 249, 1);
+}
+
+/* Edit Shop ID Styles */
+.ep-shop-edit-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 2px;
+}
+
+.ep-shop-input {
+    border: 1.5px solid #a5b4fc;
+    border-radius: 12px;
+    padding: 8px 12px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    color: #1e293b;
+    outline: none;
+    width: 200px;
+    text-align: left;
+    background: #fff;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+    transition: all 0.2s;
+}
+
+.ep-shop-input:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.ep-btn-edit-shop {
+    background: #fff;
+    border: 1px solid #c7d2fe;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6366f1;
+    cursor: pointer;
+    margin-left: 8px;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    flex-shrink: 0;
+}
+
+.ep-btn-edit-shop:hover {
+    background: #6366f1;
+    color: #fff;
+    border-color: #6366f1;
+    transform: scale(1.1);
+}
+
+.ep-btn-icon {
+    border: none;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #fff;
+    transition: all 0.2s;
+}
+
+.ep-btn-icon:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.ep-btn-confirm {
+    background: #10b981;
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+}
+
+.ep-btn-confirm:hover:not(:disabled) {
+    background: #059669;
+    transform: scale(1.05);
+}
+
+.ep-btn-cancel {
+    background: #ef4444;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
+}
+
+.ep-btn-cancel:hover:not(:disabled) {
+    background: #dc2626;
+    transform: scale(1.05);
+}
+
+/* Settings Form */
+.ep-form-container {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: 24px;
+    padding: 30px;
+    border: 1px solid rgba(241, 245, 249, 0.8);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+}
+
+.ep-section-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 20px 0;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.ep-form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.ep-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ep-input-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+    margin-left: 4px;
+}
+
+.ep-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.ep-input-icon {
+    position: absolute;
+    left: 16px;
+    color: #94a3b8;
+    pointer-events: none;
+    transition: color 0.3s ease;
+}
+
+.ep-input-field {
+    width: 100%;
+    padding: 14px 14px 14px 44px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 2px solid #e2e8f0;
+    border-radius: 14px;
+    font-family: inherit;
+    font-size: 14px;
+    color: #0f172a;
+    outline: none;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+}
+
+.ep-input-field::placeholder {
+    color: #94a3b8;
+    font-weight: 400;
+}
+
+.ep-input-field:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+    background: #fff;
+}
+
+.ep-input-field:focus+.ep-input-icon,
+.ep-input-wrapper:focus-within .ep-input-icon {
+    color: #667eea;
+}
+
+/* Save Button */
+.ep-btn-save {
+    margin-top: 10px;
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 8px 16px rgba(102, 126, 234, 0.25);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.ep-btn-save::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(transparent, rgba(255, 255, 255, 0.3), transparent);
+    transform: rotate(45deg) translate(-100%, -100%);
+    transition: transform 0.6s ease;
+}
+
+.ep-btn-save:hover:not(:disabled)::after {
+    transform: rotate(45deg) translate(200%, 200%);
+}
+
+.ep-btn-save:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 20px rgba(102, 126, 234, 0.35);
+}
+
+.ep-btn-save:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.ep-btn-save:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* Alert Messages */
+.ep-message-alert {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 500;
+    opacity: 0;
+    transform: translateY(-10px);
+    max-height: 0;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.ep-message-show {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 100px;
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+
+.ep-message-success {
+    background: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.ep-message-error {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+/* Footer & Logout */
+.ep-footer {
+    margin-top: 24px;
+    display: flex;
+    justify-content: center;
+}
+
+.ep-btn-logout {
+    background: transparent;
+    border: none;
+    color: #ef4444;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border-radius: 14px;
+    transition: all 0.2s ease;
+}
+
+.ep-btn-logout:hover {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .ep-container {
+        padding: 20px;
+    }
+
+    .ep-glass-card {
+        padding: 24px;
+        border-radius: 24px;
+    }
+
+    .ep-form-container {
+        padding: 20px 16px;
+    }
+}

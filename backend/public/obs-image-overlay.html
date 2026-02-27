@@ -662,9 +662,19 @@
 
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script>
-    const REALTIME_URL = 'https://cmes-admin-realtime.onrender.com';
-    const API_BASE_URL = 'https://cmes-admin-server.onrender.com';
-    const socket = io(API_BASE_URL, { transports: ['websocket', 'polling'] });
+    const REALTIME_URL = 'http://localhost:5001';
+    const API_BASE_URL = 'http://localhost:5001';
+
+    // 🔥 อ่าน shopId จาก URL ?shopId=KAIYANG
+    const urlParams = new URLSearchParams(window.location.search);
+    const shopId = urlParams.get('shopId') || '';
+    console.log('[OBS] shopId from URL:', shopId);
+
+    // 🔥 เชื่อมต่อ socket พร้อมส่ง shopId เพื่อเข้า room เฉพาะร้าน
+    const socket = io(API_BASE_URL, {
+      transports: ['websocket', 'polling'],
+      query: { shopId }
+    });
 
     // เก็บการตั้งค่ารูปภาพสินค้า
     let giftSettingsItems = [];
@@ -672,7 +682,9 @@
     // ฟังก์ชันดึงการตั้งค่ารูปภาพ
     async function fetchGiftSettings() {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/gifts/settings`);
+        const response = await fetch(`${API_BASE_URL}/api/gifts/settings`, {
+          headers: { 'x-shop-id': shopId }  // 🔥 ส่ง shopId
+        });
         if (response.ok) {
           const data = await response.json();
           giftSettingsItems = data.items || [];
@@ -1043,8 +1055,8 @@
         const renderItem = (item, idx) => {
           console.log(`[Gift] Item ${idx}:`, item);
 
-          // Logic ค้นหารูปภาพ: ลองหลายวิธี
-          let itemImage = item.image || item.imageUrl;
+          // Logic ค้นหารูปภาพเหมือนใน Admin
+          let itemImage = item.image;
           if (!itemImage && giftSettingsItems.length > 0) {
             // 1. ค้นหาด้วย id
             let setting = giftSettingsItems.find(s => s.id === item.id);
@@ -1059,9 +1071,9 @@
             }
           }
 
-          // สร้าง HTML รูปภาพ
+          // ถ้ามีรูป
           const imgHtml = itemImage
-            ? `<img src="${(itemImage.startsWith && itemImage.startsWith('http')) ? itemImage : API_BASE_URL + itemImage}" alt="${item.name}" onerror="this.outerHTML='<div style=\'width:100px;height:100px;background:rgba(255,255,255,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 0.5rem;font-size:2rem;color:#777;\'>?</div>'" />`
+            ? `<img src="${(itemImage.startsWith && itemImage.startsWith('http')) ? itemImage : API_BASE_URL + itemImage}" alt="${item.name}" />`
             : `<div style="width:100px;height:100px;background:rgba(255,255,255,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 0.5rem;font-size:2rem;color:#777;">?</div>`;
 
           return `

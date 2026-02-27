@@ -1,7 +1,7 @@
 // นำเข้า React hooks และ component ที่จำเป็น
 import React, { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom"; // Import Link สำหรับการนำทาง
-import { API_BASE_URL, REALTIME_URL }  from "./config/apiConfig"; // URL ของ API และ Realtime Server
+import { API_BASE_URL, REALTIME_URL } from "../config/apiConfig"; // URL ของ API และ Realtime Server
 import "./LuckyWheel.css";
 
 // ฟังก์ชันสุ่มเลขจำนวนเต็มระหว่าง min และ max
@@ -34,9 +34,15 @@ function LuckyWheel() {
   useEffect(() => {
     // ถ้ากำลัง preview อยู่และมีช่องในวงล้อ ให้อัปเดตไปยัง OBS
     if (previewing && segments.length > 0) {
+      const adminId = localStorage.getItem("adminId");
+      const shopId = localStorage.getItem("shopId");
       fetch(`${REALTIME_URL}/api/lucky-wheel/preview`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-id": adminId || "",
+          "x-shop-id": shopId || ""
+        },
         body: JSON.stringify({ segments })
       }).catch(err => console.error(err));
     }
@@ -46,16 +52,30 @@ function LuckyWheel() {
   const togglePreview = () => {
     const newState = !previewing;
     setPreviewing(newState);
+    const adminId = localStorage.getItem("adminId");
+    const shopId = localStorage.getItem("shopId");
+    const headers = {
+      "Content-Type": "application/json",
+      "x-admin-id": adminId || "",
+      "x-shop-id": shopId || ""
+    };
+
     if (newState) {
       // เปิดการแสดงผล - ส่งข้อมูลวงล้อไปแสดงบน OBS
       fetch(`${REALTIME_URL}/api/lucky-wheel/preview`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ segments })
       });
     } else {
       // ปิดการแสดงผล - ซ่อนวงล้อบน OBS
-      fetch(`${REALTIME_URL}/api/lucky-wheel/hide`, { method: "POST" });
+      fetch(`${REALTIME_URL}/api/lucky-wheel/hide`, {
+        method: "POST",
+        headers: {
+          "x-admin-id": adminId || "",
+          "x-shop-id": shopId || ""
+        }
+      });
     }
   };
 
@@ -121,24 +141,31 @@ function LuckyWheel() {
   const spinWheel = () => {
     // ตรวจสอบเงื่อนไข: ต้องมีอย่างน้อย 2 ช่องและไม่กำลังหมุนอยู่
     if (segments.length < 2 || spinning) return;
-    
+
     // รีเซ็ตสถานะต่างๆ
     setPreviewing(false); // ปิด preview state
     setWinner(null);
     setSpinning(true);
     setShowPopup(false);
     setPopupEffect(false);
-    
+
     // สุ่มผู้ชนะ
     const winnerIdx = getRandomInt(0, segments.length - 1);
     const degPerSeg = 360 / segments.length; // องศาต่อช่อง
     // คำนวณมุมหมุนสุดท้าย: หมุน 30 รอบ + หยุดที่ผู้ชนะ (ใช้เวลา 25 วินาที)
     const finalDeg = 360 * 30 + (360 - winnerIdx * degPerSeg - degPerSeg / 2);
 
+    const adminId = localStorage.getItem("adminId");
+    const shopId = localStorage.getItem("shopId");
+
     // ส่งคำสั่งไปยัง Backend API เพื่อ sync กับ OBS
     fetch(`${REALTIME_URL}/api/lucky-wheel/spin`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-admin-id": adminId || "",
+        "x-shop-id": shopId || ""
+      },
       body: JSON.stringify({
         segments,        // รายการช่องทั้งหมด
         winnerIndex: winnerIdx,  // index ของผู้ชนะ
@@ -237,7 +264,7 @@ function LuckyWheel() {
   useEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;
-    
+
     const handleKeyDown = (e) => {
       // อนุญาตให้กดเว้นวรรคได้ตามปกติ
       if (e.key === " " && !e.shiftKey && !e.ctrlKey && !e.altKey) {
@@ -249,7 +276,7 @@ function LuckyWheel() {
         handleAddFromTextarea();
       }
     };
-    
+
     textarea.addEventListener("keydown", handleKeyDown);
     return () => textarea.removeEventListener("keydown", handleKeyDown);
   }, [input, segments]);

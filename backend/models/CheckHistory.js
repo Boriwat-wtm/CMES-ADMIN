@@ -2,6 +2,13 @@ import mongoose from "mongoose";
 
 const checkHistorySchema = new mongoose.Schema(
   {
+    // Multi-tenant Identifier
+    shopId: {
+      type: String,
+      required: true,
+      index: true
+    },
+
     // Common fields
     transactionId: { type: String, required: true }, // เดิม giftId
     type: {
@@ -57,14 +64,17 @@ const checkHistorySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// TTL Index: ลบข้อมูลที่เก่ากว่า 2 วัน (172800 วินาที) โดยไม่ลบ Gift
+// TTL Index: ลบข้อมูลที่เก่ากว่า 18 เดือน (47304000 วินาที)
 checkHistorySchema.index(
   { createdAt: 1 },
   {
-    expireAfterSeconds: 172800, // 2 days
+    expireAfterSeconds: 47304000, // 18 months
     partialFilterExpression: { type: { $ne: "gift" } }
   }
 );
+
+// Index for shop-specific queries
+checkHistorySchema.index({ shopId: 1, status: 1, createdAt: -1 });
 
 const CheckHistory = mongoose.model("CheckHistory", checkHistorySchema);
 

@@ -2,12 +2,15 @@
  * คอมโพเนนต์สำหรับแสดงประวัติการตรวจสอบทั้งหมด
  * รวมถึงข้อความ รูปภาพ ของขวัญ และวันเกิด
  */
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import { Link } from "react-router-dom";
-import { API_BASE_URL, REALTIME_URL } from "./config/apiConfig";
+import { API_BASE_URL, REALTIME_URL } from "../config/apiConfig";
+import { ShopContext } from "../contexts/ShopContext";
 import "./CheckHistory.css";
 
 function CheckHistory() {
+  const { shopId } = useContext(ShopContext);
+  const adminId = localStorage.getItem('adminId') || '';
   // state สำหรับเก็บประวัติทั้งหมด
   const [history, setHistory] = useState([]);
   // state สำหรับเก็บรายการที่เลือกดูรายละเอียด
@@ -17,16 +20,23 @@ function CheckHistory() {
   // state สำหรับเปิด/ปิดโหมดแก้ไข (แสดงปุ่มลบ)
   const [editMode, setEditMode] = useState(false);
 
-  // โหลดประวัติเมื่อคอมโพเนนต์ถูก mount
+  // โหลดประวัติเมื่อคอมโพเนนต์ถูก mount และเมื่อ shopId พร้อม
   useEffect(() => {
-    fetchHistory();
-  }, []);
+    if (shopId) {
+      fetchHistory();
+    }
+  }, [shopId]);
 
   /**
    * ฟังก์ชันสำหรับดึงข้อมูลประวัติการตรวจสอบจาก API
    */
   const fetchHistory = () => {
-    fetch(`${API_BASE_URL}/api/check-history`)
+    fetch(`${API_BASE_URL}/api/check-history`, {
+      headers: {
+        'x-shop-id': shopId || '',
+        'x-admin-id': adminId
+      }
+    })
       .then((res) => res.json())
       .then((data) => {
         console.log("[CheckHistory] Fetched data:", data);
@@ -52,7 +62,11 @@ function CheckHistory() {
     if (!window.confirm("ยืนยันการลบรายการนี้?")) return;
     await fetch(`${API_BASE_URL}/api/delete-history`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        'x-shop-id': shopId || '',
+        'x-admin-id': adminId
+      },
       body: JSON.stringify({ id }),
     });
     // โหลดข้อมูลใหม่หหลังจากลบ
@@ -66,6 +80,10 @@ function CheckHistory() {
     if (!window.confirm("ยืนยันการลบประวัติทั้งหมด?")) return;
     await fetch(`${API_BASE_URL}/api/delete-all-history`, {
       method: "POST",
+      headers: {
+        'x-shop-id': shopId || '',
+        'x-admin-id': adminId
+      }
     });
     // โหลดข้อมูลใหม่หลังจากลบ
     fetchHistory();

@@ -2,6 +2,11 @@ import mongoose from "mongoose";
 
 const rankingSchema = new mongoose.Schema(
   {
+    shopId: {
+      type: String,
+      required: true,
+      index: true
+    },
     userId: {
       type: String,
       required: true,
@@ -60,18 +65,18 @@ const rankingSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Compound unique index for userId (one record per user)
-rankingSchema.index({ userId: 1 }, { unique: true });
+// Compound unique index: userId ต้องไม่ซ้ำภายใน shop เดียวกัน
+rankingSchema.index({ shopId: 1, userId: 1 }, { unique: true });
 
 // Index for faster queries
-rankingSchema.index({ points: -1 });
-rankingSchema.index({ rank: 1 });
-rankingSchema.index({ dailyPoints: -1 });
-rankingSchema.index({ dailyRank: 1 });
-rankingSchema.index({ dailyDate: 1 });
-rankingSchema.index({ monthlyPoints: -1 });
-rankingSchema.index({ monthlyRank: 1 });
-rankingSchema.index({ monthlyPeriod: 1 });
+rankingSchema.index({ shopId: 1, points: -1 });
+rankingSchema.index({ shopId: 1, rank: 1 });
+rankingSchema.index({ shopId: 1, dailyPoints: -1 });
+rankingSchema.index({ shopId: 1, dailyRank: 1 });
+rankingSchema.index({ shopId: 1, dailyDate: 1 });
+rankingSchema.index({ shopId: 1, monthlyPoints: -1 });
+rankingSchema.index({ shopId: 1, monthlyRank: 1 });
+rankingSchema.index({ shopId: 1, monthlyPeriod: 1 });
 
 // Helper method to get business date (day starts at 06:01)
 rankingSchema.statics.getBusinessDate = function() {
