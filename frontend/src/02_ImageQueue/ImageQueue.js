@@ -9,6 +9,7 @@ import fbLogo from "../data-icon/facebook-logo.png";
 import lineLogo from "../data-icon/line-logo.png";
 import tiktokLogo from "../data-icon/tiktok-logo.png";
 import { API_BASE_URL, REALTIME_URL, USER_API_URL } from "../config/apiConfig"; // URL ของ API
+import adminFetch from "../config/authFetch"; // 🔒 Admin auth utility + 401 redirect
 
 // 🔥 ลบการสร้าง socket แบบ global
 // const socket = io(API_BASE_URL, { transports: ['websocket', 'polling'] });
@@ -193,8 +194,8 @@ function ImageQueue() {
 
     // อัปเดตสถานะเป็น 'playing' ใน Database
     try {
-      await fetch(`${API_BASE_URL}/api/playing/${imageId}`, {
-        method: "POST"
+      await adminFetch(`${API_BASE_URL}/api/playing/${imageId}`, {
+        method: "POST",
       });
       console.log("[Playing] Marked as playing:", imageId);
     } catch (err) {
@@ -255,8 +256,8 @@ function ImageQueue() {
 
     // เรียก API เพื่อบอก Backend ว่ารูปภาพแสดงครบแล้ว
     try {
-      const response = await fetch(`${API_BASE_URL}/api/complete/${imageId}`, {
-        method: "POST"
+      const response = await adminFetch(`${API_BASE_URL}/api/complete/${imageId}`, {
+        method: "POST",
       });
       const result = await response.json();
       console.log("[Complete] API Result:", result);
@@ -369,9 +370,7 @@ function ImageQueue() {
   // ===== ฟังก์ชัน: ดึงข้อมูลคิวรูปภาพจาก Server =====
   const fetchImages = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/queue`, {
-        headers: { "x-shop-id": shopId || "" }
-      });
+      const response = await adminFetch(`${API_BASE_URL}/api/queue`);
       if (response.ok) {
         const data = await response.json();
         setImages(data); // อัปเดตรายการรูปภาพ
@@ -435,13 +434,7 @@ function ImageQueue() {
   // ===== ฟังก์ชัน: ดึงประวัติการอนุมัติ/ปฏิเสธ =====
   const fetchHistory = async () => {
     try {
-      const adminId = localStorage.getItem('adminId') || '';
-      const response = await fetch(`${API_BASE_URL}/api/check-history`, {
-        headers: {
-          "x-shop-id": shopId || "",
-          "x-admin-id": adminId
-        }
-      });
+      const response = await adminFetch(`${API_BASE_URL}/api/check-history`);
       if (response.ok) {
         const data = await response.json();
         setHistoryItems(data);
@@ -454,9 +447,7 @@ function ImageQueue() {
   // ===== ฟังก์ชัน: ดึงตั้งค่าของขวัญจาก Backend =====
   const fetchGiftSettings = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/gifts/settings`, {
-        headers: { "x-shop-id": shopId || "" }
-      });
+      const response = await adminFetch(`${API_BASE_URL}/api/gifts/settings`);
       if (response.ok) {
         const data = await response.json();
         // โครงสร้างข้อมูล: { tableCount, items: [...] }
@@ -480,7 +471,9 @@ function ImageQueue() {
 
     // แจ้ง Backend ว่ารูปนี้เสร็จสิ้นแล้ว
     try {
-      await fetch(`${API_BASE_URL}/api/complete/${imageId}`, { method: "POST" });
+      await adminFetch(`${API_BASE_URL}/api/complete/${imageId}`, {
+        method: "POST",
+      });
     } catch (err) {
       console.error("Error skipping current image:", err);
     }
@@ -532,13 +525,8 @@ function ImageQueue() {
   const handleRestoreToQueue = async (historyId) => {
     try {
       console.log("[Frontend] Restoring history ID:", historyId);
-      const adminId = localStorage.getItem('adminId') || '';
-      const response = await fetch(`${API_BASE_URL}/api/history/restore/${historyId}`, {
+      const response = await adminFetch(`${API_BASE_URL}/api/history/restore/${historyId}`, {
         method: "POST",
-        headers: {
-          "x-shop-id": shopId || "",
-          "x-admin-id": adminId
-        }
       });
       if (response.ok) {
         const result = await response.json();
@@ -715,14 +703,8 @@ function ImageQueue() {
       */
 
       // 3. Send Request
-      const adminId = localStorage.getItem('adminId');
-      const response = await fetch(`${API_BASE_URL}/api/approve/${id}`, {
+      const response = await adminFetch(`${API_BASE_URL}/api/approve/${id}`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-shop-id": shopId || "",
-          "x-admin-id": adminId || ""
-        },
         body: JSON.stringify({
           width: editWidth,
           height: editHeight
@@ -748,13 +730,8 @@ function ImageQueue() {
   const handleReject = async (id) => {
     try {
       console.log('[Reject] Rejecting image with ID:', id);
-      const adminId = localStorage.getItem('adminId');
-      const response = await fetch(`${API_BASE_URL}/api/reject/${id}`, {
+      const response = await adminFetch(`${API_BASE_URL}/api/reject/${id}`, {
         method: "POST",
-        headers: {
-          "x-shop-id": shopId || "",
-          "x-admin-id": adminId || ""
-        }
       });
       if (response.ok) {
         fetchImages(); // โหลดคิวใหม่

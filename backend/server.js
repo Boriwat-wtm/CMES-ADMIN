@@ -512,8 +512,9 @@ async function findUser(username) {
 /**
  * API สำหรับดึงการตั้งค่าของขวัญ (จำนวนโต๊ะ และรายการสินค้า)
  * 🔥 Multi-tenant: filter ด้วย shopId
+ * ใช้ requireShopId เพื่อให้ User backend เรียกได้โดยไม่ต้องการ x-admin-id
  */
-app.get("/api/gifts/settings", requireAdminAuth, async (req, res) => {
+app.get("/api/gifts/settings", requireShopId, async (req, res) => {
   try {
     const { shopId } = req; // ได้จาก middleware
     const gifts = await GiftSetting.find({ shopId });
@@ -1052,7 +1053,7 @@ app.post("/api/config/birthday-requirement", requireAdminAuth, async (req, res) 
  * API ดึงรายการสิทธิพิเศษทั้งหมด
  * 🔥 Multi-tenant: แต่ละ shop มี perks ของตัวเอง
  */
-app.get("/api/config/perks", requireAdminAuth, async (req, res) => {
+app.get("/api/config/perks", requireShopId, async (req, res) => {
   try {
     const { shopId } = req; // ได้จาก middleware
 
@@ -2171,6 +2172,11 @@ app.delete("/api/delete/:id", requireAdminAuth, async (req, res) => {
 });
 
 // API สำหรับสถิติสลิป
+app.get("/api/stat-slip", (req, res) => {
+  // Feature ยังไม่ได้ implement การเก็บข้อมูล
+  res.json([]);
+});
+
 app.post("/api/stat-slip", (req, res) => {
   console.log('Received stat-slip:', req.body);
   res.json({ success: true });
@@ -2329,7 +2335,7 @@ app.patch("/api/reports/:id", requireAdminAuth, async (req, res) => {
 /**
  * API ดึง system config ของ shop
  */
-app.get('/api/status', requireAdminAuth, async (req, res) => {
+app.get('/api/status', requireShopId, async (req, res) => {
   try {
     const { shopId } = req; // ได้จาก middleware
 
@@ -2580,11 +2586,6 @@ function saveRuntimeConfig() {
 // โหลด config เมื่อ MongoDB พร้อม (เรียกหลัง connectDB)
 mongoose.connection.once('open', () => {
   loadInitialConfig();
-});
-
-// === REST API สำรอง: /api/status ===
-app.get("/api/status", (req, res) => {
-  res.json(realtimeConfig);
 });
 
 // API สำหรับดึง settings history จาก DB (สำหรับ realtime config)

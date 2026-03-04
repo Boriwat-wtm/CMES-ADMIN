@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { API_BASE_URL, REALTIME_URL } from "../config/apiConfig";
+import adminFetch from "../config/authFetch";
 import "./AdminReport.css";
 
 const API_BASE = API_BASE_URL;
@@ -37,6 +38,10 @@ function AdminReport() {
   const [activeReport, setActiveReport] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
 
+  // ===== ข้อมูล Admin สำหรับ Authentication Headers =====
+  const shopId = localStorage.getItem("shopId") || "";
+  const adminId = localStorage.getItem("adminId") || "";
+
   useEffect(() => {
     loadReports();
   }, []);
@@ -45,7 +50,7 @@ function AdminReport() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${API_BASE}/api/reports`);
+      const res = await adminFetch(`${API_BASE}/api/reports`);
       if (!res.ok) throw new Error("FAILED");
       const data = await res.json();
       const sorted = (data || []).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -81,9 +86,8 @@ function AdminReport() {
     if (report.status === status) return;
     setUpdatingId(report.id);
     try {
-      const res = await fetch(`${API_BASE}/api/reports/${report.id}`, {
+      const res = await adminFetch(`${API_BASE}/api/reports/${report.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status })
       });
       if (!res.ok) throw new Error("PATCH_FAILED");

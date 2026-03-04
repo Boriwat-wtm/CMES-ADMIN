@@ -2,6 +2,7 @@ import React, { useState, useContext, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { ShopContext } from "../contexts/ShopContext";
 import { API_BASE_URL } from "../config/apiConfig";
+import adminFetch from "../config/authFetch";
 import "./EditProfile.css";
 
 // Emoji ที่ใช้บ่อยสำหรับชื่อร้าน
@@ -58,9 +59,7 @@ function EditProfile() {
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-                const res = await fetch(`${API_BASE_URL}/api/shop/profile`, {
-                    headers: { "x-shop-id": adminShopId }
-                });
+                const res = await adminFetch(`${API_BASE_URL}/api/shop/profile`);
                 if (res.ok) {
                     const data = await res.json();
                     if (data.success && data.shop) {
@@ -113,12 +112,8 @@ function EditProfile() {
         try {
             const formData = new FormData();
             formData.append("logo", shopLogo);
-            const res = await fetch(`${API_BASE_URL}/api/shop/logo`, {
+            const res = await adminFetch(`${API_BASE_URL}/api/shop/logo`, {
                 method: "POST",
-                headers: {
-                    "x-shop-id": adminShopId,
-                    "x-admin-id": adminId
-                },
                 body: formData
             });
             const data = await res.json();
@@ -144,13 +139,8 @@ function EditProfile() {
         }
         setNameLoading(true);
         try {
-            const res = await fetch(`${API_BASE_URL}/api/shop/name`, {
+            const res = await adminFetch(`${API_BASE_URL}/api/shop/name`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "x-shop-id": adminShopId,
-                    "x-admin-id": adminId
-                },
                 body: JSON.stringify({ name: nameInput.trim() })
             });
             const data = await res.json();
@@ -193,13 +183,8 @@ function EditProfile() {
 
         setLoading(true);
         try {
-            const res = await fetch(`${API_BASE_URL}/api/admin/change-password`, {
+            const res = await adminFetch(`${API_BASE_URL}/api/admin/change-password`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "x-shop-id": adminShopId,
-                    "x-admin-id": adminId,
-                },
                 body: JSON.stringify({ currentPassword: currentPw, newPassword: newPw }),
             });
             const data = await res.json();
@@ -235,13 +220,8 @@ function EditProfile() {
 
         setShopIdLoading(true);
         try {
-            const res = await fetch(`${API_BASE_URL}/api/admin/change-shopid`, {
+            const res = await adminFetch(`${API_BASE_URL}/api/admin/change-shopid`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "x-shop-id": adminShopId,
-                    "x-admin-id": adminId,
-                },
                 body: JSON.stringify({ newShopId: newShopIdInput }),
             });
             const data = await res.json();

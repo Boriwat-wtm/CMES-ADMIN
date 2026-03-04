@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useContext } from "react";
 import { Link } from "react-router-dom"; // สำหรับการนำทางกลับหน้า Home
 import { API_BASE_URL } from "../config/apiConfig"; // ใช้ API_BASE_URL จาก config
+import adminFetch from "../config/authFetch"; // 🔒 Admin auth utility + 401 redirect
 import { ShopContext } from "../contexts/ShopContext"; // 🔧 Multi-tenant: นำเข้า ShopContext สำหรับจัดการ socket และ shopId
 import "./TimeHistory.css"; // ไฟล์ CSS สำหรับตกแต่งหน้านี้
 
@@ -16,15 +17,7 @@ function TimeHistory() {
     // ฟังก์ชันดึงข้อมูลประวัติจาก API
     const fetchHistory = async () => {
       try {
-        const storedShopId = localStorage.getItem('shopId') || '';
-        const adminId = localStorage.getItem('adminId') || '';
-        const response = await fetch(`${API_BASE_URL}/api/time-history`, {
-          headers: {
-            'Content-Type': 'application/json',
-            'x-shop-id': storedShopId,
-            'x-admin-id': adminId,
-          }
-        });
+        const response = await adminFetch(`${API_BASE_URL}/api/time-history`);
         if (response.ok) {
           const data = await response.json();
           console.log("[TimeHistory] Fetched history:", data);

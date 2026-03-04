@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { ShopContext } from "../contexts/ShopContext"; // 🔥 Multi-tenant Context
-import { API_BASE_URL, REALTIME_URL } from "../config/apiConfig";
+import { API_BASE_URL, REALTIME_URL, USER_FRONTEND_URL } from "../config/apiConfig";
 import "./home.css";
 import OBSControl from "../10_OBSControl/OBSControl";
 
@@ -76,10 +76,10 @@ function Home() {
   const adminId = localStorage.getItem("adminId") || "default-admin"; // รหัสร้านของ Admin
   const adminUsername = localStorage.getItem("adminUsername") || "Admin"; // ชื่อผู้ใช้ Admin
 
-  // ===== Helper: fetch พร้อม auth headers =====
-  const authFetch = (url, options = {}) => {
+  // ===== Helper: fetch พร้อม auth headers + 401 redirect =====
+  const authFetch = async (url, options = {}) => {
     const storedShopId = shopId || localStorage.getItem("shopId") || "shop1";
-    return fetch(url, {
+    const response = await fetch(url, {
       ...options,
       headers: {
         "Content-Type": "application/json",
@@ -88,6 +88,13 @@ function Home() {
         ...(options.headers || {}),
       },
     });
+    if (response.status === 401) {
+      localStorage.removeItem("adminId");
+      localStorage.removeItem("adminUsername");
+      localStorage.removeItem("shopId");
+      window.location.href = "/";
+    }
+    return response;
   };
 
   // ===== Fetch Shop Profile =====
@@ -153,10 +160,8 @@ function Home() {
     setIncomeLoading(true);
     setIncomeError("");
     try {
-      const token = localStorage.getItem('adminToken');
-      const res = await fetch(`${API_BASE_URL}/api/admin/income-stats?startDate=${incomeStartDate}&endDate=${incomeEndDate}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const storedShopId = shopId || localStorage.getItem('shopId') || '';
+      const res = await authFetch(`${API_BASE_URL}/api/admin/income-stats?startDate=${incomeStartDate}&endDate=${incomeEndDate}`);
       const data = await res.json();
       if (data.success) {
         setIncomeStats(data.data);
@@ -638,7 +643,7 @@ function Home() {
   const generateQRCode = () => {
     // 🔥 ใช้ shopId แทน adminId สำหรับ Multi-tenant
     const shopParam = shopId || localStorage.getItem('shopId') || 'CMES ADMIN';
-    const userAppUrl = `${window.location.origin.replace(':3001', ':3000')}/?shopId=${shopParam}`;
+    const userAppUrl = `${USER_FRONTEND_URL}/?shopId=${shopParam}`;
     const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(userAppUrl)}&format=png&ecc=H`;
     setQrCodeUrl(qrApiUrl);
     setShowQrModal(true);
@@ -1628,7 +1633,7 @@ function Home() {
 
                     <button
                       onClick={() => {
-                        const url = `${window.location.origin.replace(':3001', ':3000')}/?shopId=${shopId || localStorage.getItem('shopId') || 'CMES ADMIN'}`;
+                        const url = `${USER_FRONTEND_URL}/?shopId=${shopId || localStorage.getItem('shopId') || 'CMES ADMIN'}`;
                         navigator.clipboard.writeText(url);
                         alert("✅ คัดลอกลิงก์สำเร็จ!");
                       }}
@@ -1651,7 +1656,7 @@ function Home() {
 
                     <button
                       onClick={() => {
-                        const url = `${window.location.origin.replace(':3001', ':3000')}/?shopId=${shopId || localStorage.getItem('shopId') || 'CMES ADMIN'}`;
+                        const url = `${USER_FRONTEND_URL}/?shopId=${shopId || localStorage.getItem('shopId') || 'CMES ADMIN'}`;
                         window.open(url, '_blank');
                       }}
                       style={{
@@ -1695,7 +1700,7 @@ function Home() {
                       wordBreak: "break-all",
                       fontFamily: "monospace"
                     }}>
-                      {`${window.location.origin.replace(':3001', ':3000')}/?shopId=${shopId || 'CMES ADMIN'}`}
+                      {`${USER_FRONTEND_URL}/?shopId=${shopId || 'CMES ADMIN'}`}
                     </small>
                   </div>
 

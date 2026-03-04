@@ -5,6 +5,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { API_BASE_URL, REALTIME_URL } from "../config/apiConfig";
+import adminFetch from "../config/authFetch";
 import "./Giftsetting.css";
 
 const API_BASE = API_BASE_URL;
@@ -28,6 +29,10 @@ function Giftsetting() {
 	const [previewUrl, setPreviewUrl] = useState("");
 	// ref สำหรับ input file
 	const fileInputRef = useRef(null);
+
+	// ===== ข้อมูล Admin สำหรับ Authentication Headers =====
+	const shopId = localStorage.getItem("shopId") || "";
+	const adminId = localStorage.getItem("adminId") || "";
 
 	/**
 	 * ฟังก์ชันสำหรับแปลง URL รูปภาพให้เป็น absolute path
@@ -59,7 +64,7 @@ function Giftsetting() {
 	const loadSettings = async () => {
 		setLoading(true);
 		try {
-			const response = await fetch(`${API_BASE}/api/gifts/settings`);
+			const response = await adminFetch(`${API_BASE}/api/gifts/settings`);
 			const data = await response.json();
 			setItems(data.items || []);
 			setTableCount(data.tableCount || 10);
@@ -104,7 +109,7 @@ function Giftsetting() {
 				const uploadForm = new FormData();
 				uploadForm.append("image", localImage);
 				// เรียก API สำหรับอัปโหลดรูปภาพ
-				const uploadResponse = await fetch(`${API_BASE}/api/gifts/upload`, {
+				const uploadResponse = await adminFetch(`${API_BASE}/api/gifts/upload`, {
 					method: "POST",
 					body: uploadForm,
 				});
@@ -115,9 +120,8 @@ function Giftsetting() {
 				imageUrlToSave = uploadData.url || "";
 			}
 			// บันทึกข้อมูลสินค้าพร้อม URL รูปภาพ
-			const response = await fetch(`${API_BASE}/api/gifts/items`, {
+			const response = await adminFetch(`${API_BASE}/api/gifts/items`, {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					name: form.name,
 					price: Number(form.price),
@@ -157,7 +161,7 @@ function Giftsetting() {
 	const handleDelete = async (id) => {
 		if (!window.confirm("ต้องการลบสินค้ารายการนี้หรือไม่?")) return;
 		try {
-			const response = await fetch(`${API_BASE}/api/gifts/items/${id}`, {
+			const response = await adminFetch(`${API_BASE}/api/gifts/items/${id}`, {
 				method: "DELETE",
 			});
 			const data = await response.json();
@@ -180,9 +184,8 @@ function Giftsetting() {
 			return;
 		}
 		try {
-			const response = await fetch(`${API_BASE}/api/gifts/table-count`, {
+			const response = await adminFetch(`${API_BASE}/api/gifts/table-count`, {
 				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ tableCount: Number(tableCount) })
 			});
 			const data = await response.json();
