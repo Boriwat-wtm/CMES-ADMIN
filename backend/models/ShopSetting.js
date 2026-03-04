@@ -48,6 +48,11 @@ const shopSettingSchema = new mongoose.Schema({
       "💬 ช่องทางติดต่อทีมเซทอัพสำหรับแสดงความคิดเห็น"
     ]
   },
+  // Payment QR Code
+  paymentQrUrl: {
+    type: String,
+    default: null  // Cloudinary URL สำหรับภาพ QR code ชำระเงิน
+  },
   // Gift Settings
   tableCount: {
     type: Number,

@@ -236,6 +236,18 @@ const logoStorage = new CloudinaryStorage({
 });
 const uploadLogo = multer({ storage: logoStorage }).single('logo');
 
+// 4. Payment QR Code Storage (Cloudinary)
+const paymentQrStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'cmes-admin/payment-qr',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+    transformation: [{ width: 800, height: 800, crop: 'limit' }],
+    public_id: (req, file) => `payment-qr-${req.shopId || 'shop'}-${Date.now()}`
+  }
+});
+const uploadPaymentQr = multer({ storage: paymentQrStorage }).single('paymentQr');
+
 // ===== SHOP PROFILE ENDPOINTS =====
 // GET /api/shop/profile — ดึงชื่อและโลโก้ร้าน (public, ต้องการแค่ x-shop-id)
 app.get('/api/shop/profile', requireShopId, async (req, res) => {
@@ -1119,6 +1131,66 @@ app.post("/api/config/perks", requireAdminAuth, async (req, res) => {
   } catch (error) {
     console.error("Error updating perks:", error);
     res.status(500).json({ success: false, message: "Failed to update perks" });
+  }
+});
+
+// ==========================================
+// PAYMENT QR CODE APIs
+// 🔥 Multi-tenant: แต่ละ shop มี QR code ชำระเงินของตัวเอง
+// ==========================================
+
+/**
+ * API อัปโหลดภาพ QR Code ชำระเงิน
+ * ใช้ Cloudinary storage + บันทึก URL ลง ShopSetting.paymentQrUrl
+ */
+app.post('/api/config/payment-qr', requireAdminAuth, (req, res, next) => {
+  uploadPaymentQr(req, res, (err) => {
+    if (err) {
+      console.error('[PaymentQR] Multer error:', err.message);
+      return res.status(400).json({ success: false, message: 'อัปโหลดรูปภาพล้มเหลว: ' + err.message });
+    }
+    next();
+  });
+}, async (req, res) => {
+  try {
+    const { shopId } = req;
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'กรุณาเลือกรูปภาพ QR Code' });
+    }
+
+    const imageUrl = req.file.path || req.file.secure_url || req.file.url;
+    console.log(`[PaymentQR][${shopId}] Uploaded payment QR:`, imageUrl);
+
+    // บันทึก URL ลง ShopSetting
+    await ShopSetting.findOneAndUpdate(
+      { shopId },
+      { paymentQrUrl: imageUrl },
+      { upsert: true, new: true }
+    );
+
+    res.json({ success: true, paymentQrUrl: imageUrl });
+  } catch (error) {
+    console.error('[PaymentQR] Error uploading:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * API ดึง URL ภาพ QR Code ชำระเงินของร้าน
+ * ใช้โดย User Frontend (ต้องการแค่ shopId)
+ */
+app.get('/api/config/payment-qr', requireShopId, async (req, res) => {
+  try {
+    const { shopId } = req;
+    const settings = await ShopSetting.findOne({ shopId }).lean();
+
+    res.json({
+      success: true,
+      paymentQrUrl: settings?.paymentQrUrl || null
+    });
+  } catch (error) {
+    console.error('[PaymentQR] Error fetching:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
