@@ -1250,7 +1250,7 @@ app.post("/api/gifts/order", requireShopId, async (req, res) => {
     console.log("[Admin] Received gift order:", JSON.stringify(req.body, null, 2));
 
     const { shopId } = req; // 🔥 ได้จาก middleware
-    const { orderId, sender, userId, email, avatar, tableNumber, note, items, totalPrice } = req.body;
+    const { orderId, sender, senderPhone, userId, email, avatar, tableNumber, note, items, totalPrice } = req.body;
 
     console.log("[Admin] Parsed data: shopId=", shopId, "userId=", userId, "sender=", sender, "price=", totalPrice);
 
@@ -1303,6 +1303,7 @@ app.post("/api/gifts/order", requireShopId, async (req, res) => {
       giftOrder: {
         orderId,
         tableNumber,
+        senderPhone: senderPhone || null,
         items: enrichedItems,
         totalPrice: Number(totalPrice) || 0,
         note: note || ""
@@ -1332,6 +1333,46 @@ app.post("/api/gifts/order", requireShopId, async (req, res) => {
 
     console.error("Gift order push failed", error);
     res.status(500).json({ success: false, message: "บันทึกคำสั่งซื้อไม่สำเร็จ" });
+  }
+});
+
+// ===== API แก้ไขรายการสินค้า Gift (Admin เปลี่ยนสินค้าที่หมด) =====
+app.put("/api/queue/:id/gift-items", requireAdminAuth, requireShopId, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { shopId } = req;
+    const { items } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, message: "ต้องมีรายการสินค้าอย่างน้อย 1 รายการ" });
+    }
+
+    // คำนวณราคารวมใหม่
+    const totalPrice = items.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0);
+
+    const updated = await ImageQueue.findOneAndUpdate(
+      { _id: id, shopId, type: "gift" },
+      {
+        "giftOrder.items": items,
+        "giftOrder.totalPrice": totalPrice,
+        price: totalPrice
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "ไม่พบรายการ gift นี้" });
+    }
+
+    console.log("[Admin] Gift items updated:", { id, itemCount: items.length, totalPrice });
+
+    // แจ้ง Admin ทุกคนให้ refresh
+    io.to(shopId).emit("admin-update-queue");
+
+    res.json({ success: true, queueItem: updated });
+  } catch (error) {
+    console.error("Update gift items failed", error);
+    res.status(500).json({ success: false, message: "แก้ไขรายการสินค้าไม่สำเร็จ" });
   }
 });
 

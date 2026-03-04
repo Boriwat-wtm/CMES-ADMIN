@@ -103,11 +103,13 @@ const imageQueueSchema = new mongoose.Schema({
   giftOrder: {
     orderId: String,
     tableNumber: String,
+    senderPhone: { type: String, default: null },
     items: [{
       id: String,
       name: String,
       quantity: Number,
-      price: Number
+      price: Number,
+      image: String
     }],
     totalPrice: Number,
     note: String
