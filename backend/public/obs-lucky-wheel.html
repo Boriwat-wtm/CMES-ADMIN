@@ -344,7 +344,7 @@
   </div>
 
   <script>
-    const REALTIME_URL = 'http://localhost:5001';
+    const REALTIME_URL = window.location.origin;
 
     // 🔥 อ่าน shopId จาก URL ?shopId=KAIYANG เพื่อเข้า Socket.IO Room เฉพาะร้าน
     const urlParams = new URLSearchParams(window.location.search);

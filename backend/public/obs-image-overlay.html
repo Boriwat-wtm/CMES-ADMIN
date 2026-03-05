@@ -662,8 +662,8 @@
 
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script>
-    const REALTIME_URL = 'http://localhost:5001';
-    const API_BASE_URL = 'http://localhost:5001';
+    const REALTIME_URL = window.location.origin;
+    const API_BASE_URL = window.location.origin;
 
     // 🔥 อ่าน shopId จาก URL ?shopId=KAIYANG
     const urlParams = new URLSearchParams(window.location.search);
