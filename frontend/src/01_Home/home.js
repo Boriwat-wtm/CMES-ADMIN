@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useContext } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ShopContext } from "../contexts/ShopContext"; // 🔥 Multi-tenant Context
 import { API_BASE_URL, REALTIME_URL, USER_FRONTEND_URL } from "../config/apiConfig";
 import "./home.css";
@@ -34,6 +34,7 @@ function Home() {
   // 🔥 ดึง socket และ shopId จาก Context
   const { socket, shopId, isSocketConnected, logout } = useContext(ShopContext);
   const navigate = useNavigate();
+  const location = useLocation(); // กับ location เพื่อ re-fetch โปรไฟล์ทุกครั้งที่กลับมาหน้านี้
 
   // ===== State สำหรับการควบคุมระบบ =====
   const [systemOn, setSystemOn] = useState(true); // สถานะเปิด/ปิดระบบทั้งหมด
@@ -118,7 +119,7 @@ function Home() {
       }
     };
     fetchProfile();
-  }, [shopId]);
+  }, [shopId, location.key]);
 
   // ===== State สำหรับปุ่ม Copy OBS Links =====
   const [copiedImage, setCopiedImage] = useState(false); // สถานะคัดลอกลิงก์ Image Overlay

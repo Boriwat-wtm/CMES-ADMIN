@@ -421,8 +421,9 @@ function ImageQueue() {
           setCurrentPreview(null);
           setIsActive(false);
           setTimeLeft(0);
-          setIsPaused(false);
-          setPauseTimeLeft(0);
+          // ❌ อย่าล้าง isPaused/pauseTimeLeft ที่นี่ — ให้ server pause-display event ควบคุมเอง
+          // setIsPaused(false);  ← ถ้าล้างตรงนี้จะทับ countdown ที่รับจาก pause-display
+          // setPauseTimeLeft(0); ←
           isCompletingRef.current = false;
           localStorage.removeItem("currentPreview");
           localStorage.removeItem("isActive");
@@ -1551,7 +1552,7 @@ function ImageQueue() {
               <>
                 <div className="preview-image-container" style={{ position: "relative", minHeight: "400px", maxHeight: "400px" }}>
                   {/* Countdown Overlay for Next Queue */}
-                  {isPaused && pauseTimeLeft > 0 && previewQueue.length > 0 && (
+                  {isPaused && pauseTimeLeft > 0 && (
                     <div style={{
                       position: "absolute",
                       top: 0,
