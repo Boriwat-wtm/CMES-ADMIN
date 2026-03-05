@@ -33,6 +33,12 @@ function ImageQueue() {
   const [editWidth, setEditWidth] = useState(""); // ความกว้างที่ต้องการแสดงบน OBS
   const [editHeight, setEditHeight] = useState(""); // ความสูงที่ต้องการแสดงบน OBS
 
+  // ===== State: แก้ไขรายการสินค้า Gift =====
+  const [editGiftItems, setEditGiftItems] = useState([]); // รายการสินค้าที่กำลังแก้ไข
+  const [isEditingGift, setIsEditingGift] = useState(false); // กำลังอยู่ในโหมดแก้ไขหรือไม่
+  const [showAddGiftItem, setShowAddGiftItem] = useState(false); // แสดง dropdown เพิ่มสินค้า
+  const [savingGiftItems, setSavingGiftItems] = useState(false); // กำลังบันทึก
+
   // ===== State: ระบบ Preview และ Queue =====
   const [currentPreview, setCurrentPreview] = useState(null); // รูปภาพที่กำลังแสดงบน OBS
   const [previewQueue, setPreviewQueue] = useState([]); // คิวรูปภาพที่รออนุมัติแล้วรอแสดง
@@ -550,10 +556,16 @@ function ImageQueue() {
 
   // ===== ฟังก์ชัน: คลิกรูปภาพเพื่อดูรายละเอียด =====
   const handleImageClick = (image) => {
-    setSelectedImage(image); // เก็บข้อมูลรูปภาพที่เลือก // เก็บข้อมูลรูปภาพที่เลือก
+    setSelectedImage(image); // เก็บข้อมูลรูปภาพที่เลือก
     setEditWidth(image.width || ""); // โหลดค่าความกว้าง
     setEditHeight(image.height || ""); // โหลดค่าความสูง
     setShowModal(true); // เปิด Modal
+    // ถ้าเป็น gift ให้ init editGiftItems
+    if (image.type === 'gift' && image.giftOrder && image.giftOrder.items) {
+      setEditGiftItems(image.giftOrder.items.map(item => ({ ...item })));
+      setIsEditingGift(false);
+      setShowAddGiftItem(false);
+    }
   };
 
   // ===== Drag and Drop: จัดการลำดับคิวด้วยการลาก =====
@@ -2221,35 +2233,173 @@ function ImageQueue() {
                 {/* รายการสินค้าสำหรับ Gift */}
                 {selectedImage.type === 'gift' && selectedImage.giftOrder && selectedImage.giftOrder.items && (
                   <div className="detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start', borderBottom: '1px solid #eee', paddingBottom: '12px', marginBottom: '12px' }}>
-                    <span className="label" style={{ marginBottom: '8px' }}>📦 รายการสินค้าทั้งหมด:</span>
+                    {/* เบอร์โทรผู้ส่ง */}
+                    {selectedImage.giftOrder.senderPhone && (
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        marginBottom: '12px', padding: '10px 14px',
+                        background: 'linear-gradient(135deg, #fef3c7, #fde68a)',
+                        borderRadius: '12px', border: '1px solid #f59e0b', width: '100%', boxSizing: 'border-box'
+                      }}>
+                        <span style={{ fontSize: '18px' }}>📞</span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '11px', color: '#92400e', fontWeight: '600' }}>เบอร์โทรผู้ส่ง</div>
+                          <div style={{ fontSize: '16px', fontWeight: '700', color: '#78350f' }}>{selectedImage.giftOrder.senderPhone}</div>
+                        </div>
+                        <a href={`tel:${selectedImage.giftOrder.senderPhone}`}
+                          style={{
+                            padding: '6px 14px', background: '#16a34a', color: '#fff',
+                            borderRadius: '8px', fontSize: '13px', fontWeight: '600',
+                            textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px'
+                          }}>
+                          📞 โทร
+                        </a>
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '8px' }}>
+                      <span className="label">📦 รายการสินค้าทั้งหมด:</span>
+                      {!isEditingGift ? (
+                        <button onClick={() => setIsEditingGift(true)}
+                          style={{
+                            padding: '4px 12px', background: '#f59e0b', color: '#fff',
+                            border: 'none', borderRadius: '8px', fontSize: '12px',
+                            fontWeight: '600', cursor: 'pointer'
+                          }}>
+                          ✏️ แก้ไขรายการ
+                        </button>
+                      ) : (
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button onClick={() => { setIsEditingGift(false); setEditGiftItems(selectedImage.giftOrder.items.map(i => ({ ...i }))); setShowAddGiftItem(false); }}
+                            style={{ padding: '4px 10px', background: '#94a3b8', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
+                            ยกเลิก
+                          </button>
+                          <button onClick={async () => {
+                            setSavingGiftItems(true);
+                            try {
+                              const itemId = selectedImage._id || selectedImage.id;
+                              const response = await adminFetch(`${API_BASE_URL}/api/queue/${itemId}/gift-items`, {
+                                method: 'PUT',
+                                body: JSON.stringify({ items: editGiftItems })
+                              });
+                              if (response.ok) {
+                                const data = await response.json();
+                                setSelectedImage(data.queueItem);
+                                setEditGiftItems(data.queueItem.giftOrder.items.map(i => ({ ...i })));
+                                setIsEditingGift(false);
+                                setShowAddGiftItem(false);
+                                fetchImages();
+                              } else {
+                                alert('บันทึกไม่สำเร็จ');
+                              }
+                            } catch (err) {
+                              console.error('Error saving gift items:', err);
+                              alert('เกิดข้อผิดพลาด');
+                            } finally {
+                              setSavingGiftItems(false);
+                            }
+                          }} disabled={savingGiftItems || editGiftItems.length === 0}
+                            style={{ padding: '4px 10px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', opacity: savingGiftItems || editGiftItems.length === 0 ? 0.5 : 1 }}>
+                            {savingGiftItems ? 'กำลังบันทึก...' : '✅ บันทึก'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
                     <div style={{ width: '100%', background: '#f8fafc', borderRadius: '8px', padding: '12px' }}>
-                      {selectedImage.giftOrder.items.map((giftItem, idx) => (
+                      {(isEditingGift ? editGiftItems : selectedImage.giftOrder.items).map((giftItem, idx) => (
                         <div key={idx} style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                           padding: '8px 0',
-                          borderBottom: idx < selectedImage.giftOrder.items.length - 1 ? '1px solid #e5e7eb' : 'none'
+                          borderBottom: idx < (isEditingGift ? editGiftItems : selectedImage.giftOrder.items).length - 1 ? '1px solid #e5e7eb' : 'none'
                         }}>
-                          <span style={{ fontSize: '14px', color: '#334155', fontWeight: '500' }}>
+                          <span style={{ fontSize: '14px', color: '#334155', fontWeight: '500', flex: 1 }}>
                             {giftItem.name}
                           </span>
-                          <span style={{ fontSize: '14px', color: '#64748b' }}>
+                          <span style={{ fontSize: '14px', color: '#64748b', marginRight: isEditingGift ? '10px' : '0' }}>
                             x{giftItem.quantity} · {giftItem.price === 0 ? 'ฟรี' : `฿${giftItem.price}`}
                           </span>
+                          {isEditingGift && (
+                            <button onClick={() => setEditGiftItems(prev => prev.filter((_, i) => i !== idx))}
+                              style={{
+                                width: '28px', height: '28px', background: '#ef4444', color: '#fff',
+                                border: 'none', borderRadius: '8px', cursor: 'pointer',
+                                fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                              }}>
+                              ✖
+                            </button>
+                          )}
                         </div>
                       ))}
+
+                      {/* รวมราคา */}
                       <div style={{
-                        marginTop: '12px',
-                        paddingTop: '12px',
-                        borderTop: '2px solid #e5e7eb',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
+                        marginTop: '12px', paddingTop: '12px', borderTop: '2px solid #e5e7eb',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                       }}>
                         <span style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>รวมทั้งหมด</span>
-                        <span style={{ fontSize: '16px', fontWeight: '700', color: '#8b5cf6' }}>{selectedImage.price === 0 ? 'ฟรี' : `฿${selectedImage.price}`}</span>
+                        <span style={{ fontSize: '16px', fontWeight: '700', color: '#8b5cf6' }}>
+                          {isEditingGift
+                            ? (editGiftItems.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0) === 0 ? 'ฟรี' : `฿${editGiftItems.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0)}`)
+                            : (selectedImage.price === 0 ? 'ฟรี' : `฿${selectedImage.price}`)}
+                        </span>
                       </div>
+
+                      {/* ปุ่มเพิ่มสินค้า */}
+                      {isEditingGift && (
+                        <div style={{ marginTop: '12px' }}>
+                          {!showAddGiftItem ? (
+                            <button onClick={() => setShowAddGiftItem(true)}
+                              style={{
+                                width: '100%', padding: '8px', background: '#eef2ff', color: '#6366f1',
+                                border: '2px dashed #a5b4fc', borderRadius: '8px', cursor: 'pointer',
+                                fontSize: '13px', fontWeight: '600'
+                              }}>
+                              ➕ เพิ่มสินค้าจากรายการ
+                            </button>
+                          ) : (
+                            <div style={{
+                              background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '10px',
+                              padding: '10px', maxHeight: '200px', overflowY: 'auto'
+                            }}>
+                              <div style={{ fontSize: '12px', color: '#166534', fontWeight: '600', marginBottom: '8px' }}>
+                                เลือกสินค้าที่ต้องการเพิ่ม:
+                              </div>
+                              {giftSettings.filter(gs => !editGiftItems.some(eg => eg.id === gs.id)).map(gs => (
+                                <button key={gs.id}
+                                  onClick={() => {
+                                    setEditGiftItems(prev => [...prev, {
+                                      id: gs.id, name: gs.name, price: Number(gs.price) || 0,
+                                      quantity: 1, image: gs.imageUrl || gs.image || ''
+                                    }]);
+                                    setShowAddGiftItem(false);
+                                  }}
+                                  style={{
+                                    display: 'flex', alignItems: 'center', gap: '10px',
+                                    width: '100%', padding: '8px', background: '#fff',
+                                    border: '1px solid #d1fae5', borderRadius: '8px',
+                                    cursor: 'pointer', marginBottom: '4px', textAlign: 'left'
+                                  }}>
+                                  {gs.imageUrl && (
+                                    <img src={getImageUrl(gs.imageUrl)} alt={gs.name}
+                                      style={{ width: '32px', height: '32px', borderRadius: '6px', objectFit: 'contain', background: '#f1f5f9' }} />
+                                  )}
+                                  <span style={{ flex: 1, fontSize: '13px', fontWeight: '500', color: '#1e293b' }}>{gs.name}</span>
+                                  <span style={{ fontSize: '12px', color: '#64748b' }}>฿{gs.price}</span>
+                                </button>
+                              ))}
+                              <button onClick={() => setShowAddGiftItem(false)}
+                                style={{
+                                  width: '100%', padding: '6px', background: '#f1f5f9', color: '#64748b',
+                                  border: 'none', borderRadius: '8px', cursor: 'pointer',
+                                  fontSize: '12px', fontWeight: '600', marginTop: '4px'
+                                }}>
+                                ปิด
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

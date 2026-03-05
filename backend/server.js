@@ -236,6 +236,18 @@ const logoStorage = new CloudinaryStorage({
 });
 const uploadLogo = multer({ storage: logoStorage }).single('logo');
 
+// 4. Payment QR Code Storage (Cloudinary)
+const paymentQrStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'cmes-admin/payment-qr',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+    transformation: [{ width: 800, height: 800, crop: 'limit' }],
+    public_id: (req, file) => `payment-qr-${req.shopId || 'shop'}-${Date.now()}`
+  }
+});
+const uploadPaymentQr = multer({ storage: paymentQrStorage }).single('paymentQr');
+
 // ===== SHOP PROFILE ENDPOINTS =====
 // GET /api/shop/profile — ดึงชื่อและโลโก้ร้าน (public, ต้องการแค่ x-shop-id)
 app.get('/api/shop/profile', requireShopId, async (req, res) => {
@@ -1122,6 +1134,66 @@ app.post("/api/config/perks", requireAdminAuth, async (req, res) => {
   }
 });
 
+// ==========================================
+// PAYMENT QR CODE APIs
+// 🔥 Multi-tenant: แต่ละ shop มี QR code ชำระเงินของตัวเอง
+// ==========================================
+
+/**
+ * API อัปโหลดภาพ QR Code ชำระเงิน
+ * ใช้ Cloudinary storage + บันทึก URL ลง ShopSetting.paymentQrUrl
+ */
+app.post('/api/config/payment-qr', requireAdminAuth, (req, res, next) => {
+  uploadPaymentQr(req, res, (err) => {
+    if (err) {
+      console.error('[PaymentQR] Multer error:', err.message);
+      return res.status(400).json({ success: false, message: 'อัปโหลดรูปภาพล้มเหลว: ' + err.message });
+    }
+    next();
+  });
+}, async (req, res) => {
+  try {
+    const { shopId } = req;
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'กรุณาเลือกรูปภาพ QR Code' });
+    }
+
+    const imageUrl = req.file.path || req.file.secure_url || req.file.url;
+    console.log(`[PaymentQR][${shopId}] Uploaded payment QR:`, imageUrl);
+
+    // บันทึก URL ลง ShopSetting
+    await ShopSetting.findOneAndUpdate(
+      { shopId },
+      { paymentQrUrl: imageUrl },
+      { upsert: true, new: true }
+    );
+
+    res.json({ success: true, paymentQrUrl: imageUrl });
+  } catch (error) {
+    console.error('[PaymentQR] Error uploading:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * API ดึง URL ภาพ QR Code ชำระเงินของร้าน
+ * ใช้โดย User Frontend (ต้องการแค่ shopId)
+ */
+app.get('/api/config/payment-qr', requireShopId, async (req, res) => {
+  try {
+    const { shopId } = req;
+    const settings = await ShopSetting.findOne({ shopId }).lean();
+
+    res.json({
+      success: true,
+      paymentQrUrl: settings?.paymentQrUrl || null
+    });
+  } catch (error) {
+    console.error('[PaymentQR] Error fetching:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 /**
  * API ตรวจสอบว่า user มีสิทธิ์ใช้ฟีเจอร์วันเกิดหรือไม่ (ครบยอดใช้จ่ายตามเงื่อนไข)
  * 🔥 Multi-tenant: ต้อง filter Ranking ด้วย shopId
@@ -1178,7 +1250,7 @@ app.post("/api/gifts/order", requireShopId, async (req, res) => {
     console.log("[Admin] Received gift order:", JSON.stringify(req.body, null, 2));
 
     const { shopId } = req; // 🔥 ได้จาก middleware
-    const { orderId, sender, userId, email, avatar, tableNumber, note, items, totalPrice } = req.body;
+    const { orderId, sender, senderPhone, userId, email, avatar, tableNumber, note, items, totalPrice } = req.body;
 
     console.log("[Admin] Parsed data: shopId=", shopId, "userId=", userId, "sender=", sender, "price=", totalPrice);
 
@@ -1231,6 +1303,7 @@ app.post("/api/gifts/order", requireShopId, async (req, res) => {
       giftOrder: {
         orderId,
         tableNumber,
+        senderPhone: senderPhone || null,
         items: enrichedItems,
         totalPrice: Number(totalPrice) || 0,
         note: note || ""
@@ -1260,6 +1333,46 @@ app.post("/api/gifts/order", requireShopId, async (req, res) => {
 
     console.error("Gift order push failed", error);
     res.status(500).json({ success: false, message: "บันทึกคำสั่งซื้อไม่สำเร็จ" });
+  }
+});
+
+// ===== API แก้ไขรายการสินค้า Gift (Admin เปลี่ยนสินค้าที่หมด) =====
+app.put("/api/queue/:id/gift-items", requireAdminAuth, requireShopId, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { shopId } = req;
+    const { items } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, message: "ต้องมีรายการสินค้าอย่างน้อย 1 รายการ" });
+    }
+
+    // คำนวณราคารวมใหม่
+    const totalPrice = items.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0);
+
+    const updated = await ImageQueue.findOneAndUpdate(
+      { _id: id, shopId, type: "gift" },
+      {
+        "giftOrder.items": items,
+        "giftOrder.totalPrice": totalPrice,
+        price: totalPrice
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "ไม่พบรายการ gift นี้" });
+    }
+
+    console.log("[Admin] Gift items updated:", { id, itemCount: items.length, totalPrice });
+
+    // แจ้ง Admin ทุกคนให้ refresh
+    io.to(shopId).emit("admin-update-queue");
+
+    res.json({ success: true, queueItem: updated });
+  } catch (error) {
+    console.error("Update gift items failed", error);
+    res.status(500).json({ success: false, message: "แก้ไขรายการสินค้าไม่สำเร็จ" });
   }
 });
 

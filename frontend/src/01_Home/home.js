@@ -156,6 +156,12 @@ function Home() {
   const [incomeLoading, setIncomeLoading] = useState(false);
   const [incomeError, setIncomeError] = useState("");
 
+  // ===== State สำหรับ Payment QR Code =====
+  const [paymentQrUrl, setPaymentQrUrl] = useState(null); // URL ภาพ QR code ปัจจุบัน
+  const [paymentQrFile, setPaymentQrFile] = useState(null); // ไฟล์ที่เลือกใหม่
+  const [paymentQrPreview, setPaymentQrPreview] = useState(null); // preview ภาพที่เลือก
+  const [uploadingPaymentQr, setUploadingPaymentQr] = useState(false); // สถานะกำลังอัพโหลด
+
   const fetchIncomeStats = async () => {
     setIncomeLoading(true);
     setIncomeError("");
@@ -504,6 +510,71 @@ function Home() {
     };
     loadPerks();
   }, []);
+
+  // ===== useEffect: โหลดภาพ QR Code ชำระเงินปัจจุบัน =====
+  useEffect(() => {
+    const loadPaymentQr = async () => {
+      try {
+        const res = await authFetch(`${API_BASE_URL}/api/config/payment-qr`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.paymentQrUrl) {
+            setPaymentQrUrl(data.paymentQrUrl);
+          }
+        }
+      } catch (error) {
+        console.error("[Admin] Failed to load payment QR:", error);
+      }
+    };
+    loadPaymentQr();
+  }, []);
+
+  // ===== ฟังก์ชัน: เลือกไฟล์ QR Code ชำระเงิน =====
+  const handlePaymentQrFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setPaymentQrFile(file);
+      setPaymentQrPreview(URL.createObjectURL(file));
+    }
+  };
+
+  // ===== ฟังก์ชัน: อัพโหลดภาพ QR Code ชำระเงิน =====
+  const handleUploadPaymentQr = async () => {
+    if (!paymentQrFile) {
+      alert("กรุณาเลือกรูปภาพ QR Code ก่อน");
+      return;
+    }
+    setUploadingPaymentQr(true);
+    try {
+      const formData = new FormData();
+      formData.append('paymentQr', paymentQrFile);
+
+      const storedShopId = shopId || localStorage.getItem("shopId") || "shop1";
+      const res = await fetch(`${API_BASE_URL}/api/config/payment-qr`, {
+        method: 'POST',
+        headers: {
+          'x-shop-id': storedShopId,
+          'x-admin-id': adminId,
+        },
+        body: formData
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setPaymentQrUrl(data.paymentQrUrl);
+        setPaymentQrFile(null);
+        setPaymentQrPreview(null);
+        alert("✅ อัปโหลด QR Code ชำระเงินสำเร็จ");
+      } else {
+        alert("❌ " + (data.message || "อัปโหลดไม่สำเร็จ"));
+      }
+    } catch (error) {
+      console.error("[Admin] Upload payment QR failed:", error);
+      alert("❌ เกิดข้อผิดพลาดในการอัปโหลด");
+    } finally {
+      setUploadingPaymentQr(false);
+    }
+  };
 
   // ===== ฟังก์ชัน: เปิด Modal จัดการสิทธิพิเศษ =====
   const handleOpenPerksModal = () => {
@@ -1142,10 +1213,59 @@ function Home() {
                       บันทึกแพ็คเกจ
                     </button>
 
+                    {/* ===== ส่วนอัพโหลด QR Code ชำระเงิน ===== */}
+                    <div className="payment-qr-upload-section">
+                      <div className="payment-qr-header">
+                        <span className="payment-qr-title">💳 QR Code ชำระเงิน</span>
+                        <small className="payment-qr-subtitle">ภาพนี้จะแสดงในหน้าชำระเงินของลูกค้า</small>
+                      </div>
+
+                      {/* แสดงภาพปัจจุบัน */}
+                      {(paymentQrPreview || paymentQrUrl) && (
+                        <div className="payment-qr-preview-container">
+                          <img
+                            src={paymentQrPreview || paymentQrUrl}
+                            alt="QR Code ชำระเงิน"
+                            className="payment-qr-preview-img"
+                          />
+                          <span className="payment-qr-status">
+                            {paymentQrPreview ? "📷 ภาพใหม่ (ยังไม่บันทึก)" : "✅ ภาพปัจจุบัน"}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* เลือกไฟล์ + อัพโหลด */}
+                      <div className="payment-qr-actions">
+                        <label className="payment-qr-file-label">
+                          📁 เลือกรูปภาพ
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handlePaymentQrFileChange}
+                            style={{ display: "none" }}
+                          />
+                        </label>
+                        <button
+                          className="payment-qr-upload-btn"
+                          onClick={handleUploadPaymentQr}
+                          disabled={!paymentQrFile || uploadingPaymentQr}
+                        >
+                          {uploadingPaymentQr ? "⏳ กำลังอัปโหลด..." : "☁️ อัปโหลด"}
+                        </button>
+                      </div>
+
+                      {!paymentQrUrl && !paymentQrPreview && (
+                        <small className="payment-qr-hint">
+                          ⚠️ ยังไม่มีภาพ QR Code ชำระเงิน ระบบจะแสดงภาพเริ่มต้น
+                        </small>
+                      )}
+                    </div>
+
                     {/* QR Code Section (ซ่อนไว้เพราะใช้ปุ่มด้านบนแทน) */}
                     {false && (
                       <div style={{
                         marginTop: "24px",
+
                         padding: "20px",
                         background: "linear-gradient(135deg, #fef3c7, #fde68a)",
                         border: "2px solid #f59e0b",

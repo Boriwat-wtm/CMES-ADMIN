@@ -2086,3 +2086,122 @@ h.admin-home-container {
     gap: 15px !important;
   }
 }
+
+/* ===== Payment QR Code Upload Section ===== */
+.payment-qr-upload-section {
+  margin-top: 24px;
+  padding: 20px;
+  background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+  border: 2px solid #22c55e;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.payment-qr-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.payment-qr-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #166534;
+}
+
+.payment-qr-subtitle {
+  font-size: 12px;
+  color: #15803d;
+}
+
+.payment-qr-preview-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.payment-qr-preview-img {
+  width: 180px;
+  height: 180px;
+  object-fit: contain;
+  border-radius: 12px;
+  border: 2px solid #bbf7d0;
+  background: #fff;
+  padding: 8px;
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.15);
+}
+
+.payment-qr-status {
+  font-size: 12px;
+  font-weight: 600;
+  color: #166534;
+  background: #bbf7d0;
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+
+.payment-qr-actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.payment-qr-file-label {
+  flex: 1;
+  padding: 10px 16px;
+  background: #fff;
+  color: #166534;
+  border: 2px solid #86efac;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.payment-qr-file-label:hover {
+  background: #f0fdf4;
+  border-color: #22c55e;
+  transform: translateY(-1px);
+}
+
+.payment-qr-upload-btn {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+}
+
+.payment-qr-upload-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(34, 197, 94, 0.4);
+}
+
+.payment-qr-upload-btn:disabled {
+  background: #d1d5db;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.payment-qr-hint {
+  font-size: 12px;
+  color: #b45309;
+  background: #fef3c7;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #fde68a;
+  text-align: center;
+}
