@@ -2157,8 +2157,8 @@ app.get("/api/order-status/:orderId", requireShopId, async (req, res) => {
       // ไม่พบใน ImageQueue -> ค้นหาใน CheckHistory (rejected/completed) 🔥 filter ด้วย shopId
       console.log(`[OrderStatus][${shopId}] Not found in ImageQueue, checking CheckHistory`);
       const historyItem = await CheckHistory.findOne({
-        transactionId: orderId,
-        shopId // 🔥 filter ด้วย shopId
+        shopId, // 🔥 filter ด้วย shopId
+        transactionId: orderId
       }).sort({ approvalDate: -1 });
 
       if (historyItem) {
@@ -2174,9 +2174,20 @@ app.get("/api/order-status/:orderId", requireShopId, async (req, res) => {
             sender: historyItem.sender,
             price: historyItem.price,
             content: historyItem.content,
+            mediaUrl: historyItem.mediaUrl || null,
+            receivedAt: historyItem.receivedAt || null,
+            startedAt: historyItem.startedAt || null,
+            endedAt: historyItem.endedAt || null,
+            duration: historyItem.duration || historyItem.metadata?.duration || null,
             approvalDate: historyItem.approvalDate,
             tableNumber: historyItem.metadata?.tableNumber || null,
-            giftItems: historyItem.metadata?.giftItems || null
+            giftItems: historyItem.metadata?.giftItems || null,
+            note: historyItem.metadata?.note || null,
+            textColor: historyItem.metadata?.theme || null,
+            socialColor: historyItem.metadata?.socialColor || null,
+            textLayout: historyItem.metadata?.textLayout || null,
+            socialType: historyItem.metadata?.social?.type || null,
+            socialName: historyItem.metadata?.social?.name || null
           }
         });
       }
@@ -2214,6 +2225,14 @@ app.get("/api/order-status/:orderId", requireShopId, async (req, res) => {
           totalQueue: await ImageQueue.countDocuments({ status: 'pending', shopId }), // 🔥 filter shopId
           tableNumber: queueItem.giftOrder?.tableNumber || null,
           giftItems: queueItem.giftOrder?.items || null,
+          mediaUrl: queueItem.filePath || null,
+          receivedAt: queueItem.receivedAt || null,
+          time: queueItem.time || null,
+          text: queueItem.text || null,
+          textColor: queueItem.textColor || null,
+          socialType: queueItem.socialType || null,
+          socialName: queueItem.socialName || null,
+          note: queueItem.giftOrder?.note || null,
           waitingForApproval: true
         }
       });
@@ -2272,7 +2291,15 @@ app.get("/api/order-status/:orderId", requireShopId, async (req, res) => {
           estimatedStartTime: estimatedStartTime.toISOString(),
           estimatedEndTime: estimatedEndTime.toISOString(),
           tableNumber: queueItem.giftOrder?.tableNumber || null,
-          giftItems: queueItem.giftOrder?.items || null
+          giftItems: queueItem.giftOrder?.items || null,
+          mediaUrl: queueItem.filePath || null,
+          receivedAt: queueItem.receivedAt || null,
+          time: queueItem.time || null,
+          text: queueItem.text || null,
+          textColor: queueItem.textColor || null,
+          socialType: queueItem.socialType || null,
+          socialName: queueItem.socialName || null,
+          note: queueItem.giftOrder?.note || null
         }
       });
     }
@@ -2297,7 +2324,16 @@ app.get("/api/order-status/:orderId", requireShopId, async (req, res) => {
           totalQueue: 1,
           remainingSeconds: Math.round(remainingSeconds),
           tableNumber: queueItem.giftOrder?.tableNumber || null,
-          giftItems: queueItem.giftOrder?.items || null
+          giftItems: queueItem.giftOrder?.items || null,
+          mediaUrl: queueItem.filePath || null,
+          receivedAt: queueItem.receivedAt || null,
+          startedAt: queueItem.playingAt || null,
+          time: queueItem.time || null,
+          text: queueItem.text || null,
+          textColor: queueItem.textColor || null,
+          socialType: queueItem.socialType || null,
+          socialName: queueItem.socialName || null,
+          note: queueItem.giftOrder?.note || null
         }
       });
     }
@@ -2320,6 +2356,62 @@ app.get("/api/order-status/:orderId", requireShopId, async (req, res) => {
       message: 'Server error',
       error: error.message
     });
+  }
+});
+
+// API สำหรับลบ order ของ user (เฉพาะ pending)
+app.delete("/api/user-delete-order/:orderId", requireShopId, async (req, res) => {
+  try {
+    const { shopId } = req;
+    const { orderId } = req.params;
+    console.log(`[UserDeleteOrder][${shopId}] Deleting order:`, orderId);
+
+    // ค้นหา order ใน ImageQueue
+    let query = { shopId };
+    if (orderId.match(/^[0-9a-fA-F]{24}$/)) {
+      query.$or = [
+        { _id: orderId },
+        { 'giftOrder.orderId': orderId }
+      ];
+    } else {
+      query['giftOrder.orderId'] = orderId;
+    }
+
+    const item = await ImageQueue.findOne(query);
+    if (!item) {
+      return res.status(404).json({ success: false, message: 'ไม่พบรายการ' });
+    }
+
+    // อนุญาตลบเฉพาะ pending เท่านั้น
+    if (item.status !== 'pending') {
+      return res.status(400).json({ success: false, message: 'ไม่สามารถลบรายการที่ดำเนินการแล้ว' });
+    }
+
+    // ลบไฟล์รูปภาพ (ถ้ามี)
+    if (item.filePath) {
+      try {
+        // ถ้าเป็น Cloudinary URL ให้ลบจาก Cloudinary
+        if (item.filePath.includes('cloudinary')) {
+          const publicId = item.filePath.split('/').slice(-1)[0].split('.')[0];
+          // cloudinary.uploader.destroy(publicId) - optional
+        }
+      } catch (e) {
+        console.warn('[UserDeleteOrder] Error deleting file:', e.message);
+      }
+    }
+
+    await ImageQueue.findByIdAndDelete(item._id);
+
+    // แจ้ง admin UI อัปเดต
+    if (typeof io !== 'undefined' && shopId) {
+      io.to(shopId).emit('admin-update-queue');
+    }
+
+    console.log(`[UserDeleteOrder][${shopId}] ✓ Deleted order: ${orderId}`);
+    res.json({ success: true, message: 'ลบรายการสำเร็จ' });
+  } catch (error) {
+    console.error('[UserDeleteOrder] Error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
@@ -3157,9 +3249,11 @@ async function completeItem(item) {
     if (!deleted) return; // Already processed
 
     // 🔥 Create History with shopId
+    // สำหรับ gift ใช้ giftOrder.orderId เป็น transactionId เพื่อให้ order-status ค้นหาเจอ
+    const txId = (item.type === 'gift' && item.giftOrder?.orderId) ? item.giftOrder.orderId : item._id.toString();
     await CheckHistory.create({
       shopId: item.shopId, // 🔥 Multi-tenant
-      transactionId: item._id.toString(),
+      transactionId: txId,
       type: item.type || (item.filePath ? 'image' : 'text'),
       sender: item.sender || 'Unknown',
       price: item.price || 0,
@@ -3316,7 +3410,6 @@ app.post('/api/lucky-wheel/spin', requireAdminAuth, (req, res) => {
   if (!segments || winnerIndex === undefined) {
     return res.status(400).json({ error: 'Missing segments or winnerIndex' });
   }
-
   console.log(`[LuckyWheel][${shopId}] Spin event received. Winner Index:`, winnerIndex);
 
   // Broadcast to connected clients of this shop (including OBS)
