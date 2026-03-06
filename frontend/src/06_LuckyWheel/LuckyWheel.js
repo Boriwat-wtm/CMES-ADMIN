@@ -125,7 +125,6 @@ function LuckyWheel() {
     if (segments.length < 2 || spinning) return;
 
     // รีเซ็ตสถานะต่างๆ
-    setPreviewing(false); // ปิด preview state
     setWinner(null);
     setSpinning(true);
     setShowPopup(false);
@@ -170,10 +169,77 @@ function LuckyWheel() {
     }, 25100); // 25 วินาที + 0.1 วินาที buffer
   };
 
+  // ===== ฟังก์ชัน: หมุนวงล้อด้วย segments ที่กำหนด (ใช้เมื่อตัดชื่อ+สุ่มใหม่) =====
+  const spinWheelWithSegments = (segs) => {
+    if (segs.length < 2 || spinning) return;
+
+    setWinner(null);
+    setSpinning(true);
+    setShowPopup(false);
+    setPopupEffect(false);
+
+    const winnerIdx = getRandomInt(0, segs.length - 1);
+    const degPerSeg = 360 / segs.length;
+    const finalDeg = 360 * 30 + (360 - winnerIdx * degPerSeg - degPerSeg / 2);
+
+    // ส่งคำสั่งไปยัง OBS
+    adminFetch(`${REALTIME_URL}/api/lucky-wheel/spin`, {
+      method: "POST",
+      body: JSON.stringify({
+        segments: segs,
+        winnerIndex: winnerIdx,
+        reward
+      })
+    }).then(res => res.json())
+      .then(data => console.log('OBS Spin triggered:', data))
+      .catch(err => console.error('Error triggering OBS:', err));
+
+    // animation หมุนวงล้อ
+    if (wheelRef.current) {
+      wheelRef.current.style.transition = "none";
+      wheelRef.current.style.transform = `rotate(0deg)`;
+      setTimeout(() => {
+        wheelRef.current.style.transition = "transform 25s cubic-bezier(0.08, 0.8, 0.05, 1)";
+        wheelRef.current.style.transform = `rotate(${finalDeg}deg)`;
+      }, 50);
+    }
+
+    // แสดงผลลัพธ์หลังหมุนเสร็จ
+    setTimeout(() => {
+      setSpinning(false);
+      setWinner(winnerIdx);
+      setShowPopup(true);
+      setTimeout(() => setPopupEffect(true), 50);
+    }, 25100);
+  };
+
   // ===== ฟังก์ชัน: ปิด popup ผู้ชนะ =====
   const closePopup = () => {
     setPopupEffect(false); // ปิดเอฟเฟกต์ animation
     setTimeout(() => setShowPopup(false), 300); // รอ animation จบแล้วค่อยซ่อน popup
+  };
+
+  // ===== ฟังก์ชัน: ตัดชื่อผู้ชนะออกแล้วสุ่มใหม่ทันที =====
+  const removeWinnerAndRespin = () => {
+    if (winner === null) return;
+    // ตัดชื่อผู้ชนะออก
+    const newSegments = segments.filter((_, i) => i !== winner);
+    setSegments(newSegments);
+    // ปิด popup
+    setPopupEffect(false);
+    setShowPopup(false);
+    setWinner(null);
+    // ถ้ายังเหลือ >= 2 ช่อง ให้สุ่มใหม่ทันที (รอ segments อัปเดตก่อน)
+    if (newSegments.length >= 2) {
+      // ตั้ง previewing = true เพื่อให้ OBS แสดงอัตโนมัติ
+      setPreviewing(true);
+      // รอ state อัปเดตก่อนค่อยสุ่ม
+      setTimeout(() => {
+        // เรียก spinWheel โดยตรงไม่ได้เพราะ segments ยังไม่อัปเดต
+        // ใช้ newSegments แทน
+        spinWheelWithSegments(newSegments);
+      }, 500);
+    }
   };
 
   // ===== ฟังก์ชัน: วาดวงล้อด้วย SVG =====
@@ -407,7 +473,7 @@ function LuckyWheel() {
         </div>
         {showPopup && winner !== null && (
           <div className={`winner-popup ${popupEffect ? "show" : ""}`} onClick={closePopup}>
-            <div className="winner-popup-content">
+            <div className="winner-popup-content" onClick={(e) => e.stopPropagation()}>
               <div className="winner-firework">✨</div>
               <div className="winner-title">🎉 ผลลัพธ์การสุ่ม</div>
               <div className="winner-name">{segments[winner]}</div>
@@ -420,7 +486,18 @@ function LuckyWheel() {
                 )}
               </div>
               <div className="winner-firework">✨</div>
-              <button className="winner-close-btn" onClick={closePopup}>ปิด</button>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '10px', flexWrap: 'wrap' }}>
+                {segments.length > 2 && (
+                  <button
+                    className="winner-close-btn"
+                    onClick={removeWinnerAndRespin}
+                    style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', fontSize: '18px', padding: '10px 24px' }}
+                  >
+                    🔄 ตัดชื่อ + สุ่มใหม่
+                  </button>
+                )}
+                <button className="winner-close-btn" onClick={closePopup}>ปิด</button>
+              </div>
             </div>
           </div>
         )}
