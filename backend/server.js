@@ -248,12 +248,15 @@ const paymentQrStorage = new CloudinaryStorage({
 });
 const uploadPaymentQr = multer({ storage: paymentQrStorage }).single('paymentQr');
 
-// ===== REPORT API ENDPOINTS =====
-// POST /api/report — รับ report จาก USER backend (ไม่ต้องการ admin auth, แค่ shopId)
-app.post('/api/report', requireShopId, async (req, res) => {
+// POST /api/report — รับ report จาก USER backend
+// ไม่ใช้ requireShopId เพื่อให้ report สร้างได้เสมอ (fallback shopId = "default")
+app.post('/api/report', async (req, res) => {
   try {
-    const { shopId } = req;
+    // รับ shopId จาก header หรือ fallback เป็น "default"
+    const shopId = req.headers['x-shop-id'] || req.query.shopId || req.body.shopId || 'default';
     const { category, detail } = req.body;
+
+    console.log(`[Report] Received report: shopId="${shopId}", category="${category}"`);
 
     if (!category || !detail) {
       return res.status(400).json({ success: false, message: 'category and detail are required' });
@@ -269,10 +272,10 @@ app.post('/api/report', requireShopId, async (req, res) => {
       priority: 'medium'
     });
 
-    console.log(`[Report] ✓ New report received: ${reportId} (shop: ${shopId})`);
+    console.log(`[Report] ✓ New report saved: ${reportId} (shop: ${shopId}, _id: ${newReport._id})`);
     res.json({ success: true, reportId: newReport._id });
   } catch (err) {
-    console.error('[Report] POST error:', err.message);
+    console.error('[Report] ✗ POST error:', err.message);
     res.status(500).json({ success: false, message: 'Failed to save report' });
   }
 });
