@@ -2305,86 +2305,86 @@ function Home() {
       {showIncomeStats && (
         <div className="rank-modal-overlay" onClick={() => setShowIncomeStats(false)}>
           <div className="rank-modal income-stats-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="rank-modal-header" style={{ marginBottom: "20px", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div className="rank-modal-header" style={{ marginBottom: "20px", borderBottom: "1px solid #e2e8f0", paddingBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
-                <h3 style={{ color: "#38bdf8", fontSize: "24px", fontWeight: "800", letterSpacing: "0.5px", margin: "0 0 8px 0", display: "flex", alignItems: "center", gap: "10px" }}>
-                  <span style={{ fontSize: "28px" }}>📈</span> สถิติรายรับและกิจกรรม
+                <h3 style={{ background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", fontSize: "24px", fontWeight: "800", letterSpacing: "0.5px", margin: "0 0 8px 0", display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span style={{ fontSize: "28px", WebkitTextFillColor: "initial" }}>📈</span> สถิติรายรับและกิจกรรม
                 </h3>
-                <p style={{ color: "#94a3b8", margin: 0, fontSize: "14px" }}>ตรวจสอบยอดรายรับ จำนวนผู้สนับสนุน และช่วงเวลาที่มีการใช้งานสูงสุด</p>
+                <p style={{ color: "#64748b", margin: 0, fontSize: "14px" }}>ตรวจสอบยอดรายรับ จำนวนผู้สนับสนุน และช่วงเวลาที่มีการใช้งานสูงสุด</p>
               </div>
               <button
                 type="button"
                 className="close-rank-modal"
                 onClick={() => setShowIncomeStats(false)}
-                style={{ color: "#f8fafc", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "50%", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "16px", transition: "all 0.2s" }}
-                onMouseOver={(e) => e.currentTarget.style.background = "rgba(239,68,68,0.2)"}
-                onMouseOut={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
+                style={{ color: "#64748b", background: "rgba(102,126,234,0.07)", border: "1px solid rgba(102,126,234,0.2)", borderRadius: "50%", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "16px", transition: "all 0.2s" }}
+                onMouseOver={(e) => e.currentTarget.style.background = "rgba(239,68,68,0.1)"}
+                onMouseOut={(e) => e.currentTarget.style.background = "rgba(102,126,234,0.07)"}
               >✕</button>
             </div>
 
             <div className="income-stats-body" style={{ padding: "10px 0" }}>
-              <div className="date-filter-group" style={{ display: "flex", gap: "20px", marginBottom: "30px", background: "rgba(15, 23, 42, 0.4)", padding: "20px", borderRadius: "16px", border: "1px solid rgba(255,255,255,0.05)" }}>
+              <div className="date-filter-group" style={{ display: "flex", gap: "20px", marginBottom: "30px", background: "linear-gradient(135deg, #f5f3ff, #ede9fe)", padding: "20px", borderRadius: "16px", border: "1px solid rgba(102,126,234,0.2)" }}>
                 <div className="date-input-wrapper" style={{ flex: 1, display: "flex", flexDirection: "column", gap: "8px" }}>
-                  <label style={{ color: "#94a3b8", fontSize: "13px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "1px" }}>เริ่มวันที่</label>
+                  <label style={{ color: "#667eea", fontSize: "13px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "1px" }}>เริ่มวันที่</label>
                   <input
                     type="date"
                     value={incomeStartDate}
                     onChange={e => setIncomeStartDate(e.target.value)}
                     className="glass-date-input"
-                    style={{ padding: "12px 16px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.3)", color: "#fff", outline: "none", fontSize: "15px", cursor: "text" }}
+                    style={{ padding: "12px 16px", borderRadius: "10px", border: "1.5px solid #c4b5fd", background: "#fff", color: "#1e293b", outline: "none", fontSize: "15px", cursor: "text" }}
                   />
                 </div>
                 <div className="date-input-wrapper" style={{ flex: 1, display: "flex", flexDirection: "column", gap: "8px" }}>
-                  <label style={{ color: "#94a3b8", fontSize: "13px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "1px" }}>ถึงวันที่</label>
+                  <label style={{ color: "#667eea", fontSize: "13px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "1px" }}>ถึงวันที่</label>
                   <input
                     type="date"
                     value={incomeEndDate}
                     onChange={e => setIncomeEndDate(e.target.value)}
                     className="glass-date-input"
-                    style={{ padding: "12px 16px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.3)", color: "#fff", outline: "none", fontSize: "15px" }}
+                    style={{ padding: "12px 16px", borderRadius: "10px", border: "1.5px solid #c4b5fd", background: "#fff", color: "#1e293b", outline: "none", fontSize: "15px" }}
                   />
                 </div>
               </div>
 
               {incomeLoading ? (
-                <div className="income-loading" style={{ textAlign: "center", padding: "40px", color: "#38bdf8" }}>กำลังโหลดสถิติ...</div>
+                <div className="income-loading" style={{ textAlign: "center", padding: "40px", color: "#667eea" }}>กำลังโหลดสถิติ...</div>
               ) : incomeError ? (
                 <div className="income-error" style={{ textAlign: "center", padding: "20px", color: "#ef4444", background: "rgba(239, 68, 68, 0.1)", borderRadius: "12px" }}>{incomeError}</div>
               ) : incomeStats ? (
                 <div className="income-stats-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
-                  <div className="stat-card primary-stat" style={{ gridColumn: "1 / -1", background: "linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(14, 165, 233, 0.2))", padding: "30px", borderRadius: "20px", display: "flex", alignItems: "center", gap: "24px", border: "1px solid rgba(56, 189, 248, 0.2)" }}>
-                    <div className="stat-icon" style={{ fontSize: "48px", background: "rgba(56, 189, 248, 0.2)", width: "80px", height: "80px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "20px" }}>💰</div>
+                  <div className="stat-card primary-stat" style={{ gridColumn: "1 / -1", background: "linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.15))", padding: "30px", borderRadius: "20px", display: "flex", alignItems: "center", gap: "24px", border: "1px solid rgba(102, 126, 234, 0.25)" }}>
+                    <div className="stat-icon" style={{ fontSize: "48px", background: "rgba(102, 126, 234, 0.15)", width: "80px", height: "80px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "20px" }}>💰</div>
                     <div className="stat-details" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                      <span className="stat-label" style={{ color: "#7dd3fc", fontSize: "16px", fontWeight: "600", letterSpacing: "0.5px" }}>รายรับรวม (ช่วงเวลาที่เลือก)</span>
-                      <strong className="stat-value" style={{ color: "#fff", fontSize: "42px", fontWeight: "800", textShadow: "0 2px 10px rgba(56,189,248,0.4)" }}>฿{formatCurrency(incomeStats.totalIncome)}</strong>
+                      <span className="stat-label" style={{ color: "#667eea", fontSize: "16px", fontWeight: "600", letterSpacing: "0.5px" }}>รายรับรวม (ช่วงเวลาที่เลือก)</span>
+                      <strong className="stat-value" style={{ color: "#312e81", fontSize: "42px", fontWeight: "800", textShadow: "0 2px 10px rgba(102,126,234,0.3)" }}>฿{formatCurrency(incomeStats.totalIncome)}</strong>
                     </div>
                   </div>
 
-                  <div className="stat-card" style={{ background: "rgba(30, 41, 59, 0.6)", padding: "24px", borderRadius: "16px", display: "flex", alignItems: "center", gap: "20px", border: "1px solid rgba(255,255,255,0.05)" }}>
-                    <div className="stat-icon" style={{ fontSize: "36px", background: "rgba(16, 185, 129, 0.15)", width: "64px", height: "64px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "16px" }}>👥</div>
+                  <div className="stat-card" style={{ background: "#f8fafc", padding: "24px", borderRadius: "16px", display: "flex", alignItems: "center", gap: "20px", border: "1px solid #e2e8f0" }}>
+                    <div className="stat-icon" style={{ fontSize: "36px", background: "rgba(16, 185, 129, 0.12)", width: "64px", height: "64px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "16px" }}>👥</div>
                     <div className="stat-details" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                      <span className="stat-label" style={{ color: "#94a3b8", fontSize: "14px", fontWeight: "500" }}>จำนวนผู้เปย์แบบไม่ซ้ำ</span>
-                      <strong className="stat-value" style={{ color: "#fff", fontSize: "28px", fontWeight: "700" }}>{incomeStats.totalUsers} <span style={{ fontSize: "16px", color: "#64748b", fontWeight: "500" }}>คน</span></strong>
+                      <span className="stat-label" style={{ color: "#64748b", fontSize: "14px", fontWeight: "500" }}>จำนวนผู้เปย์แบบไม่ซ้ำ</span>
+                      <strong className="stat-value" style={{ color: "#1e293b", fontSize: "28px", fontWeight: "700" }}>{incomeStats.totalUsers} <span style={{ fontSize: "16px", color: "#94a3b8", fontWeight: "500" }}>คน</span></strong>
                     </div>
                   </div>
 
-                  <div className="stat-card peak-hours-panel" style={{ background: "rgba(30, 41, 59, 0.6)", padding: "24px", borderRadius: "16px", display: "flex", alignItems: "flex-start", gap: "20px", border: "1px solid rgba(255,255,255,0.05)" }}>
-                    <div className="stat-icon" style={{ fontSize: "36px", background: "rgba(245, 158, 11, 0.15)", width: "64px", height: "64px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "16px", flexShrink: 0 }}>🔥</div>
+                  <div className="stat-card peak-hours-panel" style={{ background: "#f8fafc", padding: "24px", borderRadius: "16px", display: "flex", alignItems: "flex-start", gap: "20px", border: "1px solid #e2e8f0" }}>
+                    <div className="stat-icon" style={{ fontSize: "36px", background: "rgba(245, 158, 11, 0.12)", width: "64px", height: "64px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "16px", flexShrink: 0 }}>🔥</div>
                     <div className="stat-details" style={{ width: '100%' }}>
-                      <span className="stat-label" style={{ color: "#94a3b8", fontSize: "14px", fontWeight: "500", display: "block", marginBottom: "12px" }}>เวลาคนเยอะสุด 3 อันดับ</span>
+                      <span className="stat-label" style={{ color: "#64748b", fontSize: "14px", fontWeight: "500", display: "block", marginBottom: "12px" }}>เวลาคนเยอะสุด 3 อันดับ</span>
                       <ul className="peak-hours-list" style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "8px" }}>
                         {incomeStats.peakHours.length > 0 ? (
                           incomeStats.peakHours.map((ph, idx) => (
-                            <li key={idx} className="peak-hour-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "rgba(0,0,0,0.2)", borderRadius: "8px" }}>
-                              <span className="ph-time" style={{ color: "#fcd34d", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
-                                <span style={{ width: "20px", height: "20px", background: "rgba(245,158,11,0.2)", color: "#f59e0b", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px" }}>{idx + 1}</span>
+                            <li key={idx} className="peak-hour-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "linear-gradient(135deg, #f5f3ff, #ede9fe)", borderRadius: "8px", border: "1px solid rgba(102,126,234,0.15)" }}>
+                              <span className="ph-time" style={{ color: "#667eea", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
+                                <span style={{ width: "20px", height: "20px", background: "rgba(102,126,234,0.15)", color: "#764ba2", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px" }}>{idx + 1}</span>
                                 {ph.hour}
                               </span>
-                              <span className="ph-count" style={{ color: "#cbd5e1", fontSize: "13px" }}>{ph.count} บิล</span>
+                              <span className="ph-count" style={{ color: "#64748b", fontSize: "13px" }}>{ph.count} บิล</span>
                             </li>
                           ))
                         ) : (
-                          <li className="peak-hour-empty" style={{ color: "#64748b", fontSize: "13px", fontStyle: "italic", paddingTop: "8px" }}>ไม่มีข้อมูลบิลในช่วงเวลานี้</li>
+                          <li className="peak-hour-empty" style={{ color: "#94a3b8", fontSize: "13px", fontStyle: "italic", paddingTop: "8px" }}>ไม่มีข้อมูลบิลในช่วงเวลานี้</li>
                         )}
                       </ul>
                     </div>

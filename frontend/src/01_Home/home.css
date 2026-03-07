@@ -2059,14 +2059,14 @@ h.admin-home-container {
 /* ===== Income Stats Modal Specific Styles ===== */
 .income-stats-modal {
   width: min(800px, 95%);
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.98));
+  background: #ffffff;
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(102, 126, 234, 0.25);
+  box-shadow: 0 25px 50px -12px rgba(102, 126, 234, 0.2), 0 0 0 1px rgba(102, 126, 234, 0.08);
 }
 
 .glass-date-input::-webkit-calendar-picker-indicator {
-  filter: invert(1);
+  filter: invert(0.3) sepia(1) hue-rotate(220deg) saturate(1.5);
   cursor: pointer;
   opacity: 0.7;
   transition: opacity 0.2s;

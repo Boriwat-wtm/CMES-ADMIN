@@ -15,6 +15,11 @@ const OBSControl = ({ API_BASE_URL, adminId, shopId }) => {
 
     const obsRef = useRef(new OBSWebSocket());
     const logsEndRef = useRef(null);
+    const canvasRef = useRef(null);
+    const draggingRef = useRef(null); // always-fresh drag state (avoids stale closure)
+
+    const [overlayItems, setOverlayItems] = useState({});
+    const [dragging, setDragging] = useState(null); // for cursor CSS only
 
     // Auto-scroll logs
     useEffect(() => {
@@ -48,6 +53,7 @@ const OBSControl = ({ API_BASE_URL, adminId, shopId }) => {
         const onSceneChanged = (data) => {
             setCurrentScene(data.sceneName);
             addLog(`📺 Scene switched to: ${data.sceneName}`, 'info');
+            fetchSceneItems(obsRef.current, data.sceneName);
         };
 
         const onInputMuteStateChanged = (data) => {
@@ -56,10 +62,46 @@ const OBSControl = ({ API_BASE_URL, adminId, shopId }) => {
             }
         };
 
+        // Sync position changes made directly in OBS → canvas
+        const onSceneItemTransformChanged = (data) => {
+            // Skip if we're currently dragging this item (avoid echo loop)
+            if (draggingRef.current && draggingRef.current.sceneItemId === data.sceneItemId) return;
+            setOverlayItems(prev => {
+                const updated = { ...prev };
+                for (const [name, item] of Object.entries(updated)) {
+                    if (item.sceneItemId === data.sceneItemId) {
+                        updated[name] = {
+                            ...item,
+                            x: data.sceneItemTransform.positionX ?? item.x,
+                            y: data.sceneItemTransform.positionY ?? item.y,
+                        };
+                        break;
+                    }
+                }
+                return updated;
+            });
+        };
+
+        // Sync visibility changes made directly in OBS → canvas
+        const onSceneItemEnableStateChanged = (data) => {
+            setOverlayItems(prev => {
+                const updated = { ...prev };
+                for (const [name, item] of Object.entries(updated)) {
+                    if (item.sceneItemId === data.sceneItemId) {
+                        updated[name] = { ...item, enabled: data.sceneItemEnabled };
+                        break;
+                    }
+                }
+                return updated;
+            });
+        };
+
         obs.on('ConnectionOpened', onConnect);
         obs.on('ConnectionClosed', onDisconnect);
         obs.on('CurrentProgramSceneChanged', onSceneChanged);
         obs.on('InputMuteStateChanged', onInputMuteStateChanged);
+        obs.on('SceneItemTransformChanged', onSceneItemTransformChanged);
+        obs.on('SceneItemEnableStateChanged', onSceneItemEnableStateChanged);
 
         return () => {
             obs.removeAllListeners();
@@ -79,6 +121,7 @@ const OBSControl = ({ API_BASE_URL, adminId, shopId }) => {
             // --- AUTO CREATE SOURCES IF MISSING ---
             if (currentProgramScene) {
                 await autoCreateRequiredSources(obs, currentProgramScene);
+                await fetchSceneItems(obs, currentProgramScene);
             }
 
             // 2. Get BGM Mute State
@@ -91,6 +134,31 @@ const OBSControl = ({ API_BASE_URL, adminId, shopId }) => {
 
         } catch (err) {
             addLog(`Fetch error: ${err.message}`, 'error');
+        }
+    };
+
+    // ดึงรายการ Scene Items พร้อมตำแหน่งจาก OBS
+    const fetchSceneItems = async (obs, sceneName) => {
+        try {
+            const { sceneItems } = await obs.call('GetSceneItemList', { sceneName });
+            const items = {};
+            for (const item of sceneItems) {
+                try {
+                    const { sceneItemTransform } = await obs.call('GetSceneItemTransform', {
+                        sceneName,
+                        sceneItemId: item.sceneItemId,
+                    });
+                    items[item.sourceName] = {
+                        sceneItemId: item.sceneItemId,
+                        x: sceneItemTransform.positionX || 0,
+                        y: sceneItemTransform.positionY || 0,
+                        enabled: item.sceneItemEnabled,
+                    };
+                } catch (e) { }
+            }
+            setOverlayItems(items);
+        } catch (err) {
+            addLog(`Failed to fetch scene items: ${err.message}`, 'error');
         }
     };
 
@@ -264,6 +332,68 @@ const OBSControl = ({ API_BASE_URL, adminId, shopId }) => {
         }
     };
 
+    // Feature 5: Canvas drag — ย้าย source บน canvas แล้วส่งไป OBS จริง
+    const handleCanvasMouseDown = (e, sourceName) => {
+        e.preventDefault();
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const rect = canvas.getBoundingClientRect();
+        const item = overlayItems[sourceName];
+        const dragData = {
+            sourceName,
+            startMouseX: e.clientX,
+            startMouseY: e.clientY,
+            startItemX: item?.x || 0,
+            startItemY: item?.y || 0,
+            scaleX: 1920 / rect.width,
+            scaleY: 1080 / rect.height,
+            sceneItemId: item?.sceneItemId,
+            currentX: item?.x || 0,
+            currentY: item?.y || 0,
+        };
+        draggingRef.current = dragData;
+        setDragging(sourceName);
+    };
+
+    const handleCanvasMouseMove = (e) => {
+        const drag = draggingRef.current;
+        if (!drag) return;
+        const dx = (e.clientX - drag.startMouseX) * drag.scaleX;
+        const dy = (e.clientY - drag.startMouseY) * drag.scaleY;
+        drag.currentX = drag.startItemX + dx;
+        drag.currentY = drag.startItemY + dy;
+        setOverlayItems(prev => ({
+            ...prev,
+            [drag.sourceName]: {
+                ...prev[drag.sourceName],
+                x: drag.currentX,
+                y: drag.currentY,
+            },
+        }));
+    };
+
+    const handleCanvasMouseUp = async () => {
+        const drag = draggingRef.current;
+        if (!drag) return;
+        draggingRef.current = null;
+        setDragging(null);
+        const finalX = Math.round(drag.currentX);
+        const finalY = Math.round(drag.currentY);
+        try {
+            await obsRef.current.call('SetSceneItemTransform', {
+                sceneName: currentScene,
+                sceneItemId: drag.sceneItemId,
+                sceneItemTransform: {
+                    positionX: finalX,
+                    positionY: finalY,
+                },
+            });
+            addLog(`📐 ${drag.sourceName} → (${finalX}, ${finalY})`, 'success');
+        } catch (err) {
+            addLog(`Move failed: ${err.message}`, 'error');
+        }
+    };
+
     return (
         <div className="obs-dashboard">
             <div className="obs-header-bar">
@@ -301,24 +431,43 @@ const OBSControl = ({ API_BASE_URL, adminId, shopId }) => {
 
             {isConnected ? (
                 <div className="obs-studio-layout">
-                    {/* ====== ส่วนบน: หน้าจอพรีวิว (Mock Preview) ====== */}
-                    <div className="obs-preview-container">
-                        <div className="obs-preview-header">Program (Preview)</div>
-                        <div className="obs-preview-screen">
-                            {currentScene ? (
-                                <div className="obs-preview-content">
-                                    <div className="obs-preview-live-badge">LIVE</div>
-                                    <h1 className="obs-preview-scene-name">{currentScene}</h1>
-                                    <div className="obs-preview-marquee">
-                                        <div className="marquee-text-scroll">{marqueeText || "ยินดีต้อนรับเข้าสู่ระบบ"}</div>
+                    {/* ====== Interactive Scene Canvas ====== */}
+                    <div className="obs-canvas-wrapper">
+                        <div className="obs-canvas-header">
+                            <div className="obs-canvas-header-left">
+                                <span className="obs-canvas-live-dot" />
+                                <span>Scene: <strong>{currentScene}</strong></span>
+                                <span className="obs-canvas-item-count">{Object.keys(overlayItems).length} sources</span>
+                            </div>
+                            <span className="obs-canvas-hint">🖱️ ลากเพื่อย้ายตำแหน่ง — ปล่อยเพื่ออัปเดต OBS</span>
+                        </div>
+                        <div
+                            className="obs-canvas"
+                            ref={canvasRef}
+                            onMouseMove={handleCanvasMouseMove}
+                            onMouseUp={handleCanvasMouseUp}
+                            onMouseLeave={handleCanvasMouseUp}
+                        >
+                            {Object.entries(overlayItems).map(([sourceName, item]) => {
+                                const leftPct = (item.x / 1920) * 100;
+                                const topPct = (item.y / 1080) * 100;
+                                return (
+                                    <div
+                                        key={sourceName}
+                                        className={`obs-overlay-pin${dragging === sourceName ? ' dragging' : ''}${!item.enabled ? ' hidden' : ''}`}
+                                        style={{
+                                            left: `clamp(0%, ${leftPct}%, 88%)`,
+                                            top: `clamp(0%, ${topPct}%, 85%)`,
+                                        }}
+                                        onMouseDown={(e) => handleCanvasMouseDown(e, sourceName)}
+                                    >
+                                        <span className="obs-pin-label">{sourceName}</span>
+                                        <span className="obs-pin-coords">{Math.round(item.x)}, {Math.round(item.y)}</span>
                                     </div>
-                                    {/* Mock Overlays (Visual Aid) */}
-                                    <div className="obs-preview-overlay-box" style={{ opacity: 0.5, border: "2px dashed rgba(255,255,255,0.3)", position: "absolute", bottom: "80px", right: "20px", padding: "10px", display: "flex", flexDirection: "column", gap: "5px" }}>
-                                        <span style={{ color: "rgba(255,255,255,0.5)", fontSize: "12px" }}>Mock Overlays (Auto Created)</span>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="obs-preview-empty">No Signal</div>
+                                );
+                            })}
+                            {Object.keys(overlayItems).length === 0 && (
+                                <div className="obs-canvas-empty">ไม่พบ Source ใน Scene นี้</div>
                             )}
                         </div>
                     </div>
