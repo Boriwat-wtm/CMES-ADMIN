@@ -2,97 +2,115 @@
  * 🔥 Multi-tenant Context
  * เก็บ shopId และ Socket.IO instance สำหรับ Admin Frontend
  */
-import React, { createContext, useState, useEffect, useCallback } from 'react';
-import { io } from 'socket.io-client';
-import { REALTIME_URL } from '../config/apiConfig';
+
+import React, { createContext, useState, useEffect, useCallback } from "react";
+import { io } from "socket.io-client";
+import { REALTIME_URL } from "../config/apiConfig";
 
 export const ShopContext = createContext();
 
 export const ShopProvider = ({ children }) => {
-  const [shopId, setShopId] = useState(localStorage.getItem('shopId') || null);
+  const [shopId, setShopId] = useState(localStorage.getItem("shopId") || null);
   const [socket, setSocket] = useState(null);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
 
   /**
-   * เริ่มต้น Socket.IO connection พร้อม shopId
+   * 🔌 Initialize Socket.IO
    */
   const initializeSocket = useCallback(() => {
     if (!shopId) {
-      console.log('[ShopContext] No shopId, skipping socket initialization');
+      console.log("[ShopContext] No shopId, skipping socket initialization");
       return;
     }
 
-    // ปิด socket เก่าก่อน (ถ้ามี)
-    if (socket) {
-      socket.disconnect();
-    }
-
+    console.log("[ShopContext] REALTIME_URL:", REALTIME_URL);
     console.log(`[ShopContext] Initializing socket for shop: ${shopId}`);
 
-    // สร้าง socket connection ใหม่พร้อม shopId
     const newSocket = io(REALTIME_URL, {
-      query: { shopId } // 🔥 ส่ง shopId เพื่อ join room
+      query: { shopId },
+
+      // รองรับ Render
+      transports: ["polling", "websocket"],
+
+      // เพิ่ม timeout รองรับ cold start
+      timeout: 30000,
+
+      // reconnect settings
+      reconnection: true,
+      reconnectionAttempts: 15,
+      reconnectionDelay: 2000,
+      reconnectionDelayMax: 10000,
+
+      // ป้องกัน socket instance ซ้ำ
+      forceNew: true,
     });
 
-    newSocket.on('connect', () => {
-      console.log(`[ShopContext] Socket connected for shop ${shopId}:`, newSocket.id);
+    newSocket.on("connect", () => {
+      console.log("✅ Socket connected:", newSocket.id);
       setIsSocketConnected(true);
     });
 
-    newSocket.on('disconnect', () => {
-      console.log('[ShopContext] Socket disconnected');
+    newSocket.on("disconnect", (reason) => {
+      console.log("⚠️ Socket disconnected:", reason);
       setIsSocketConnected(false);
     });
 
-    newSocket.on('connect_error', (error) => {
-      console.error('[ShopContext] Socket connection error:', error);
+    newSocket.on("connect_error", (err) => {
+      console.error("❌ Socket connection error:", err.message);
       setIsSocketConnected(false);
+    });
+
+    newSocket.on("reconnect_attempt", (attempt) => {
+      console.log(`🔄 Socket reconnect attempt: ${attempt}`);
+    });
+
+    newSocket.on("reconnect", (attempt) => {
+      console.log(`✅ Socket reconnected after ${attempt} attempts`);
     });
 
     setSocket(newSocket);
 
-    // Cleanup function
     return () => {
-      console.log('[ShopContext] Cleaning up socket');
+      console.log("[ShopContext] Cleaning up socket");
       newSocket.disconnect();
     };
   }, [shopId]);
 
   /**
-   * เมื่อ shopId เปลี่ยน -> เชื่อมต่อ socket ใหม่
+   * 🔄 Reconnect socket เมื่อ shopId เปลี่ยน
    */
   useEffect(() => {
     if (shopId) {
-      localStorage.setItem('shopId', shopId);
+      localStorage.setItem("shopId", shopId);
+
       const cleanup = initializeSocket();
+
       return cleanup;
     } else {
-      localStorage.removeItem('shopId');
+      localStorage.removeItem("shopId");
+
       if (socket) {
         socket.disconnect();
         setSocket(null);
       }
     }
-  }, [shopId, initializeSocket]);
+  }, [shopId]);
 
   /**
-   * Logout function - ล้างข้อมูลทั้งหมด
+   * 🚪 Logout
    */
   const logout = useCallback(() => {
-    console.log('[ShopContext] Logging out...');
-    
-    // Disconnect socket
+    console.log("[ShopContext] Logging out...");
+
     if (socket) {
       socket.disconnect();
       setSocket(null);
     }
 
-    // Clear localStorage
-    localStorage.removeItem('shopId');
-    localStorage.removeItem('adminId');
-    localStorage.removeItem('adminUsername');
-    
-    // Clear state
+    localStorage.removeItem("shopId");
+    localStorage.removeItem("adminId");
+    localStorage.removeItem("adminUsername");
+
     setShopId(null);
     setIsSocketConnected(false);
   }, [socket]);
@@ -102,12 +120,8 @@ export const ShopProvider = ({ children }) => {
     setShopId,
     socket,
     isSocketConnected,
-    logout
+    logout,
   };
 
-  return (
-    <ShopContext.Provider value={value}>
-      {children}
-    </ShopContext.Provider>
-  );
+  return <ShopContext.Provider value={value}>{children}</ShopContext.Provider>;
 };
