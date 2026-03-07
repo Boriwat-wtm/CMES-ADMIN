@@ -1,5 +1,5 @@
 /**
- * 🔥 Multi-tenant Context
+ * Multi-tenant Context
  * เก็บ shopId และ Socket.IO instance สำหรับ Admin Frontend
  */
 
@@ -10,96 +10,112 @@ import { REALTIME_URL } from "../config/apiConfig";
 export const ShopContext = createContext();
 
 export const ShopProvider = ({ children }) => {
+
   const [shopId, setShopId] = useState(localStorage.getItem("shopId") || null);
   const [socket, setSocket] = useState(null);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
 
-  /**
-   * 🔌 Initialize Socket.IO
-   */
   const initializeSocket = useCallback(() => {
+
     if (!shopId) {
       console.log("[ShopContext] No shopId, skipping socket initialization");
       return;
     }
 
     console.log("[ShopContext] REALTIME_URL:", REALTIME_URL);
-    console.log(`[ShopContext] Initializing socket for shop: ${shopId}`);
+    console.log("[ShopContext] Initializing socket for shop:", shopId);
 
     const newSocket = io(REALTIME_URL, {
+
       query: { shopId },
 
-      // รองรับ Render
       transports: ["polling", "websocket"],
 
-      // เพิ่ม timeout รองรับ cold start
       timeout: 30000,
 
-      // reconnect settings
       reconnection: true,
       reconnectionAttempts: 15,
       reconnectionDelay: 2000,
       reconnectionDelayMax: 10000,
 
-      // ป้องกัน socket instance ซ้ำ
-      forceNew: true,
+      forceNew: true
     });
 
+
     newSocket.on("connect", () => {
-      console.log("✅ Socket connected:", newSocket.id);
+      console.log("Socket connected:", newSocket.id);
       setIsSocketConnected(true);
     });
 
+
     newSocket.on("disconnect", (reason) => {
-      console.log("⚠️ Socket disconnected:", reason);
+      console.log("Socket disconnected:", reason);
       setIsSocketConnected(false);
     });
+
 
     newSocket.on("connect_error", (err) => {
-      console.error("❌ Socket connection error:", err.message);
+      console.error("Socket connection error:", err.message);
       setIsSocketConnected(false);
     });
 
+
     newSocket.on("reconnect_attempt", (attempt) => {
-      console.log(`🔄 Socket reconnect attempt: ${attempt}`);
+      console.log("Socket reconnect attempt:", attempt);
     });
+
 
     newSocket.on("reconnect", (attempt) => {
-      console.log(`✅ Socket reconnected after ${attempt} attempts`);
+      console.log("Socket reconnected after attempts:", attempt);
     });
 
+
+    newSocket.on("status", (config) => {
+      console.log("Received system config:", config);
+    });
+
+
+    newSocket.on("publicRankingTypeUpdated", (data) => {
+      console.log("Ranking type updated:", data);
+    });
+
+
     setSocket(newSocket);
+
 
     return () => {
       console.log("[ShopContext] Cleaning up socket");
       newSocket.disconnect();
     };
+
   }, [shopId]);
 
-  /**
-   * 🔄 Reconnect socket เมื่อ shopId เปลี่ยน
-   */
+
   useEffect(() => {
+
     if (shopId) {
+
       localStorage.setItem("shopId", shopId);
 
       const cleanup = initializeSocket();
-
       return cleanup;
+
     } else {
+
       localStorage.removeItem("shopId");
 
       if (socket) {
         socket.disconnect();
         setSocket(null);
       }
+
     }
+
   }, [shopId]);
 
-  /**
-   * 🚪 Logout
-   */
+
   const logout = useCallback(() => {
+
     console.log("[ShopContext] Logging out...");
 
     if (socket) {
@@ -113,15 +129,23 @@ export const ShopProvider = ({ children }) => {
 
     setShopId(null);
     setIsSocketConnected(false);
+
   }, [socket]);
+
 
   const value = {
     shopId,
     setShopId,
     socket,
     isSocketConnected,
-    logout,
+    logout
   };
 
-  return <ShopContext.Provider value={value}>{children}</ShopContext.Provider>;
+
+  return (
+    <ShopContext.Provider value={value}>
+      {children}
+    </ShopContext.Provider>
+  );
+
 };
