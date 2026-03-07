@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useContext } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ShopContext } from "../contexts/ShopContext"; // 🔥 Multi-tenant Context
-import { API_BASE_URL, REALTIME_URL, USER_FRONTEND_URL } from "../config/apiConfig";
+import { API_BASE_URL, USER_FRONTEND_URL } from "../config/apiConfig";
 import "./home.css";
 import OBSControl from "../10_OBSControl/OBSControl";
 
@@ -32,7 +32,7 @@ const getCurrentYearStr = () => getTodayStr().slice(0, 4); // YYYY (เวลา
 
 function Home() {
   // 🔥 ดึง socket และ shopId จาก Context
-  const { socket, shopId, isSocketConnected, logout } = useContext(ShopContext);
+  const { socket, shopId } = useContext(ShopContext);
   const navigate = useNavigate();
   const location = useLocation(); // กับ location เพื่อ re-fetch โปรไฟล์ทุกครั้งที่กลับมาหน้านี้
 
@@ -78,7 +78,7 @@ function Home() {
   const adminUsername = localStorage.getItem("adminUsername") || "Admin"; // ชื่อผู้ใช้ Admin
 
   // ===== Helper: fetch พร้อม auth headers + 401 redirect =====
-  const authFetch = async (url, options = {}) => {
+  const authFetch = useCallback(async (url, options = {}) => {
     const storedShopId = shopId || localStorage.getItem("shopId") || "shop1";
     const response = await fetch(url, {
       ...options,
@@ -96,7 +96,7 @@ function Home() {
       window.location.href = "/";
     }
     return response;
-  };
+  }, [shopId, adminId]);
 
   // ===== Fetch Shop Profile =====
   const [shopProfile, setShopProfile] = useState({ name: adminUsername, logo: null });
@@ -119,7 +119,7 @@ function Home() {
       }
     };
     fetchProfile();
-  }, [shopId, location.key]);
+  }, [shopId, location.key, adminUsername, authFetch]);
 
   // ===== State สำหรับปุ่ม Copy OBS Links =====
   const [copiedImage, setCopiedImage] = useState(false); // สถานะคัดลอกลิงก์ Image Overlay
@@ -777,7 +777,7 @@ function Home() {
           <a href="/check-history">ประวัติการตรวจสอบ</a>
           <a href="/lucky-wheel">วงล้อเสี่ยงดวง</a>
           <a href="/gift-setting">ตั้งค่าส่งของขวัญ</a>
-          <a href="#" onClick={(e) => { e.preventDefault(); setShowObsModal(true); }}>🎥 OBS Links</a>
+          <a href="#!" onClick={(e) => { e.preventDefault(); setShowObsModal(true); }}>🎥 OBS Links</a>
         </nav>
         {/* Grouping Avatar and QR Code Generator in upper right */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
