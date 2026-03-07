@@ -698,9 +698,13 @@ function Home() {
     };
 
     // 🔥 Check socket before emit
-    if (socket) {
-      socket.emit("addPackage", packageData);
+    if (!socket || !socket.connected) {
+      alert("ไม่สามารถบันทึกได้: ยังไม่ได้เชื่อมต่อ Realtime Server กรุณารอสักครู่แล้วลองใหม่");
+      return;
     }
+    socket.emit("addPackage", packageData, (ack) => {
+      // Server acknowledgement callback (optional — fires if server uses cb)
+    });
     setMinute("");
     setSecond("");
     setPrice("");
