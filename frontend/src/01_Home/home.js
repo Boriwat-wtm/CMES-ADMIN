@@ -392,7 +392,7 @@ function Home() {
       setEnableGift(false);
       setEnableBirthday(false);
       socket.emit("adminUpdateConfig", {
-        systemOn: newStatus,
+        systemOpen: newStatus,
         enableImage: false,
         enableText: false,
         enableGift: false,
@@ -404,7 +404,7 @@ function Home() {
       setEnableGift(true);
       setEnableBirthday(true);
       socket.emit("adminUpdateConfig", {
-        systemOn: newStatus,
+        systemOpen: newStatus,
         enableImage: true,
         enableText: true,
         enableGift: true,
@@ -421,7 +421,7 @@ function Home() {
     setEnableImage(newStatus);
     socket.emit("adminUpdateConfig", {
       enableImage: newStatus,
-      systemOn,
+      systemOpen: systemOn,
       enableText,
       enableGift,
       enableBirthday,
@@ -436,7 +436,7 @@ function Home() {
     setEnableText(newStatus);
     socket.emit("adminUpdateConfig", {
       enableText: newStatus,
-      systemOn,
+      systemOpen: systemOn,
       enableImage,
       enableGift,
       enableBirthday,
@@ -451,7 +451,7 @@ function Home() {
     setEnableGift(newStatus);
     socket.emit("adminUpdateConfig", {
       enableGift: newStatus,
-      systemOn,
+      systemOpen: systemOn,
       enableImage,
       enableText,
       enableBirthday,
@@ -466,7 +466,7 @@ function Home() {
     setEnableBirthday(newStatus);
     socket.emit("adminUpdateConfig", {
       enableBirthday: newStatus,
-      systemOn,
+      systemOpen: systemOn,
       enableImage,
       enableText,
       enableGift,
@@ -699,7 +699,7 @@ function Home() {
 
     // 🔥 Check socket before emit
     if (socket) {
-      socket.emit("addSetting", packageData);
+      socket.emit("addPackage", packageData);
     }
     setMinute("");
     setSecond("");

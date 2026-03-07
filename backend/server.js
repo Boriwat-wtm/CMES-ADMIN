@@ -2984,11 +2984,11 @@ io.on('connection', (socket) => {
   });
 
   // === TIMEHISTORY MANAGEMENT EVENTS ===
-  socket.on('addSetting', async (setting) => {
+  socket.on('addPackage', async (setting) => {
     try {
       // 🔥 ต้องบันทึก shopId
       if (!socket.shopId) {
-        console.warn('[Socket.IO] addSetting called without shopId');
+        console.warn('[Socket.IO] addPackage called without shopId');
         return;
       }
 
