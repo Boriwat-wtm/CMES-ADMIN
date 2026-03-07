@@ -14,6 +14,7 @@ export const ShopProvider = ({ children }) => {
   const [shopId, setShopId] = useState(localStorage.getItem("shopId") || null);
   const [socket, setSocket] = useState(null);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
+  const [systemConfig, setSystemConfig] = useState(null);
 
   const initializeSocket = useCallback(() => {
 
@@ -72,6 +73,7 @@ export const ShopProvider = ({ children }) => {
 
     newSocket.on("status", (config) => {
       console.log("Received system config:", config);
+      setSystemConfig(config);
     });
 
 
@@ -138,7 +140,9 @@ export const ShopProvider = ({ children }) => {
     setShopId,
     socket,
     isSocketConnected,
-    logout
+    logout,
+    systemConfig,
+    setSystemConfig
   };
 
 

@@ -262,13 +262,17 @@ function Home() {
     }
 
     socket.on("status", (config) => {
-      setSystemOn(config.systemOn);
-      setEnableImage(config.enableImage);
-      setEnableText(config.enableText);
+      console.log("[Home] Received config:", config);
+
+      setSystemOn(config.systemOpen ?? config.systemOn ?? true);
+
+      setEnableImage(config.enableImage ?? true);
+      setEnableText(config.enableText ?? true);
       setEnableGift(config.enableGift ?? true);
       setEnableBirthday(config.enableBirthday ?? true);
     });
     socket.emit("getConfig");
+    console.log("[Home] Requesting config from server");
     return () => socket.off("status");
   }, [socket]); // 🔥 เพิ่ม socket เป็น dependency
 
