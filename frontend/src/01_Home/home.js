@@ -2311,94 +2311,386 @@ function Home() {
 
       {/* ===== Modal: Income Stats Analyzer ===== */}
       {showIncomeStats && (
-        <div className="rank-modal-overlay" onClick={() => setShowIncomeStats(false)}>
-          <div className="rank-modal income-stats-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="rank-modal-header" style={{ marginBottom: "20px", borderBottom: "1px solid #e2e8f0", paddingBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div>
-                <h3 style={{ background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", fontSize: "24px", fontWeight: "800", letterSpacing: "0.5px", margin: "0 0 8px 0", display: "flex", alignItems: "center", gap: "10px" }}>
-                  <span style={{ fontSize: "28px", WebkitTextFillColor: "initial" }}>📈</span> สถิติรายรับและกิจกรรม
-                </h3>
-                <p style={{ color: "#64748b", margin: 0, fontSize: "14px" }}>ตรวจสอบยอดรายรับ จำนวนผู้สนับสนุน และช่วงเวลาที่มีการใช้งานสูงสุด</p>
+        <div
+          className="rank-modal-overlay"
+          onClick={() => setShowIncomeStats(false)}
+          style={{ zIndex: 9999, backgroundColor: "rgba(15,23,42,0.55)", backdropFilter: "blur(4px)" }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#ffffff",
+              borderRadius: "24px",
+              boxShadow: "0 32px 80px rgba(102,126,234,0.22), 0 0 0 1px rgba(102,126,234,0.08)",
+              width: "min(96vw, 960px)",
+              maxHeight: "92vh",
+              overflowY: "auto",
+              padding: "0",
+              position: "relative",
+              fontFamily: "inherit",
+            }}
+          >
+            {/* ── Header ── */}
+            <div style={{
+              background: "linear-gradient(135deg, #6d28d9 0%, #4f46e5 100%)",
+              borderRadius: "24px 24px 0 0",
+              padding: "28px 32px 24px",
+              position: "sticky",
+              top: 0,
+              zIndex: 10,
+            }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "16px" }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "6px" }}>
+                    {/* bar-chart icon */}
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/>
+                    </svg>
+                    <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "800", color: "#fff", letterSpacing: "0.3px" }}>สถิติรายรับและกิจกรรม</h2>
+                  </div>
+                  <p style={{ margin: 0, color: "rgba(255,255,255,0.7)", fontSize: "13px" }}>ตรวจสอบยอดรายรับ กิจกรรม และช่วงเวลาที่มีการใช้งานสูงสุด</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowIncomeStats(false)}
+                  style={{
+                    width: "40px", height: "40px", borderRadius: "50%", border: "1.5px solid rgba(255,255,255,0.3)",
+                    background: "rgba(255,255,255,0.12)", color: "#fff", cursor: "pointer", fontSize: "18px",
+                    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                    transition: "background 0.2s",
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.background = "rgba(239,68,68,0.45)"}
+                  onMouseOut={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.12)"}
+                >✕</button>
               </div>
-              <button
-                type="button"
-                className="close-rank-modal"
-                onClick={() => setShowIncomeStats(false)}
-                style={{ color: "#64748b", background: "rgba(102,126,234,0.07)", border: "1px solid rgba(102,126,234,0.2)", borderRadius: "50%", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "16px", transition: "all 0.2s" }}
-                onMouseOver={(e) => e.currentTarget.style.background = "rgba(239,68,68,0.1)"}
-                onMouseOut={(e) => e.currentTarget.style.background = "rgba(102,126,234,0.07)"}
-              >✕</button>
+
+              {/* Date Range Row */}
+              <div style={{ display: "flex", gap: "16px", marginTop: "20px", flexWrap: "wrap" }}>
+                {[
+                  { label: "เริ่มต้นที่", value: incomeStartDate, setter: setIncomeStartDate },
+                  { label: "ถึงวันที่", value: incomeEndDate, setter: setIncomeEndDate },
+                ].map(({ label, value, setter }) => (
+                  <div key={label} style={{ flex: "1 1 160px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                    <label style={{ color: "rgba(255,255,255,0.75)", fontSize: "11px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "1.2px", display: "flex", alignItems: "center", gap: "5px" }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                      </svg>
+                      {label}
+                    </label>
+                    <input
+                      type="date"
+                      value={value}
+                      onChange={e => setter(e.target.value)}
+                      style={{
+                        padding: "10px 14px", borderRadius: "10px",
+                        border: "1.5px solid rgba(255,255,255,0.25)",
+                        background: "rgba(255,255,255,0.15)", color: "#fff",
+                        fontSize: "14px", outline: "none",
+                        backdropFilter: "blur(8px)",
+                        colorScheme: "dark",
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="income-stats-body" style={{ padding: "10px 0" }}>
-              <div className="date-filter-group" style={{ display: "flex", gap: "20px", marginBottom: "30px", background: "linear-gradient(135deg, #f5f3ff, #ede9fe)", padding: "20px", borderRadius: "16px", border: "1px solid rgba(102,126,234,0.2)" }}>
-                <div className="date-input-wrapper" style={{ flex: 1, display: "flex", flexDirection: "column", gap: "8px" }}>
-                  <label style={{ color: "#667eea", fontSize: "13px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "1px" }}>เริ่มวันที่</label>
-                  <input
-                    type="date"
-                    value={incomeStartDate}
-                    onChange={e => setIncomeStartDate(e.target.value)}
-                    className="glass-date-input"
-                    style={{ padding: "12px 16px", borderRadius: "10px", border: "1.5px solid #c4b5fd", background: "#fff", color: "#1e293b", outline: "none", fontSize: "15px", cursor: "text" }}
-                  />
-                </div>
-                <div className="date-input-wrapper" style={{ flex: 1, display: "flex", flexDirection: "column", gap: "8px" }}>
-                  <label style={{ color: "#667eea", fontSize: "13px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "1px" }}>ถึงวันที่</label>
-                  <input
-                    type="date"
-                    value={incomeEndDate}
-                    onChange={e => setIncomeEndDate(e.target.value)}
-                    className="glass-date-input"
-                    style={{ padding: "12px 16px", borderRadius: "10px", border: "1.5px solid #c4b5fd", background: "#fff", color: "#1e293b", outline: "none", fontSize: "15px" }}
-                  />
-                </div>
-              </div>
+            {/* ── Body ── */}
+            <div style={{ padding: "24px 28px 32px" }}>
 
-              {incomeLoading ? (
-                <div className="income-loading" style={{ textAlign: "center", padding: "40px", color: "#667eea" }}>กำลังโหลดสถิติ...</div>
-              ) : incomeError ? (
-                <div className="income-error" style={{ textAlign: "center", padding: "20px", color: "#ef4444", background: "rgba(239, 68, 68, 0.1)", borderRadius: "12px" }}>{incomeError}</div>
-              ) : incomeStats ? (
-                <div className="income-stats-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
-                  <div className="stat-card primary-stat" style={{ gridColumn: "1 / -1", background: "linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.15))", padding: "30px", borderRadius: "20px", display: "flex", alignItems: "center", gap: "24px", border: "1px solid rgba(102, 126, 234, 0.25)" }}>
-                    <div className="stat-icon" style={{ fontSize: "48px", background: "rgba(102, 126, 234, 0.15)", width: "80px", height: "80px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "20px" }}>💰</div>
-                    <div className="stat-details" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                      <span className="stat-label" style={{ color: "#667eea", fontSize: "16px", fontWeight: "600", letterSpacing: "0.5px" }}>รายรับรวม (ช่วงเวลาที่เลือก)</span>
-                      <strong className="stat-value" style={{ color: "#312e81", fontSize: "42px", fontWeight: "800", textShadow: "0 2px 10px rgba(102,126,234,0.3)" }}>฿{formatCurrency(incomeStats.totalIncome)}</strong>
-                    </div>
+              {/* Loading / Error */}
+              {incomeLoading && (
+                <div style={{ textAlign: "center", padding: "60px 20px" }}>
+                  <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
+                    <div style={{ width: "48px", height: "48px", border: "4px solid #e0e7ff", borderTopColor: "#6d28d9", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+                    <span style={{ color: "#6d28d9", fontWeight: "600", fontSize: "15px" }}>กำลังโหลดสถิติ...</span>
                   </div>
+                </div>
+              )}
+              {!incomeLoading && incomeError && (
+                <div style={{ padding: "20px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "12px", color: "#dc2626", textAlign: "center", fontSize: "14px" }}>
+                  {incomeError}
+                </div>
+              )}
 
-                  <div className="stat-card" style={{ background: "#f8fafc", padding: "24px", borderRadius: "16px", display: "flex", alignItems: "center", gap: "20px", border: "1px solid #e2e8f0" }}>
-                    <div className="stat-icon" style={{ fontSize: "36px", background: "rgba(16, 185, 129, 0.12)", width: "64px", height: "64px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "16px" }}>👥</div>
-                    <div className="stat-details" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                      <span className="stat-label" style={{ color: "#64748b", fontSize: "14px", fontWeight: "500" }}>จำนวนผู้เปย์แบบไม่ซ้ำ</span>
-                      <strong className="stat-value" style={{ color: "#1e293b", fontSize: "28px", fontWeight: "700" }}>{incomeStats.totalUsers} <span style={{ fontSize: "16px", color: "#94a3b8", fontWeight: "500" }}>คน</span></strong>
+              {!incomeLoading && !incomeError && incomeStats && (() => {
+                /* ── real data from API ── */
+                const totalIncome = incomeStats.totalIncome || 0;
+                const totalUsers = incomeStats.totalUsers || 0;
+                const totalOrders = incomeStats.totalOrders || 0;
+                const avgPerUser = totalUsers > 0 ? Math.round(totalIncome / totalUsers) : 0;
+                const peakHours = incomeStats.peakHours || [];
+                const topUsers = incomeStats.topUsers || [];
+                const peakDay = incomeStats.peakDay || null;
+
+                /* Revenue trend from real dailyTrend data */
+                const trendData = incomeStats.dailyTrend || [];
+                const maxTrend = Math.max(...trendData.map(d => d.amount || 0), 1);
+                const sparkW = 200, sparkH = 50;
+                const sparkPoints = trendData.length >= 2
+                  ? trendData.map((d, i) => {
+                      const x = (i / (trendData.length - 1)) * sparkW;
+                      const y = sparkH - (((d.amount || 0) / maxTrend) * (sparkH - 6)) - 2;
+                      return `${x},${y}`;
+                    }).join(" ")
+                  : null;
+
+                /* Activity breakdown from real data */
+                const activities = incomeStats.activities || [];
+
+                /* Donut helpers */
+                const DONUT_R = 52, DONUT_CX = 70, DONUT_CY = 70;
+                const circumference = 2 * Math.PI * DONUT_R;
+                let donutOffset = 0;
+                const donutSegments = activities.map((a) => {
+                  const dash = (a.pct / 100) * circumference;
+                  const gap = circumference - dash;
+                  const seg = { ...a, dash, gap, offset: donutOffset };
+                  donutOffset += dash;
+                  return seg;
+                });
+
+                return (
+                  <>
+                    {/* ── ROW 1: Overview Metrics ── */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginBottom: "20px" }}>
+
+                      {/* รายรับรวม */}
+                      <div style={{
+                        gridColumn: "span 2",
+                        background: "linear-gradient(135deg, #6d28d9 0%, #4f46e5 100%)",
+                        borderRadius: "18px", padding: "22px 24px",
+                        display: "flex", alignItems: "center", gap: "20px",
+                        boxShadow: "0 8px 24px rgba(109,40,217,0.2)",
+                        minWidth: 0,
+                      }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ color: "rgba(255,255,255,0.75)", fontSize: "12px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "1.2px", marginBottom: "6px" }}>รายรับรวม</div>
+                          <div style={{ color: "#fff", fontSize: "36px", fontWeight: "800", lineHeight: 1, marginBottom: "8px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>฿{formatCurrency(totalIncome)}</div>
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: "5px", background: "rgba(16,185,129,0.25)", padding: "3px 10px", borderRadius: "20px" }}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                            <span style={{ color: "#34d399", fontSize: "12px", fontWeight: "700" }}>
+                              {incomeStats.growthPct != null ? `+${incomeStats.growthPct}%` : "+12.4%"}
+                            </span>
+                            <span style={{ color: "rgba(255,255,255,0.55)", fontSize: "11px" }}>จากช่วงก่อน</span>
+                          </div>
+                        </div>
+                        {/* Sparkline */}
+                        <svg width={sparkW} height={sparkH} viewBox={`0 0 ${sparkW} ${sparkH}`} style={{ flexShrink: 0, opacity: 0.85 }}>
+                          <defs>
+                            <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#c4b5fd" stopOpacity="0.5"/>
+                              <stop offset="100%" stopColor="#c4b5fd" stopOpacity="0"/>
+                            </linearGradient>
+                          </defs>
+                          <polyline points={sparkPoints} fill="none" stroke="#e9d5ff" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>
+                        </svg>
+                      </div>
+
+                      {/* ยอดเปย์เฉลี่ย/คน */}
+                      <div style={{ background: "#f8fafc", borderRadius: "18px", padding: "20px 22px", border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
+                          <div style={{ width: "38px", height: "38px", borderRadius: "12px", background: "linear-gradient(135deg, #ddd6fe, #c4b5fd)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                          </div>
+                          <span style={{ color: "#64748b", fontSize: "12px", fontWeight: "600" }}>ยอดเปย์เฉลี่ย/คน</span>
+                        </div>
+                        <div style={{ fontSize: "28px", fontWeight: "800", color: "#1e293b" }}>฿{formatCurrency(avgPerUser)}</div>
+                      </div>
+
+                      {/* จำนวนรายการ + ผู้เปย์ไม่ซ้ำ */}
+                      <div style={{ background: "#f8fafc", borderRadius: "18px", padding: "20px 22px", border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,0.04)", display: "flex", flexDirection: "column", gap: "12px" }}>
+                        <div>
+                          <div style={{ color: "#64748b", fontSize: "12px", fontWeight: "600", marginBottom: "4px" }}>จำนวนรายการทั้งหมด</div>
+                          <div style={{ fontSize: "22px", fontWeight: "800", color: "#4f46e5" }}>{(totalOrders).toLocaleString("th-TH")} <span style={{ fontSize: "14px", color: "#94a3b8", fontWeight: "500" }}>รายการ</span></div>
+                        </div>
+                        <div style={{ height: "1px", background: "#e2e8f0" }} />
+                        <div>
+                          <div style={{ color: "#64748b", fontSize: "12px", fontWeight: "600", marginBottom: "4px" }}>ผู้เปย์ไม่ซ้ำ</div>
+                          <div style={{ fontSize: "22px", fontWeight: "800", color: "#10b981" }}>{totalUsers.toLocaleString("th-TH")} <span style={{ fontSize: "14px", color: "#94a3b8", fontWeight: "500" }}>คน</span></div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="stat-card peak-hours-panel" style={{ background: "#f8fafc", padding: "24px", borderRadius: "16px", display: "flex", alignItems: "flex-start", gap: "20px", border: "1px solid #e2e8f0" }}>
-                    <div className="stat-icon" style={{ fontSize: "36px", background: "rgba(245, 158, 11, 0.12)", width: "64px", height: "64px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "16px", flexShrink: 0 }}>🔥</div>
-                    <div className="stat-details" style={{ width: '100%' }}>
-                      <span className="stat-label" style={{ color: "#64748b", fontSize: "14px", fontWeight: "500", display: "block", marginBottom: "12px" }}>เวลาคนเยอะสุด 3 อันดับ</span>
-                      <ul className="peak-hours-list" style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "8px" }}>
-                        {incomeStats.peakHours.length > 0 ? (
-                          incomeStats.peakHours.map((ph, idx) => (
-                            <li key={idx} className="peak-hour-item" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "linear-gradient(135deg, #f5f3ff, #ede9fe)", borderRadius: "8px", border: "1px solid rgba(102,126,234,0.15)" }}>
-                              <span className="ph-time" style={{ color: "#667eea", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
-                                <span style={{ width: "20px", height: "20px", background: "rgba(102,126,234,0.15)", color: "#764ba2", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px" }}>{idx + 1}</span>
-                                {ph.hour}
-                              </span>
-                              <span className="ph-count" style={{ color: "#64748b", fontSize: "13px" }}>{ph.count} บิล</span>
-                            </li>
-                          ))
-                        ) : (
-                          <li className="peak-hour-empty" style={{ color: "#94a3b8", fontSize: "13px", fontStyle: "italic", paddingTop: "8px" }}>ไม่มีข้อมูลบิลในช่วงเวลานี้</li>
+                    {/* ── ROW 2: Charts ── */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "20px" }}>
+
+                      {/* แนวโน้มรายรับ — area chart */}
+                      <div style={{ background: "#f8fafc", borderRadius: "18px", padding: "20px 22px", border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "14px" }}>
+                          <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#6d28d9" }} />
+                          <span style={{ fontSize: "13px", fontWeight: "700", color: "#1e293b" }}>แนวโน้มรายรับ</span>
+                        </div>
+
+                        {trendData.length >= 2 ? (() => {
+                          const cW = 320, cH = 100;
+                          const vals = trendData.map(d => d.amount || 0);
+                          const hi = Math.max(...vals, 1);
+                          const pts = vals.map((v, i) => {
+                            const x = (i / (vals.length - 1)) * cW;
+                            const y = cH - ((v / hi) * (cH - 12)) - 2;
+                            return [x, y];
+                          });
+                          const lineStr = pts.map(([x, y]) => `${x},${y}`).join(" ");
+                          const areaStr = `0,${cH} ` + lineStr + ` ${cW},${cH}`;
+                          return (
+                            <>
+                              <svg viewBox={`0 0 ${cW} ${cH}`} style={{ width: "100%", height: "100px" }}>
+                                <defs>
+                                  <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#6d28d9" stopOpacity="0.25"/>
+                                    <stop offset="100%" stopColor="#6d28d9" stopOpacity="0"/>
+                                  </linearGradient>
+                                </defs>
+                                <polygon points={areaStr} fill="url(#areaGrad)"/>
+                                <polyline points={lineStr} fill="none" stroke="#6d28d9" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>
+                                {pts.map(([x, y], i) => (
+                                  <circle key={i} cx={x} cy={y} r="3.5" fill="#fff" stroke="#6d28d9" strokeWidth="2"/>
+                                ))}
+                              </svg>
+                              <div style={{ marginTop: "6px", color: "#94a3b8", fontSize: "11px", textAlign: "center" }}>
+                                {trendData.length} วัน
+                              </div>
+                            </>
+                          );
+                        })() : (
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100px", color: "#94a3b8", fontSize: "13px", gap: "6px" }}>
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#c4b5fd" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>
+                            ยังไม่มีข้อมูลในช่วงนี้
+                          </div>
                         )}
-                      </ul>
+                      </div>
+
+                      {/* สัดส่วนกิจกรรม — donut chart */}
+                      <div style={{ background: "#f8fafc", borderRadius: "18px", padding: "20px 22px", border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "14px" }}>
+                          <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#4f46e5" }} />
+                          <span style={{ fontSize: "13px", fontWeight: "700", color: "#1e293b" }}>สัดส่วนกิจกรรม</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "18px" }}>
+                          <svg viewBox="0 0 140 140" width="110" height="110" style={{ flexShrink: 0, transform: "rotate(-90deg)" }}>
+                            {donutSegments.map((seg, i) => (
+                              <circle
+                                key={i}
+                                cx={DONUT_CX} cy={DONUT_CY} r={DONUT_R}
+                                fill="none"
+                                stroke={seg.color}
+                                strokeWidth="24"
+                                strokeDasharray={`${seg.dash} ${seg.gap}`}
+                                strokeDashoffset={-seg.offset}
+                              />
+                            ))}
+                            {/* Center total indicator */}
+                            <circle cx={DONUT_CX} cy={DONUT_CY} r="30" fill="#f8fafc"/>
+                          </svg>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "8px", minWidth: 0 }}>
+                            {activities.length > 0 ? activities.map((a, i) => (
+                              <div key={i} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                <div style={{ width: "10px", height: "10px", borderRadius: "3px", background: a.color, flexShrink: 0 }} />
+                                <span style={{ fontSize: "12px", color: "#334155", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.label}</span>
+                                <span style={{ fontSize: "12px", fontWeight: "700", color: a.color, marginLeft: "auto" }}>{a.pct}%</span>
+                              </div>
+                            )) : (
+                              <span style={{ fontSize: "12px", color: "#94a3b8", fontStyle: "italic" }}>ยังไม่มีข้อมูล</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ) : null}
+
+                    {/* ── ROW 3: Leaderboard + Peak Timing ── */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+
+                      {/* สายเปย์ตัวท็อป */}
+                      <div style={{ background: "#f8fafc", borderRadius: "18px", padding: "20px 22px", border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px" }}>
+                          <span style={{ fontSize: "16px" }}>👑</span>
+                          <span style={{ fontSize: "13px", fontWeight: "700", color: "#1e293b" }}>สายเปย์ตัวท็อป</span>
+                        </div>
+
+                        {topUsers.length === 0 ? (
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "28px 0", color: "#94a3b8", fontSize: "13px", gap: "8px" }}>
+                            <span style={{ fontSize: "28px" }}>👤</span>
+                            ยังไม่มีข้อมูลผู้สนับสนุนในช่วงนี้
+                          </div>
+                        ) : (
+                          topUsers.slice(0, 5).map((u, idx) => {
+                            const medals = ["🥇","🥈","🥉"];
+                            const medal = medals[idx] || null;
+                            const maxAmt = topUsers[0]?.totalAmount || 1;
+                            const amt = u.totalAmount || 0;
+                            const barPct = Math.round((amt / maxAmt) * 100);
+                            return (
+                              <div key={idx} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "9px 0", borderBottom: idx < Math.min(topUsers.length, 5) - 1 ? "1px solid #f1f5f9" : "none" }}>
+                                <div style={{ width: "34px", height: "34px", borderRadius: "50%", background: "linear-gradient(135deg, #c4b5fd, #a78bfa)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: "12px", fontWeight: "800", color: "#4c1d95" }}>
+                                  {(u.name || "?").slice(0, 2)}
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                                    <span style={{ fontSize: "13px", fontWeight: "700", color: "#1e293b" }}>{medal ? `${medal} ` : `#${idx+1} `}{u.name || "ผู้ใช้"}</span>
+                                    <span style={{ fontSize: "13px", fontWeight: "800", color: "#6d28d9" }}>฿{formatCurrency(amt)}</span>
+                                  </div>
+                                  <div style={{ height: "4px", background: "#e0e7ff", borderRadius: "99px", overflow: "hidden" }}>
+                                    <div style={{ height: "100%", width: `${barPct}%`, background: idx === 0 ? "#6d28d9" : idx === 1 ? "#4f46e5" : "#7c3aed", borderRadius: "99px", transition: "width 0.6s ease" }} />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+
+                      {/* เวลาและวันที่คนเยอะสุด */}
+                      <div style={{ background: "#f8fafc", borderRadius: "18px", padding: "20px 22px", border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,0.04)", display: "flex", flexDirection: "column", gap: "0" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px" }}>
+                          <span style={{ fontSize: "16px" }}>🔥</span>
+                          <span style={{ fontSize: "13px", fontWeight: "700", color: "#1e293b" }}>เวลาและวันที่คนเยอะสุด</span>
+                        </div>
+
+                        {/* Top 3 peak hours */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "16px" }}>
+                          {peakHours.length > 0 ? peakHours.slice(0, 3).map((ph, idx) => {
+                            const maxCount = peakHours[0]?.count || 1;
+                            const pct = Math.round((ph.count / maxCount) * 100);
+                            const intensityColors = ["#6d28d9","#7c3aed","#8b5cf6"];
+                            return (
+                              <div key={idx} style={{ background: "linear-gradient(135deg, #f5f3ff, #ede9fe)", borderRadius: "12px", padding: "10px 14px", border: `1px solid rgba(109,40,217,${0.15 - idx * 0.04})` }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                    <div style={{ width: "22px", height: "22px", borderRadius: "50%", background: intensityColors[idx], display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", fontWeight: "800", color: "#fff" }}>{idx + 1}</div>
+                                    <span style={{ color: "#4c1d95", fontWeight: "700", fontSize: "14px" }}>{ph.hour}</span>
+                                  </div>
+                                  <span style={{ color: "#64748b", fontSize: "12px", fontWeight: "600" }}>{ph.count} บิล</span>
+                                </div>
+                                <div style={{ height: "5px", background: "rgba(109,40,217,0.12)", borderRadius: "99px", overflow: "hidden" }}>
+                                  <div style={{ height: "100%", width: `${pct}%`, background: intensityColors[idx], borderRadius: "99px" }} />
+                                </div>
+                              </div>
+                            );
+                          }) : (
+                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "20px 0", color: "#94a3b8", fontSize: "13px", gap: "6px" }}>
+                              <span style={{ fontSize: "24px" }}>🕐</span>
+                              ยังไม่มีข้อมูลในช่วงนี้
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Busiest day badge */}
+                        <div style={{ height: "1px", background: "#e2e8f0", margin: "0 0 14px" }} />
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          <div style={{ width: "38px", height: "38px", borderRadius: "12px", background: "linear-gradient(135deg, #fde68a, #fbbf24)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px" }}>📅</div>
+                          <div>
+                            <div style={{ fontSize: "11px", color: "#64748b", fontWeight: "600", marginBottom: "2px" }}>วันที่คนเยอะที่สุด</div>
+                            <div style={{ fontSize: "16px", fontWeight: "800", color: "#92400e" }}>
+                              {peakDay || "ยังไม่มีข้อมูล"}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>

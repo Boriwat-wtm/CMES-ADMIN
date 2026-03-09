@@ -2071,40 +2071,102 @@ app.get("/api/admin/income-stats", requireAdminAuth, async (req, res) => {
 
     let totalIncome = 0;
     const userSet = new Set();
-    const hourCounts = {}; // { "00": 5, "01": 2 ... }
+    const hourCounts = {};   // { "00": 5, "01": 2 ... }
+    const dayCounts   = {};   // { 0: 12, 5: 30 ... }  0=Sun … 6=Sat
+    const dailyMap   = {};   // { "2026-03-01": 1500, ... }
+    const typeMap    = {};   // { image: 10, text: 5, ... }
+    const userAmtMap = {};   // { userId/guest_name: { name, amount } }
+
+    const TH_OFFSET = 7 * 60 * 60 * 1000; // UTC+7
+    const DAY_NAMES = ["อาทิตย์","จันทร์","อังคาร","พุธ","พฤหัส","ศุกร์","เสาร์"];
+    const TYPE_LABELS = { image: "รูปภาพ", text: "ข้อความ", gift: "ส่งของขวัญ", birthday: "วันเกิด" };
+    const TYPE_COLORS = { image: "#6d28d9", text: "#4f46e5", gift: "#7c3aed", birthday: "#a78bfa" };
 
     records.forEach(r => {
-      totalIncome += (r.price || 0);
+      const price = r.price || 0;
+      totalIncome += price;
 
-      // นับ User (ถ้าไม่มี ID ใช้อะไรแทนได้ ให้ใช้ sender name หรือ ID ของมันเองเพื่อป้องกัน Guest ซ้ำ)
-      if (r.userId && r.userId !== "guest" && r.userId !== "unknown") {
-        userSet.add(r.userId);
-      } else if (r.sender) {
-        // Fallback: ใช้ชื่อผู้ส่งถ้าระบบไม่ได้บังคับล็อกอิน
-        userSet.add(`guest_${r.sender}`);
-      }
+      // Unique user count
+      const uKey = (r.userId && r.userId !== "guest" && r.userId !== "unknown")
+        ? r.userId
+        : `guest_${r.sender || "unknown"}`;
+      userSet.add(uKey);
 
-      // หาสถิติช่วงเวลา
+      // Top users by spending
+      if (!userAmtMap[uKey]) userAmtMap[uKey] = { name: r.sender || "ผู้ใช้", amount: 0 };
+      userAmtMap[uKey].amount += price;
+
+      // Activity type breakdown
+      const t = r.type || "other";
+      typeMap[t] = (typeMap[t] || 0) + 1;
+
       if (r.createdAt) {
-        // แปลงเป็นเวลาไทยคร่าวๆ ถ้าระบบใช้ UTC
-        const localTime = new Date(r.createdAt.getTime() + (7 * 60 * 60 * 1000));
-        const hour = localTime.getUTCHours().toString().padStart(2, '0');
+        const localTime = new Date(r.createdAt.getTime() + TH_OFFSET);
+
+        // Peak hour
+        const hour = localTime.getUTCHours().toString().padStart(2, "0");
         hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+
+        // Peak day of week
+        const dow = localTime.getUTCDay();
+        dayCounts[dow] = (dayCounts[dow] || 0) + 1;
+
+        // Daily trend
+        const y  = localTime.getUTCFullYear();
+        const m  = String(localTime.getUTCMonth() + 1).padStart(2, "0");
+        const d  = String(localTime.getUTCDate()).padStart(2, "0");
+        const dateKey = `${y}-${m}-${d}`;
+        dailyMap[dateKey] = (dailyMap[dateKey] || 0) + price;
       }
     });
 
-    // เรียงลำดับช่วงเวลายอดฮิต
+    // Peak hours (top 3)
     const peakHours = Object.entries(hourCounts)
       .map(([hour, count]) => ({ hour: `${hour}:00`, count }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, 3); // เอาแค่ 3 อันดับแรก
+      .slice(0, 3);
+
+    // Peak day name
+    const peakDayEntry = Object.entries(dayCounts).sort(([, a], [, b]) => b - a)[0];
+    const peakDay = peakDayEntry ? `วัน${DAY_NAMES[parseInt(peakDayEntry[0])]}` : null;
+
+    // Daily trend (sorted by date)
+    const dailyTrend = Object.entries(dailyMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, amount]) => ({ date, amount }));
+
+    // Activity breakdown
+    const totalRecords = records.length || 1;
+    const activities = Object.entries(typeMap)
+      .sort(([, a], [, b]) => b - a)
+      .map(([type, count]) => ({
+        label: TYPE_LABELS[type] || type,
+        pct: Math.round((count / totalRecords) * 100),
+        color: TYPE_COLORS[type] || "#94a3b8"
+      }));
+    // ปรับ pct สุดท้ายให้รวมกันเท่ากับ 100 พอดี
+    if (activities.length > 0) {
+      const sumPct = activities.reduce((s, a) => s + a.pct, 0);
+      activities[activities.length - 1].pct += (100 - sumPct);
+    }
+
+    // Top users (top 5 by spending)
+    const topUsers = Object.values(userAmtMap)
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 5)
+      .map(u => ({ name: u.name, totalAmount: u.amount }));
 
     res.json({
       success: true,
       data: {
         totalIncome,
         totalUsers: userSet.size,
-        peakHours
+        totalOrders: records.length,
+        peakHours,
+        peakDay,
+        dailyTrend,
+        activities,
+        topUsers
       }
     });
 

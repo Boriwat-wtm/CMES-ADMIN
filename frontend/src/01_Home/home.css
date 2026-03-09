@@ -2056,6 +2056,11 @@ h.admin-home-container {
   }
 }
 
+/* ===== Spinner for Income Stats Modal ===== */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ===== Income Stats Modal Specific Styles ===== */
 .income-stats-modal {
   width: min(800px, 95%);
