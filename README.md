@@ -1,4 +1,4 @@
-# CMES-ADMIN - Customer Management & E-Commerce System (Admin Portal)
+# CMES-ADMIN - Content Management and Engagement System for Entertainment Venues (Admin Portal)
 
 A comprehensive admin dashboard and management system for the CMES platform, built with React, Node.js, Express, and MongoDB with real-time features.
 
